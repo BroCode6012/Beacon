@@ -64,10 +64,13 @@ The first correctness pass is now implemented and verified:
 | Shared Finder cache | Successful writes clear cached derived reads |
 | Autopilot queries | 450 max, 2 autonomous additions/call, 12-hour cooldown, family/near-duplicate rejection, yield/backlog gate |
 | Agent contracts | Workspace roles aligned; Finder filters/sorts aligned; error payloads report error status |
-| Radar throughput | 4 parallel search fetchers with ordered database writes; missing-only harvest classification; hourly workspace-alert refresh; 1-minute cycle interval |
+| Radar throughput | Independent fast-discovery and organizer lanes; 4 parallel search fetchers; 1-minute discovery rest |
+| Durable radar work | Coalescing lease-based queue beside the shared index; interrupted work safely returns to the queue |
+| Operator tracking | Overview distinguishes channels waiting from channels actively being organized |
 | Dependencies | `scikit-learn` and `joblib` declared in shared requirements |
-| Signal tests | **28 passed, 13 parameterized subtests passed** |
-| Shared tests | **121 passed** |
+| Git baseline | Signal and Scripter now have separate safe repositories with secrets/data/generated state ignored |
+| Signal tests | **32 passed, 13 parameterized subtests passed** |
+| Shared tests | **134 passed** |
 | Package health | `pip check`: no broken requirements |
 
 Every atomic change above also passed a separate real Flet launch and visual
@@ -89,6 +92,36 @@ The radar speed pass was also verified against the live worker:
 - expensive workspace alert rebuilding is limited to once per 60 minutes in
   Signal's live config instead of every cycle.
 
+The split-pipeline pass was implemented and live-verified later on 2026-07-11:
+
+- discovery no longer waits for enrichment, cataloging, filters, niche crawling,
+  scoring, or workspace maintenance;
+- Signal's live config uses `split_pipeline_enabled: true` and
+  `discovery_interval_minutes: 1`;
+- the existing heavy radar cycle runs as the organizer with harvest disabled;
+- newly found channels create small durable organization batches in
+  `storage/radar_work_queue.sqlite3`;
+- queued batches are coalesced, leased to one organizer, recovered after stale
+  leases, and returned to the queue if a cooperative stop interrupts the cycle;
+- the organizer waits for the first discovery pass at process startup, so the
+  first new batch is claimed immediately instead of waiting a full maintenance
+  cycle;
+- Production Lab remains on legacy behavior by default because split mode is
+  opt-in at configuration level; and
+- Signal Overview shows the two lanes plus exact waiting and actively-organizing
+  channel counts.
+
+Measured live burst:
+
+- **24 discovery passes** between 22:28 and 23:26;
+- **1,830 new channels** found;
+- **76.2 new channels per pass** on average; and
+- passes completed roughly every two to three minutes, including the configured
+  one-minute rest.
+
+This is a measured burst, not a permanent daily guarantee. Yield will change as
+queries become saturated and are revisited.
+
 Current live query-policy snapshot during verification:
 
 - 422 base queries;
@@ -100,12 +133,12 @@ Current live query-policy snapshot during verification:
 
 The remaining high-value work is:
 
-1. initialize safe Git history for Signal and Scripter;
-2. add deterministic durable write auditing for Agent actions;
-3. build a human-reviewed opportunity benchmark and improve score/topic quality;
-4. protect manual topic corrections with provenance/locks;
-5. improve Agent/Autopilot Markdown and input layout; and
-6. continue replacing remaining full-index radar scans with incremental work; and
+1. add deterministic durable write auditing for Agent actions;
+2. build a human-reviewed opportunity benchmark and improve score/topic quality;
+3. protect manual topic corrections with provenance/locks;
+4. improve Agent/Autopilot Markdown and input layout;
+5. continue replacing remaining full-index organizer scans with incremental work;
+6. design the optional off-laptop cloud discovery inbox; and
 7. upgrade the shared runtime to Python 3.11+ before **2026-10-04**.
 
 ---
@@ -164,10 +197,14 @@ Supporting state includes:
 - `radar_worker.pid`
 - `radar.log`
 - `harvest_yield.json`
+- `radar_work_queue.sqlite3`
 - `faceless_text_model.joblib`
 
 The database is approximately 10 GB and runs in WAL mode. It must never be moved
 or copied casually. Signal and the Production Lab open it in place.
+
+`radar_work_queue.sqlite3` is not a second product database. It contains only
+small operational work records and can never replace the shared YouTube index.
 
 ---
 
@@ -205,10 +242,13 @@ sweep_control.py
   v
 detached radar worker
   |
-  +--> free search/channel providers
-  +--> YouTube API enrichment/category pool
-  +--> topic + faceless + junk classifiers
-  +--> outlier scoring
+  +--> fast discovery lane --> durable organization queue
+  |
+  +--> organizer lane
+        +--> YouTube API enrichment/category pool
+        +--> topic + faceless + junk classifiers
+        +--> cataloging + niche crawling
+        +--> outlier scoring + workspace maintenance
   |
   v
 Shared SQLite database
@@ -1142,6 +1182,8 @@ Only after the earlier phases:
     all five screens, inspect screenshots and process errors, and fix any
     regression before beginning the next change. Do not batch unverified code
     changes.
+12. Verification instances must set `SIGNAL_DISABLE_AUTOPILOT=1` so a second
+    real window cannot start Bedrock work or mutate shared state.
 
 ---
 
@@ -1170,6 +1212,15 @@ Confirmed by the user on **2026-07-10**:
    - opportunity/ranking quality;
    - operator experience; and
    - larger features.
+6. On **2026-07-11**, the user reported direct authorization from Google to
+   create and use multiple YouTube API keys across separate accounts/projects.
+   Treat that as project-specific user-provided authorization within the exact
+   scope Google gave them. Do not document, print, or commit any key. Before
+   implementing pooled quota behavior, preserve the written authorization/scope
+   outside source control and make the implementation match it.
+7. The local fast-discovery/queue architecture comes first. A cloud/off-laptop
+   collector is a later phase and must not begin by copying or remotely sharing
+   the live 10 GB SQLite file.
 
 Initial conservative eligibility rule for implementation and evaluation:
 
