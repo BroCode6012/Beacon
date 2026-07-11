@@ -182,7 +182,54 @@ CACHE_TTL_SECONDS = {
     "channels:": 120,
     "realtime:": 60,
     "find_channels:": 300,
-}
+    }
+
+
+def _pipeline_progress_state(status: dict) -> dict | None:
+    """Plain-language state for the optional split discovery pipeline."""
+    if str(status.get("pipeline_mode") or "") != "split":
+        return None
+
+    def lane(name: str, fallback: str) -> dict:
+        raw = status.get(name)
+        raw = raw if isinstance(raw, dict) else {}
+        state = str(raw.get("state") or fallback)
+        message = str(
+            raw.get("current_query") or raw.get("message") or state
+        ).strip()
+        return {"state": state, "message": message}
+
+    raw_queue = status.get("queue")
+    raw_queue = raw_queue if isinstance(raw_queue, dict) else {}
+
+    def count(name: str) -> int:
+        try:
+            return max(0, int(raw_queue.get(name) or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    pending_channels = count("pending_channels")
+    pending_batches = count("pending_batches")
+    if pending_channels:
+        queue_text = (
+            f"{pending_channels:,} newly found channels are waiting in "
+            f"{pending_batches:,} durable organization "
+            f"{'batch' if pending_batches == 1 else 'batches'}. "
+            "Closing the laptop pauses them safely; reopening resumes them."
+        )
+    else:
+        queue_text = (
+            "Organization queue is clear. New discoveries will be saved here "
+            "until the organizer finishes them."
+        )
+
+    return {
+        "discovery": lane("discovery", "starting"),
+        "organizer": lane("organizer", "starting"),
+        "pending_channels": pending_channels,
+        "pending_batches": pending_batches,
+        "queue_text": queue_text,
+    }
 
 
 class SignalApp:
@@ -1211,6 +1258,7 @@ class SignalApp:
     def _scraper_card(self) -> ft.Control:
         st = sweep_control.read_status()
         running = sweep_control.is_running()
+        pipeline = _pipeline_progress_state(st)
         # reconcile the optimistic flags with reality
         if running:
             self._sweep_starting = False
@@ -1225,6 +1273,14 @@ class SignalApp:
         elif stopping and running:
             line, color, badge_txt = ("Stopping… it'll finish the current step and exit.",
                                       WARN, "● stopping")
+        elif running and pipeline:
+            discovery = pipeline["discovery"]
+            organizer = pipeline["organizer"]
+            line = (
+                f"Fast discovery ({discovery['state']}) — {discovery['message']}  ·  "
+                f"Organizer ({organizer['state']}) — {organizer['message']}"
+            )
+            color, badge_txt = ACCENT, "● fast mode"
         elif running and state in ("running", "sweeping", "cycle_complete"):
             detail = (st.get("current_query") or st.get("message")
                       or "harvesting channels & sweeping niches…")
@@ -1285,11 +1341,30 @@ class SignalApp:
             except Exception:  # noqa: BLE001
                 pass
 
+        pipeline_note = ft.Container(visible=False)
+        if pipeline:
+            pipeline_note = ft.Container(
+                ft.Row([
+                    ft.Icon(ft.Icons.INVENTORY_2_OUTLINED, size=16, color=ACCENT2),
+                    ft.Text(
+                        pipeline["queue_text"],
+                        size=11,
+                        color=MUTED,
+                        expand=True,
+                    ),
+                ], spacing=8),
+                padding=10,
+                border_radius=8,
+                bgcolor=PANEL,
+                border=ft.border.all(1, BORDER),
+            )
+
         return self.card(
             ft.Row([h("Background scraper", 16), badge,
                     ft.Container(expand=True), start_btn, stop_btn],
                    spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
             muted(line),
+            pipeline_note,
             muted("Reuses the engine's radar worker — keeps running even if you "
                   "close Signal. Your manual Deep sweep still works alongside it.", 11),
             ft.TextButton(f"Edit niches / queries ({len(niches)})",
