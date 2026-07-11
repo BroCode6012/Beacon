@@ -20,6 +20,10 @@ class SignalPipelineStatusTests(unittest.TestCase):
             "queue": {
                 "pending_batches": 2,
                 "pending_channels": 45,
+                "queued_batches": 2,
+                "queued_channels": 45,
+                "running_batches": 0,
+                "running_channels": 0,
             },
         })
 
@@ -28,6 +32,23 @@ class SignalPipelineStatusTests(unittest.TestCase):
         self.assertEqual(state["pending_channels"], 45)
         self.assertIn("45 newly found channels", state["queue_text"])
         self.assertIn("reopening resumes them", state["queue_text"])
+
+    def test_running_batches_are_not_described_as_waiting(self) -> None:
+        state = _pipeline_progress_state({
+            "pipeline_mode": "split",
+            "queue": {
+                "pending_batches": 3,
+                "pending_channels": 120,
+                "queued_batches": 0,
+                "queued_channels": 0,
+                "running_batches": 3,
+                "running_channels": 120,
+            },
+        })
+
+        self.assertEqual(state["running_channels"], 120)
+        self.assertIn("being organized now", state["queue_text"])
+        self.assertNotIn("are waiting", state["queue_text"])
 
     def test_empty_split_queue_has_plain_language_state(self) -> None:
         state = _pipeline_progress_state({"pipeline_mode": "split"})

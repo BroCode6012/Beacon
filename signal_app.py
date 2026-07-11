@@ -210,11 +210,37 @@ def _pipeline_progress_state(status: dict) -> dict | None:
 
     pending_channels = count("pending_channels")
     pending_batches = count("pending_batches")
-    if pending_channels:
+    queued_channels = count("queued_channels")
+    running_channels = count("running_channels")
+    queued_batches = count("queued_batches")
+    running_batches = count("running_batches")
+    # Status written by the first split-worker release had only aggregate
+    # pending counts. Keep that short transition readable during deployment.
+    if pending_channels and not queued_channels and not running_channels:
+        if running_batches and not queued_batches:
+            running_channels = pending_channels
+        else:
+            queued_channels = pending_channels
+
+    if running_channels and queued_channels:
         queue_text = (
-            f"{pending_channels:,} newly found channels are waiting in "
-            f"{pending_batches:,} durable organization "
-            f"{'batch' if pending_batches == 1 else 'batches'}. "
+            f"{running_channels:,} newly found channels are being organized now; "
+            f"{queued_channels:,} more are waiting in {queued_batches:,} durable "
+            f"{'batch' if queued_batches == 1 else 'batches'}. "
+            "Closing the laptop pauses and safely resumes the remaining work."
+        )
+    elif running_channels:
+        queue_text = (
+            f"{running_channels:,} newly found channels are being organized now "
+            f"across {running_batches:,} durable "
+            f"{'batch' if running_batches == 1 else 'batches'}. "
+            "If interrupted, they safely return to the queue."
+        )
+    elif queued_channels:
+        queue_text = (
+            f"{queued_channels:,} newly found channels are waiting in "
+            f"{queued_batches:,} durable organization "
+            f"{'batch' if queued_batches == 1 else 'batches'}. "
             "Closing the laptop pauses them safely; reopening resumes them."
         )
     else:
@@ -228,6 +254,8 @@ def _pipeline_progress_state(status: dict) -> dict | None:
         "organizer": lane("organizer", "starting"),
         "pending_channels": pending_channels,
         "pending_batches": pending_batches,
+        "queued_channels": queued_channels,
+        "running_channels": running_channels,
         "queue_text": queue_text,
     }
 
