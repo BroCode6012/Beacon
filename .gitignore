@@ -1,0 +1,33 @@
+# Secrets and local credentials
+.env
+*.token
+*token*.json
+
+# Generated Signal state
+_autopilot.json
+*.log
+*.log.*
+__pycache__/
+.pytest_cache/
+
+# Data, sessions, and verification artifacts
+storage/
+sessions/
+sessions_*/
+screenshots/
+verification/
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.png
+*.jpg
+*.jpeg
+
+# Local environments and editor files
+.venv/
+venv/
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
