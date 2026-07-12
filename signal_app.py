@@ -107,7 +107,16 @@ def _research_progress_state(summary: dict) -> dict:
     tested = min(tested, total)
     remaining = max(0, total - tested)
     ratio = tested / total if total else 0.0
-    coverage_pct = round(ratio * 100, 1)
+    raw_coverage_pct = ratio * 100
+    decimals = 2 if remaining and raw_coverage_pct >= 99.9 else 1
+    coverage_pct = round(raw_coverage_pct, decimals)
+    if remaining:
+        coverage_pct = min(coverage_pct, 99.99)
+    coverage_label = (
+        f"{coverage_pct:.2f}"
+        if remaining and coverage_pct >= 99.9
+        else f"{coverage_pct:.1f}"
+    )
     base_ideas = nonnegative_int("count")
     max_total = nonnegative_int("max_total")
     cooldown = nonnegative_int("cooldown_remaining_minutes")
@@ -140,6 +149,7 @@ def _research_progress_state(summary: dict) -> dict:
         "remaining": remaining,
         "ratio": ratio,
         "coverage_pct": coverage_pct,
+        "coverage_label": coverage_label,
         "status": status,
     }
 
@@ -1209,7 +1219,7 @@ class SignalApp:
                 ft.Icon(ft.Icons.QUERY_STATS, color=ACCENT2, size=18),
                 h("Research progress", 16),
                 ft.Container(expand=True),
-                self.pill(f"{state['coverage_pct']:.1f}% complete", ACCENT2),
+                self.pill(f"{state['coverage_label']}% complete", ACCENT2),
             ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
             ft.Text(
                 f"{state['tested']:,} of {state['total']:,} searches tested at least once",

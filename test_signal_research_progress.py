@@ -38,6 +38,16 @@ class SignalResearchProgressTests(unittest.TestCase):
         self.assertEqual(state["coverage_pct"], 100.0)
         self.assertIn("may add up to 2", state["status"])
 
+    def test_tracker_never_labels_an_incomplete_pass_as_100_percent(self) -> None:
+        state = _research_progress_state({
+            "expanded_queries": 4_164,
+            "searched_queries": 4_162,
+        })
+
+        self.assertEqual(state["remaining"], 2)
+        self.assertEqual(state["coverage_pct"], 99.95)
+        self.assertEqual(state["coverage_label"], "99.95")
+
     def test_cooldown_status_is_plain_language(self) -> None:
         state = _research_progress_state({
             "expanded_queries": 20,

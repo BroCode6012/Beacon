@@ -109,6 +109,22 @@ class SignalQueryPolicyTests(unittest.TestCase):
         self.assertEqual(summary["coverage_pct"], 100.0)
         self.assertEqual(summary["top_yield_families"][0]["family"], "alpha useful topic")
 
+    def test_summary_counts_successful_empty_attempt_as_tested(self) -> None:
+        self._write(["alpha useful topic"])
+        self.yields.write_text(json.dumps({
+            "alpha useful topic": {
+                "attempts": 1,
+                "searches": 0,
+                "total_new": 0,
+                "zero_streak": 0,
+            },
+        }), encoding="utf-8")
+
+        summary = sweep_control.watchlist_summary(now=1_000_000)
+
+        self.assertEqual(summary["searched_queries"], 1)
+        self.assertEqual(summary["unsearched_queries"], 0)
+
 
 class _Sweep:
     def __init__(self) -> None:

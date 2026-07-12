@@ -12,22 +12,35 @@ Operational paths are ABSOLUTE and stay in Scripter's storage folder even though
 the large shared index lives in Signal's storage folder. The worker is launched
 with cwd = the Scripter root so its relative config/status paths remain stable.
 
-No engine code is changed — this only drives the existing worker.
+Shared query-policy helpers come from the engine; this module remains the
+Signal-side control adapter for that worker.
 """
 from __future__ import annotations
 
 import datetime as dt
 import json
 import os
-import re
 import subprocess
 import sys
 import threading
-import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
 import engine_link
+from scripter.research.query_policy import (
+    QUERY_AGENT_MAX_PER_CALL,
+    QUERY_AUTONOMOUS_MAX_PER_CALL,
+    QUERY_COOLDOWN_SECONDS,
+    QUERY_MAX_TOTAL,
+    QUERY_MIN_COVERAGE,
+    QUERY_NEAR_DUPLICATE_JACCARD,
+    QUERY_POLICY_KEY,
+    normalize_query as _normalize_query,
+    query_attempts,
+    query_family as _query_family,
+    token_jaccard as _token_jaccard,
+    watchlist_config_lock,
+)
 
 DB = Path(os.environ["YOUTUBE_INDEX_DB"]).resolve()
 SCRIPTER_ROOT = engine_link.LAB_REPO.resolve()
@@ -39,34 +52,7 @@ PID_PATH = STORAGE / "radar_worker.pid"
 WATCHLIST_PATH = STORAGE / "scraper_watchlist.json"
 HARVEST_YIELD_PATH = STORAGE / "harvest_yield.json"
 
-QUERY_MAX_TOTAL = 450
-QUERY_AUTONOMOUS_MAX_PER_CALL = 2
-QUERY_AGENT_MAX_PER_CALL = 10
-QUERY_COOLDOWN_SECONDS = 12 * 60 * 60
-QUERY_MIN_COVERAGE = 0.70
-QUERY_NEAR_DUPLICATE_JACCARD = 0.80
-QUERY_POLICY_KEY = "signal_query_policy"
-
 _WATCHLIST_LOCK = threading.Lock()
-_EDGE_MODIFIERS = [
-    ("the", "truth", "about"),
-    ("rise", "and", "fall"),
-    ("case", "study"),
-    ("documentary",),
-    ("documentaries",),
-    ("explained",),
-    ("mystery",),
-    ("mysteries",),
-    ("facts",),
-    ("story",),
-    ("stories",),
-    ("history",),
-    ("exposed",),
-    ("faceless",),
-    ("youtube",),
-    ("channel",),
-    ("channels",),
-]
 
 
 def _python() -> str:
@@ -164,7 +150,7 @@ def get_niches() -> list[str]:
 
 def save_niches(niches: list[str]) -> None:
     """Update ONLY the watchlist, preserving all other radar settings in the file."""
-    with _WATCHLIST_LOCK:
+    with _WATCHLIST_LOCK, watchlist_config_lock(WATCHLIST_PATH):
         data = _read_watchlist_config()
         data["watchlist"] = [n.strip() for n in niches if n.strip()]
         _write_watchlist_config(data)
@@ -197,42 +183,6 @@ def _read_yield_state() -> dict:
         return {}
 
 
-def _query_tokens(query: str) -> list[str]:
-    text = unicodedata.normalize("NFKC", str(query or "")).casefold()
-    text = re.sub(r"[\W_]+", " ", text, flags=re.UNICODE)
-    return [token for token in text.split() if token]
-
-
-def _normalize_query(query: str) -> str:
-    return " ".join(_query_tokens(query))
-
-
-def _query_family(query: str) -> str:
-    """Canonical topic family, ignoring radar-added edge modifiers and years."""
-    tokens = [t for t in _query_tokens(query) if not re.fullmatch(r"20\d{2}", t)]
-    changed = True
-    while changed:
-        changed = False
-        for phrase in _EDGE_MODIFIERS:
-            size = len(phrase)
-            if len(tokens) - size >= 2 and tuple(tokens[:size]) == phrase:
-                tokens = tokens[size:]
-                changed = True
-                break
-            if len(tokens) - size >= 2 and tuple(tokens[-size:]) == phrase:
-                tokens = tokens[:-size]
-                changed = True
-                break
-    return " ".join(tokens)
-
-
-def _token_jaccard(left: str, right: str) -> float:
-    a, b = set(left.split()), set(right.split())
-    if not a or not b:
-        return 0.0
-    return len(a & b) / len(a | b)
-
-
 def _expanded_queries(config: dict, watchlist: list[str]) -> list[str]:
     if not config.get("harvest_expand", True):
         return list(dict.fromkeys(watchlist))
@@ -252,7 +202,7 @@ def _watchlist_summary_from(
     watchlist = [str(q).strip() for q in config.get("watchlist", []) if str(q).strip()]
     expanded = _expanded_queries(config, watchlist)
     searched = [
-        q for q in expanded if int((yield_state.get(q) or {}).get("searches", 0)) > 0
+        q for q in expanded if query_attempts(yield_state.get(q)) > 0
     ]
     retire_after = max(1, int(config.get("harvest_retire_after", 3) or 3))
     active = [
@@ -359,7 +309,7 @@ def add_watchlist_queries(
     now_ts = time_now() if now is None else float(now)
     source = source or ("autopilot" if autonomous else "agent")
     requested = [" ".join(str(q).split()) for q in (queries or []) if str(q).strip()]
-    with _WATCHLIST_LOCK:
+    with _WATCHLIST_LOCK, watchlist_config_lock(WATCHLIST_PATH):
         config = _read_watchlist_config()
         yield_state = _read_yield_state()
         summary = _watchlist_summary_from(config, yield_state, now=now_ts)
