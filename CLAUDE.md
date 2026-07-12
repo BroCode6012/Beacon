@@ -166,7 +166,7 @@ Never copy, mount, expose, or remotely open the live SQLite file for this design
   lock used by Signal Autopilot. The feature defaults OFF, so Production Lab/legacy configs keep their
   old behavior; Signal's live config explicitly enables it. Live verification on 2026-07-12 reached
   4,164/4,164 tested searches with 0 remaining and added 0 queries because the existing Autopilot
-  cooldown correctly won. Regression gates: 41 Signal tests + 13 subtests; 174 shared tests; all five
+  cooldown correctly won. Regression gates: 41 Signal tests + 13 subtests; 178 shared tests; all five
   Signal screens and an isolated Production Lab profile passed real-window smoke tests.
   ENGINE NOTE 12 (shared, off-laptop edge collector): `scripter/edge/` now provides a
   transport-independent `signal-edge` v1 protocol. `plan.py` snapshots up to 10,000 normalized
@@ -187,8 +187,11 @@ Never copy, mount, expose, or remotely open the live SQLite file for this design
   bounded import is a full-token Finder write; accepted/duplicate bundles are archived and invalid
   bundles stay quarantined. Signal Overview now exposes refresh/manual sync controls and invalidates
   its caches after successful imports while stating that Oracle never owns the canonical database.
-  Full verification: 174 shared tests, 41 Signal tests + 13 subtests, all five Signal screens, and
-  an isolated Production Lab window. Pending: transport adapter, Oracle provisioning/hardening,
+  `deploy/oracle-edge/` now builds an allowlisted archive from a committed revision and installs an
+  immutable Python 3.11+ release behind an unprivileged, no-inbound-port, systemd-hardened service.
+  Persistent jobs/outbox state stays under `/var/lib/signal-edge`; health checks and symlink rollback
+  are explicit. Full verification: 178 shared tests, 41 Signal tests + 13 subtests, all five Signal
+  screens, and an isolated Production Lab window. Pending: transport adapter, Oracle VM creation,
   then shadow mode before any automatic or continuous import.
   ENGINE NOTE 6 (shared, API-key pool + video categorizing): YouTube Data API quota is allocated
   per Google Cloud project. On 2026-07-11 the user reported direct Google authorization to use

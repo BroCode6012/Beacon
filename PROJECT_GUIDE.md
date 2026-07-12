@@ -64,12 +64,12 @@ The first correctness pass is now implemented and verified:
 | Agent contracts | Workspace roles aligned; Finder filters/sorts aligned; error payloads report error status |
 | Radar throughput | Independent fast-discovery and organizer lanes; 4 parallel search fetchers; 1-minute discovery rest |
 | Durable radar work | Coalescing lease-based queue beside the shared index; interrupted work safely returns to the queue |
-| Off-laptop foundation | Signed recurring plans, lightweight Oracle-ready collector, durable scheduler, signed result bundles/acks, idempotent local import, Finder-gated status/manual sync |
+| Off-laptop foundation | Signed recurring plans, lightweight Oracle-ready collector, durable scheduler, signed result bundles/acks, idempotent local import, Finder-gated status/manual sync, hardened immutable Oracle deployment package |
 | Operator tracking | Overview distinguishes channels waiting from channels actively being organized |
 | Dependencies | `scikit-learn` and `joblib` declared in shared requirements |
 | Git baseline | Signal and Scripter now have separate safe repositories with secrets/data/generated state ignored |
 | Signal tests | **41 passed, 13 parameterized subtests passed** |
-| Shared tests | **174 passed** |
+| Shared tests | **178 passed** |
 | Package health | `pip check`: no broken requirements |
 
 Every atomic change above also passed a separate real Flet launch and visual
@@ -175,9 +175,16 @@ The off-laptop edge foundation was implemented and verified later on
   importing requires the full write token, successful imports invalidate local
   caches, and the Overview card explains that Oracle never owns the main
   database;
+- the Oracle deployment package builds an allowlisted archive from one committed
+  Git revision, refuses to include local/generated state, installs a
+  self-contained Python 3.11+ release, and atomically switches versions without
+  touching persistent worker state;
+- its systemd service runs as an unprivileged `signal-edge` account, exposes no
+  application port, grants write access only to `/var/lib/signal-edge`, and
+  supports explicit health checks and symlink rollback;
 - a real isolated network smoke collected one query into 3 videos/3 channels
   at zero API quota and imported it into a temporary index; and
-- the full regression gate passed with 174 shared tests, 41 Signal tests plus
+- the full regression gate passed with 178 shared tests, 41 Signal tests plus
   13 subtests, all five Signal screens, and an isolated Production Lab window.
 
 This layer is deliberately transport-agnostic. SSH/SFTP, OCI Object Storage, or
@@ -1226,11 +1233,13 @@ Completed foundation:
 5. Lightweight `requirements-edge.txt` without Flet, OpenCV, ML, or Bedrock.
 6. Finder-gated cloud status and bounded manual inbox import in Signal, with
    rejected bundles quarantined and accepted/duplicate bundles archived.
+7. Immutable release builder, Python 3.11+ bootstrap, hardened unprivileged
+   systemd service, health check, and rollback procedure for Oracle ARM.
 
 Remaining deployment work:
 
 1. Add a transport adapter while keeping the protocol transport-independent.
-2. Provision and harden one Oracle Always Free ARM VM.
+2. Create the Oracle Always Free ARM VM and apply the prepared hardening package.
 3. Run shadow mode and compare cloud/local results before enabling continuous
    import.
 4. Decide whether to enable safe automatic inbox import after the shadow pilot;
