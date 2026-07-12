@@ -166,7 +166,7 @@ Never copy, mount, expose, or remotely open the live SQLite file for this design
   lock used by Signal Autopilot. The feature defaults OFF, so Production Lab/legacy configs keep their
   old behavior; Signal's live config explicitly enables it. Live verification on 2026-07-12 reached
   4,164/4,164 tested searches with 0 remaining and added 0 queries because the existing Autopilot
-  cooldown correctly won. Regression gates: 37 Signal tests + 13 subtests; 169 shared tests; all five
+  cooldown correctly won. Regression gates: 41 Signal tests + 13 subtests; 174 shared tests; all five
   Signal screens and an isolated Production Lab profile passed real-window smoke tests.
   ENGINE NOTE 12 (shared, off-laptop edge collector): `scripter/edge/` now provides a
   transport-independent `signal-edge` v1 protocol. `plan.py` snapshots up to 10,000 normalized
@@ -183,9 +183,13 @@ Never copy, mount, expose, or remotely open the live SQLite file for this design
   This is staging, not a second YouTube index. `requirements-edge.txt` intentionally excludes Flet,
   OpenCV, scikit-learn, and Bedrock so an Oracle ARM node stays lightweight. Real isolated smoke:
   one free query produced 3 videos + 3 channels, imported into a temporary DB, and acknowledged.
-  Full verification: 169 shared tests, 37 Signal tests + 13 subtests, all five Signal screens, and
-  an isolated Production Lab window. Pending: Signal cloud status/sync UI, transport adapter,
-  Oracle provisioning/hardening, then shadow mode before continuous import.
+  `edge/sync.py` adds the laptop-side secure inbox service: non-secret status is read-authorized;
+  bounded import is a full-token Finder write; accepted/duplicate bundles are archived and invalid
+  bundles stay quarantined. Signal Overview now exposes refresh/manual sync controls and invalidates
+  its caches after successful imports while stating that Oracle never owns the canonical database.
+  Full verification: 174 shared tests, 41 Signal tests + 13 subtests, all five Signal screens, and
+  an isolated Production Lab window. Pending: transport adapter, Oracle provisioning/hardening,
+  then shadow mode before any automatic or continuous import.
   ENGINE NOTE 6 (shared, API-key pool + video categorizing): YouTube Data API quota is allocated
   per Google Cloud project. On 2026-07-11 the user reported direct Google authorization to use
   multiple keys across separate accounts/projects for this workload. Treat that as user-provided,

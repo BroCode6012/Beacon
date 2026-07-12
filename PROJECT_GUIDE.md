@@ -40,8 +40,9 @@ the split radar pipeline are now established. The main remaining problem is
 - the topic classifier visibly mislabels famous channels;
 - Agent writes still need one deterministic durable audit trail;
 - manual topic corrections still need provenance and locks; and
-- off-laptop discovery still needs Signal-side sync controls and Oracle
-  provisioning, but its safe inbox architecture and worker now exist.
+- off-laptop discovery still needs a transport adapter and Oracle provisioning,
+  but its safe inbox architecture, worker, and Signal-side sync controls now
+  exist.
 
 The next work should remain a quality/auditing pass, not a large new feature.
 
@@ -63,12 +64,12 @@ The first correctness pass is now implemented and verified:
 | Agent contracts | Workspace roles aligned; Finder filters/sorts aligned; error payloads report error status |
 | Radar throughput | Independent fast-discovery and organizer lanes; 4 parallel search fetchers; 1-minute discovery rest |
 | Durable radar work | Coalescing lease-based queue beside the shared index; interrupted work safely returns to the queue |
-| Off-laptop foundation | Signed recurring plans, lightweight Oracle-ready collector, durable scheduler, signed result bundles/acks, idempotent local import |
+| Off-laptop foundation | Signed recurring plans, lightweight Oracle-ready collector, durable scheduler, signed result bundles/acks, idempotent local import, Finder-gated status/manual sync |
 | Operator tracking | Overview distinguishes channels waiting from channels actively being organized |
 | Dependencies | `scikit-learn` and `joblib` declared in shared requirements |
 | Git baseline | Signal and Scripter now have separate safe repositories with secrets/data/generated state ignored |
-| Signal tests | **37 passed, 13 parameterized subtests passed** |
-| Shared tests | **169 passed** |
+| Signal tests | **41 passed, 13 parameterized subtests passed** |
+| Shared tests | **174 passed** |
 | Package health | `pip check`: no broken requirements |
 
 Every atomic change above also passed a separate real Flet launch and visual
@@ -167,9 +168,16 @@ The off-laptop edge foundation was implemented and verified later on
 - the laptop importer verifies signature/checksum, imports all rows in one
   transaction, records the bundle in an idempotency ledger, and writes a signed
   acknowledgement;
+- the shared sync service reports only non-secret inbox/worker state, imports a
+  bounded inbox slice, archives accepted or duplicate bundles, and leaves
+  rejected bundles quarantined for inspection;
+- Signal accesses that service only through Finder: status is read-authorized,
+  importing requires the full write token, successful imports invalidate local
+  caches, and the Overview card explains that Oracle never owns the main
+  database;
 - a real isolated network smoke collected one query into 3 videos/3 channels
   at zero API quota and imported it into a temporary index; and
-- the full regression gate passed with 169 shared tests, 37 Signal tests plus
+- the full regression gate passed with 174 shared tests, 41 Signal tests plus
   13 subtests, all five Signal screens, and an isolated Production Lab window.
 
 This layer is deliberately transport-agnostic. SSH/SFTP, OCI Object Storage, or
@@ -185,8 +193,8 @@ The remaining high-value work is:
 3. protect manual topic corrections with provenance/locks;
 4. improve Agent/Autopilot Markdown and input layout;
 5. continue replacing remaining full-index organizer scans with incremental work;
-6. add Signal cloud status/sync controls, provision Oracle, and run a shadow
-   pilot before enabling continuous off-laptop collection; and
+6. add the transport adapter, provision Oracle, and run a shadow pilot before
+   enabling continuous off-laptop collection; and
 7. upgrade the shared runtime to Python 3.11+ before **2026-10-04**.
 
 ---
@@ -1216,14 +1224,17 @@ Completed foundation:
 3. Durable query cursor, retry, retirement, and reprobe scheduler.
 4. Atomic/idempotent local import plus signed acknowledgements.
 5. Lightweight `requirements-edge.txt` without Flet, OpenCV, ML, or Bedrock.
+6. Finder-gated cloud status and bounded manual inbox import in Signal, with
+   rejected bundles quarantined and accepted/duplicate bundles archived.
 
 Remaining deployment work:
 
-1. Add Signal status, manual sync, and safe automatic inbox-import controls.
-2. Add a transport adapter while keeping the protocol transport-independent.
-3. Provision and harden one Oracle Always Free ARM VM.
-4. Run shadow mode and compare cloud/local results before enabling continuous
+1. Add a transport adapter while keeping the protocol transport-independent.
+2. Provision and harden one Oracle Always Free ARM VM.
+3. Run shadow mode and compare cloud/local results before enabling continuous
    import.
+4. Decide whether to enable safe automatic inbox import after the shadow pilot;
+   manual import remains the verified default.
 5. Keep heavy organization, faceless scoring, ranking, Finder, and the canonical
    index on the laptop until a separately planned full service migration exists.
 
@@ -1344,7 +1355,8 @@ Confirmed by the user on **2026-07-10**:
    outside source control and make the implementation match it.
 7. The cloud/off-laptop collector must use the signed inbox architecture and
    must never copy, mount, or remotely share the live SQLite file. Its foundation
-   now exists; provisioning and Signal-side sync controls remain pending.
+   and Signal-side manual sync controls now exist; transport, provisioning, and
+   shadow validation remain pending.
 
 Initial conservative eligibility rule for implementation and evaluation:
 

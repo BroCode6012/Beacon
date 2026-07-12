@@ -154,6 +154,81 @@ def _research_progress_state(summary: dict) -> dict:
     }
 
 
+def _cloud_sync_view_state(payload: dict) -> dict:
+    """Plain-language state for the Overview cloud-worker card."""
+    def nonnegative_int(value) -> int:
+        try:
+            return max(0, int(value or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    configured = bool(payload.get("configured"))
+    pending = nonnegative_int(payload.get("pending_bundles"))
+    last_sync = payload.get("last_sync")
+    last_sync = last_sync if isinstance(last_sync, dict) else {}
+    remote = payload.get("remote")
+    remote = remote if isinstance(remote, dict) else {}
+    failed = nonnegative_int(last_sync.get("failed_bundles"))
+    imported = nonnegative_int(last_sync.get("imported_bundles"))
+    duplicates = nonnegative_int(last_sync.get("duplicate_bundles"))
+    synced_at = str(last_sync.get("synced_at") or "")
+    remote_state = str(remote.get("state") or "unknown").lower()
+    remote_message = str(remote.get("message") or "").strip()
+
+    if not configured:
+        badge = "setup pending"
+        tone = "muted"
+        message = (
+            "Oracle is not connected yet. Signal is ready, but the secure "
+            "signing key and file transport still need setup."
+        )
+    elif failed:
+        badge = "attention"
+        tone = "warn"
+        message = (
+            f"Last sync rejected {failed:,} bundle"
+            f"{'s' if failed != 1 else ''}. "
+            "They stayed quarantined; nothing unsafe was imported."
+        )
+    elif pending:
+        badge = f"{pending:,} waiting"
+        tone = "accent2"
+        message = (
+            f"{pending:,} signed cloud bundle"
+            f"{'s are' if pending != 1 else ' is'} waiting safely on this laptop."
+        )
+    elif remote_state in {"running", "starting", "sleeping", "idle"}:
+        badge = "connected"
+        tone = "accent"
+        message = "Oracle is connected. No cloud bundles are waiting to be imported."
+    else:
+        badge = "ready"
+        tone = "accent2"
+        message = "Secure cloud sync is ready. No bundles are waiting on this laptop."
+
+    last_line = ""
+    if synced_at:
+        parts = [f"Last sync imported {imported:,}"]
+        if duplicates:
+            parts.append(f"skipped {duplicates:,} duplicate")
+        if failed:
+            parts.append(f"rejected {failed:,}")
+        last_line = " · ".join(parts) + f" · {synced_at}"
+
+    return {
+        "configured": configured,
+        "pending": pending,
+        "failed": failed,
+        "badge": badge,
+        "tone": tone,
+        "message": message,
+        "last_line": last_line,
+        "remote_state": remote_state,
+        "remote_message": remote_message,
+        "sync_enabled": configured and pending > 0,
+    }
+
+
 # Quick filters over Signal's mandatory faceless + replicable opportunity gate.
 # Every preset changes ranking/narrowing only; `_ch_query_args` always injects the
 # shared-engine `replicable_only=True` contract.
@@ -187,6 +262,7 @@ OVERVIEW_REFRESH_SECONDS = max(
 CACHE_ERROR_TTL_SECONDS = 15
 CACHE_TTL_SECONDS = {
     "overview": OVERVIEW_REFRESH_SECONDS,
+    "edge_sync": 10,
     "topics": 300,
     "niches": 300,
     "channels:": 120,
@@ -295,6 +371,7 @@ class SignalApp:
         # (the worker takes a few seconds to boot/exit); reconciled to reality each render.
         self._sweep_starting = False
         self._sweep_stopping = False
+        self._cloud_syncing = False
         # Real Time feed: discovery-recency window (days) + the once-only auto-refresh guard.
         self.rt_window = 1                 # 1 / 7 / 30 days, or None for "newest all-time"
         self.rt_filters: dict = {}         # metric filters for the Real Time feed (own set)
@@ -1123,7 +1200,7 @@ class SignalApp:
     def _refresh(self, _=None) -> None:
         """Re-pull the current section's data (clears just its cache keys)."""
         if self.section == "Overview":
-            self._invalidate("overview")
+            self._invalidate("overview", "edge_sync")
         elif self.section == "Channels":
             self._invalidate("niches", "topics")
             self._invalidate(self._channels_key())
@@ -1201,6 +1278,7 @@ class SignalApp:
             ))
         # live background-scraper card (status read fresh each render, not cached)
         self.content.controls.append(self._scraper_card())
+        self.content.controls.append(self._cloud_sync_card())
 
     def _research_progress_card(self) -> ft.Control:
         """Show how much of the expanded scraper-search backlog has been tested."""
@@ -1292,6 +1370,134 @@ class SignalApp:
                     self._overview_tick()
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def _cloud_sync_card(self) -> ft.Control:
+        entry = self._ensure(
+            "edge_sync",
+            lambda: self.client.call("edge_sync_status"),
+            "Checking cloud workerâ€¦",
+        )
+        header = ft.Row(
+            [
+                ft.Icon(ft.Icons.CLOUD_SYNC, color=ACCENT2, size=18),
+                h("Cloud worker", 16),
+            ],
+            spacing=8,
+        )
+        if entry is None:
+            return self.card(
+                header,
+                self._loading_note("Checking the secure cloud inboxâ€¦"),
+            )
+        if "error" in entry:
+            return self.card(
+                header,
+                ft.Row(
+                    [
+                        ft.Icon(ft.Icons.ERROR_OUTLINE, color=WARN, size=16),
+                        ft.Text(
+                            "Cloud status is temporarily unavailable.",
+                            color=WARN,
+                            weight=ft.FontWeight.BOLD,
+                        ),
+                    ],
+                    spacing=8,
+                ),
+                muted(entry["error"]),
+                ft.OutlinedButton(
+                    "Retry",
+                    icon=ft.Icons.REFRESH,
+                    on_click=self._refresh_cloud,
+                ),
+            )
+
+        view = _cloud_sync_view_state(entry.get("data") or {})
+        color = {
+            "accent": ACCENT,
+            "accent2": ACCENT2,
+            "warn": WARN,
+            "muted": MUTED,
+        }[view["tone"]]
+        sync_disabled = self._cloud_syncing or not view["sync_enabled"]
+        sync_text = "Syncingâ€¦" if self._cloud_syncing else "Sync now"
+        details: list[ft.Control] = [
+            ft.Row(
+                [
+                    ft.Icon(ft.Icons.CLOUD_SYNC, color=color, size=18),
+                    h("Cloud worker", 16),
+                    self.pill(view["badge"], color),
+                    ft.Container(expand=True),
+                    ft.OutlinedButton(
+                        "Refresh",
+                        icon=ft.Icons.REFRESH,
+                        on_click=self._refresh_cloud,
+                    ),
+                    ft.FilledButton(
+                        sync_text,
+                        icon=ft.Icons.CLOUD_DOWNLOAD,
+                        disabled=sync_disabled,
+                        on_click=None if sync_disabled else self._sync_cloud,
+                        style=(
+                            None
+                            if sync_disabled
+                            else ft.ButtonStyle(bgcolor=ACCENT, color=BG)
+                        ),
+                    ),
+                ],
+                spacing=10,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            ft.Text(view["message"], size=12, color=color),
+        ]
+        if view["remote_message"]:
+            details.append(muted(f"Oracle: {view['remote_message']}", 11))
+        if view["last_line"]:
+            details.append(muted(view["last_line"], 10))
+        details.append(
+            muted(
+                "Oracle only collects staged results. It never opens or owns "
+                "Signal's main database.",
+                11,
+            )
+        )
+        return self.card(*details)
+
+    def _refresh_cloud(self, _=None) -> None:
+        self._invalidate("edge_sync")
+        self._render()
+
+    def _sync_cloud(self, _=None) -> None:
+        if self._cloud_syncing:
+            return
+        self._cloud_syncing = True
+        self._render()
+
+        def work():
+            try:
+                return self.client.call("import_edge_inbox", max_bundles=20)
+            except Exception as ex:  # noqa: BLE001
+                return {"error": str(ex)[:200]}
+
+        def done(result):
+            self._cloud_syncing = False
+            if isinstance(result, dict) and result.get("error"):
+                self.toast(f"Cloud sync: {str(result['error'])[:160]}")
+                self._invalidate("edge_sync")
+            else:
+                imported = int((result or {}).get("imported_bundles") or 0)
+                failed = int((result or {}).get("failed_bundles") or 0)
+                remaining = int((result or {}).get("remaining_bundles") or 0)
+                self.toast(
+                    f"Cloud sync finished: {imported:,} imported, "
+                    f"{failed:,} rejected, {remaining:,} waiting."
+                )
+                if imported:
+                    self._invalidate_all()
+                else:
+                    self._invalidate("edge_sync")
+            self._render()
+
+        self.run_bg(work, done, "Importing cloud discoveriesâ€¦")
 
     def _scraper_card(self) -> ft.Control:
         st = sweep_control.read_status()
