@@ -20,15 +20,14 @@ from pathlib import Path
 SIGNAL_ROOT = Path(__file__).resolve().parent
 LAB_REPO = Path(os.getenv("FACELESS_ENGINE_DIR") or r"D:\Youtube\Scripter")
 SIGNAL_DB = SIGNAL_ROOT / "storage" / "youtube_index.sqlite3"
-LEGACY_DB = LAB_REPO / "storage" / "youtube_index.sqlite3"
 
 
 def resolve_shared_db() -> Path:
-    """Prefer the migrated Signal-owned index, falling back during cutover."""
+    """Return Signal's shared index, unless an explicit override is configured."""
     configured = os.getenv("SIGNAL_INDEX_DB") or os.getenv("YOUTUBE_INDEX_DB")
     if configured:
         return Path(configured)
-    return SIGNAL_DB if SIGNAL_DB.exists() else LEGACY_DB
+    return SIGNAL_DB
 
 
 SHARED_DB = resolve_shared_db()
