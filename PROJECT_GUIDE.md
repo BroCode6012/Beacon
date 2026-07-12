@@ -40,9 +40,8 @@ the split radar pipeline are now established. The main remaining problem is
 - the topic classifier visibly mislabels famous channels;
 - Agent writes still need one deterministic durable audit trail;
 - manual topic corrections still need provenance and locks; and
-- off-laptop discovery still needs a transport adapter and Oracle provisioning,
-  but its safe inbox architecture, worker, and Signal-side sync controls now
-  exist.
+- off-laptop discovery now has a provisioned Oracle worker plus a signed SSH
+  transport; continuous quality monitoring and future job types remain.
 
 The next work should remain a quality/auditing pass, not a large new feature.
 
@@ -179,6 +178,9 @@ The off-laptop edge foundation was implemented and verified later on
   Git revision, refuses to include local/generated state, installs a
   self-contained Python 3.11+ release, and atomically switches versions without
   touching persistent worker state;
+- the laptop SSH transport streams signed bundles over port 22, verifies them
+  before publishing to the inbox, imports them atomically, returns signed
+  acknowledgements, and removes only acknowledged remote outbox copies;
 - its systemd service runs as an unprivileged `signal-edge` account, exposes no
   application port, grants write access only to `/var/lib/signal-edge`, and
   supports explicit health checks and symlink rollback;
@@ -200,8 +202,8 @@ The remaining high-value work is:
 3. protect manual topic corrections with provenance/locks;
 4. improve Agent/Autopilot Markdown and input layout;
 5. continue replacing remaining full-index organizer scans with incremental work;
-6. add the transport adapter, provision Oracle, and run a shadow pilot before
-   enabling continuous off-laptop collection; and
+6. monitor the provisioned Oracle edge worker and expand versioned cloud job
+   types only after measured pilots; and
 7. upgrade the shared runtime to Python 3.11+ before **2026-10-04**.
 
 ---
@@ -332,7 +334,7 @@ Signal/controller
   +--> signed discovery plan
           |
           v
-      transport (SSH/SFTP or OCI Object Storage; deployment pending)
+      signed SSH transport over the existing management connection
           |
           v
       Oracle edge worker
@@ -1236,15 +1238,21 @@ Completed foundation:
 7. Immutable release builder, Python 3.11+ bootstrap, hardened unprivileged
    systemd service, health check, and rollback procedure for Oracle ARM.
 
-Remaining deployment work:
+Completed deployment:
 
-1. Add a transport adapter while keeping the protocol transport-independent.
-2. Create the Oracle Always Free ARM VM and apply the prepared hardening package.
-3. Run shadow mode and compare cloud/local results before enabling continuous
-   import.
-4. Decide whether to enable safe automatic inbox import after the shadow pilot;
-   manual import remains the verified default.
-5. Keep heavy organization, faceless scoring, ranking, Finder, and the canonical
+1. Provisioned the Oracle Always Free ARM VM with SSH restricted to the
+   operator's current public `/32`.
+2. Installed the immutable unprivileged worker and a 4,164-query signed plan.
+3. Verified a real shadow import: 100/100 searches succeeded, both bundles had
+   valid signatures, imports were atomic, and duplicate replay was rejected.
+4. Added SSH pull, signed acknowledgement, acknowledged-remote cleanup, and a
+   hidden Windows scheduled-sync installer.
+
+Remaining:
+
+1. Monitor yield, quota use, disk growth, and provider reliability during the
+   first sustained run.
+2. Keep heavy organization, faceless scoring, ranking, Finder, and the canonical
    index on the laptop until a separately planned full service migration exists.
 
 ### Phase 2 — improve discovery signal quality

@@ -57,6 +57,7 @@ def test_cloud_empty_connected_state_and_cache_ttl():
     state = _cloud_sync_view_state(
         {
             "configured": True,
+            "transport_configured": True,
             "pending_bundles": 0,
             "remote": {"state": "idle"},
         }
@@ -64,5 +65,22 @@ def test_cloud_empty_connected_state_and_cache_ttl():
 
     assert state["badge"] == "connected"
     assert state["tone"] == "accent"
-    assert state["sync_enabled"] is False
+    assert state["sync_enabled"] is True
+    assert "Sync now checks" in state["message"]
     assert CACHE_TTL_SECONDS["edge_sync"] == 10
+
+
+def test_cloud_remote_pending_is_visible_without_local_inbox_files():
+    state = _cloud_sync_view_state(
+        {
+            "configured": True,
+            "transport_configured": True,
+            "pending_bundles": 0,
+            "transport": {"remote_pending": 12},
+        }
+    )
+
+    assert state["badge"] == "12 on Oracle"
+    assert state["remote_pending"] == 12
+    assert state["sync_enabled"] is True
+    assert "fetch, verify, and import" in state["message"]

@@ -163,9 +163,13 @@ def _cloud_sync_view_state(payload: dict) -> dict:
             return 0
 
     configured = bool(payload.get("configured"))
+    transport_configured = bool(payload.get("transport_configured"))
     pending = nonnegative_int(payload.get("pending_bundles"))
     last_sync = payload.get("last_sync")
     last_sync = last_sync if isinstance(last_sync, dict) else {}
+    transport = payload.get("transport")
+    transport = transport if isinstance(transport, dict) else {}
+    remote_pending = nonnegative_int(transport.get("remote_pending"))
     remote = payload.get("remote")
     remote = remote if isinstance(remote, dict) else {}
     failed = nonnegative_int(last_sync.get("failed_bundles"))
@@ -197,6 +201,33 @@ def _cloud_sync_view_state(payload: dict) -> dict:
             f"{pending:,} signed cloud bundle"
             f"{'s are' if pending != 1 else ' is'} waiting safely on this laptop."
         )
+    elif remote_pending:
+        badge = f"{remote_pending:,} on Oracle"
+        tone = "accent2"
+        message = (
+            f"Oracle has {remote_pending:,} signed bundle"
+            f"{'s' if remote_pending != 1 else ''} ready. "
+            "Sync now will fetch, verify, and import them."
+        )
+    elif transport_configured and remote_state in {
+        "running",
+        "starting",
+        "sleeping",
+        "idle",
+    }:
+        badge = "connected"
+        tone = "accent"
+        message = (
+            "Oracle is connected. Sync now checks for new signed bundles "
+            "and imports them safely."
+        )
+    elif transport_configured:
+        badge = "ready"
+        tone = "accent2"
+        message = (
+            "Secure Oracle transport is ready. Sync now checks the remote "
+            "worker for signed bundles."
+        )
     elif remote_state in {"running", "starting", "sleeping", "idle"}:
         badge = "connected"
         tone = "accent"
@@ -217,7 +248,9 @@ def _cloud_sync_view_state(payload: dict) -> dict:
 
     return {
         "configured": configured,
+        "transport_configured": transport_configured,
         "pending": pending,
+        "remote_pending": remote_pending,
         "failed": failed,
         "badge": badge,
         "tone": tone,
@@ -225,7 +258,9 @@ def _cloud_sync_view_state(payload: dict) -> dict:
         "last_line": last_line,
         "remote_state": remote_state,
         "remote_message": remote_message,
-        "sync_enabled": configured and pending > 0,
+        "sync_enabled": configured and (
+            pending > 0 or transport_configured
+        ),
     }
 
 
