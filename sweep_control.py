@@ -8,10 +8,9 @@ running its own. This module just:
   * reads status -> reads radar_status.json directly
   * edits targets -> updates the `watchlist` in scraper_watchlist.json
 
-All paths are ABSOLUTE, anchored to the shared storage dir (the folder holding the
-index DB), so they line up no matter what working directory Signal runs from. The
-worker is launched with cwd = the Scripter root so ITS relative `storage/...` paths
-resolve to those exact same files.
+Operational paths are ABSOLUTE and stay in Scripter's storage folder even though
+the large shared index lives in Signal's storage folder. The worker is launched
+with cwd = the Scripter root so its relative config/status paths remain stable.
 
 No engine code is changed — this only drives the existing worker.
 """
@@ -28,9 +27,11 @@ import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
+import engine_link
+
 DB = Path(os.environ["YOUTUBE_INDEX_DB"]).resolve()
-STORAGE = DB.parent                       # ...\Scripter\storage
-SCRIPTER_ROOT = STORAGE.parent            # ...\Scripter  (cwd for the worker)
+SCRIPTER_ROOT = engine_link.LAB_REPO.resolve()
+STORAGE = SCRIPTER_ROOT / "storage"
 
 STATUS_PATH = STORAGE / "radar_status.json"
 STOP_PATH = STORAGE / "radar_stop.flag"
