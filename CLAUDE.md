@@ -148,6 +148,20 @@ importing `scripter.*`. Radar config/status/queue/log/model files stay under
   channels posted since the last sweep. All new params are optional/default-preserving (`sort` is
   passed ONLY to the scrapetube provider by name; `harvest_adaptive=False` restores the old path), so
   the Lab's callers are unaffected. Verified headlessly + the engine's own test suite stays green.
+  ENGINE NOTE 11 (shared, durable query completion + always-on top-up): first-pass coverage now uses
+  a separate `attempts` counter. A successful provider response counts even when it returns zero
+  videos; a provider failure or fully blocked provider set does not count and remains retryable.
+  `_select_harvest_queries` pulls up to ten never-attempted variations into the next fast-discovery
+  slice, preventing the last one or two searches from waiting a full rotation. Once expanded coverage
+  reaches 100%, optional `query_topup_enabled` logic in `query_topup.py` may add at most two reviewed
+  faceless/replicable subjects from different topics. Candidates require cross-channel evidence from
+  classified faceless channels plus related harvest-yield support, and pass the shared 450-query cap,
+  normalized family/similarity deduplication, 12-hour cooldown, per-topic cap, and cross-process config
+  lock used by Signal Autopilot. The feature defaults OFF, so Production Lab/legacy configs keep their
+  old behavior; Signal's live config explicitly enables it. Live verification on 2026-07-12 reached
+  4,164/4,164 tested searches with 0 remaining and added 0 queries because the existing Autopilot
+  cooldown correctly won. Regression gates: 37 Signal tests + 13 subtests; 148 shared tests; all five
+  Signal screens and an isolated Production Lab profile passed real-window smoke tests.
   ENGINE NOTE 6 (shared, API-key pool + video categorizing): YouTube Data API quota is allocated
   per Google Cloud project. Google policy prohibits creating or using separate projects/accounts
   to artificially multiply quota for one service. Signal must use one production project, request

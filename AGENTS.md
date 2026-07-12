@@ -93,7 +93,14 @@ Completed and verified on 2026-07-12:
 - the old Scripter database file and temporary legacy fallback were removed;
 - radar and monitor resumed against the Signal-owned index while their
   operational state remained in Scripter storage; and
-- Signal/shared regression suites passed (35 Signal tests; 138 shared tests).
+- successful empty searches now complete first-pass query tracking while
+  provider failures remain retryable;
+- the durable radar can add at most two reviewed, evidence-backed queries after
+  100% coverage, sharing Signal's cap, cooldown, deduplication, and file lock;
+- the live rollout reached 4,164/4,164 searches with zero remaining and correctly
+  added nothing while the Autopilot cooldown was active; and
+- Signal/shared regression suites passed (37 Signal tests plus 13 subtests; 148
+  shared tests).
 
 Autopilot may add scraper queries without asking each time, but only through
 bounded, measured logic: yield-aware selection, normalized similarity

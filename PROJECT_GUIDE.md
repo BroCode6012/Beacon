@@ -1,7 +1,7 @@
 # Signal — Codebase Investigation and Working Plan
 
 Investigation date: **2026-07-10**  
-Implementation status updated: **2026-07-11**
+Implementation status updated: **2026-07-12**
 
 This document is the durable map of Signal: what it is, why it exists, how it
 works, what is currently running, what was verified, where the important risks
@@ -30,27 +30,21 @@ a small Flet UI and orchestration layer in `D:\Youtube\Signal`. The heavy logic
 lives in the shared Scripter engine in `D:\Youtube\Scripter`, and both Signal and
 the Production Lab use the same SQLite index.
 
-The architectural separation is good. The most important weakness is no longer
-basic connectivity: the system is live, the database is large, and the radar is
-working. The main problem is now **signal quality and operational correctness**:
+The architectural separation is good. Basic connectivity, cache correctness,
+background-operation accounting, bounded query additions, Git baselines, and
+the split radar pipeline are now established. The main remaining problem is
+**signal quality and durable operator safety**:
 
 - the current outlier score promotes many tiny, old, noisy, music, or malformed
   channels;
 - the topic classifier visibly mislabels famous channels;
-- the Real Time screen can store the display label `All topics` as a real topic
-  filter and show a false zero-result state;
-- long-lived caches make “Live counts” and topic counts stale;
-- the global busy/status implementation leaves `Loading channels...` visible
-  after loading has finished;
-- Autopilot is adding new watchlist queries almost every pass, growing and
-  diluting the query pool;
-- several agent schemas and engine contracts disagree; and
-- neither Signal nor Scripter is currently under Git version control.
+- Agent writes still need one deterministic durable audit trail;
+- manual topic corrections still need provenance and locks; and
+- off-laptop discovery still needs a separate deployment design.
 
-The first work should therefore be a safety and correctness pass, not a large
-new feature.
+The next work should remain a quality/auditing pass, not a large new feature.
 
-### Verified implementation status — 2026-07-11
+### Verified implementation status — 2026-07-12
 
 The first correctness pass is now implemented and verified:
 
@@ -63,20 +57,22 @@ The first correctness pass is now implemented and verified:
 | Cache freshness | TTLs, stale-while-refresh, 60-second Overview refresh, topic invalidation |
 | Shared Finder cache | Successful writes clear cached derived reads |
 | Autopilot queries | 450 max, 2 autonomous additions/call, 12-hour cooldown, family/near-duplicate rejection, yield/backlog gate |
+| Research tracking | Successful empty provider responses count as tested; provider failures do not; incomplete passes never display as 100% |
+| Always-on query top-up | Radar may add at most 2 reviewed, evidence-backed, cross-topic queries only after 100% first-pass coverage; disabled by default outside Signal |
 | Agent contracts | Workspace roles aligned; Finder filters/sorts aligned; error payloads report error status |
 | Radar throughput | Independent fast-discovery and organizer lanes; 4 parallel search fetchers; 1-minute discovery rest |
 | Durable radar work | Coalescing lease-based queue beside the shared index; interrupted work safely returns to the queue |
 | Operator tracking | Overview distinguishes channels waiting from channels actively being organized |
 | Dependencies | `scikit-learn` and `joblib` declared in shared requirements |
 | Git baseline | Signal and Scripter now have separate safe repositories with secrets/data/generated state ignored |
-| Signal tests | **32 passed, 13 parameterized subtests passed** |
-| Shared tests | **134 passed** |
+| Signal tests | **37 passed, 13 parameterized subtests passed** |
+| Shared tests | **148 passed** |
 | Package health | `pip check`: no broken requirements |
 
 Every atomic change above also passed a separate real Flet launch and visual
 smoke test of Overview, Channels, Real Time, Find, and Agent. Verification
-instances used isolated Finder ports, disabled Autopilot, produced empty
-stdout/stderr logs, and left the live watchlist and Autopilot log unchanged.
+instances used isolated Finder ports and disabled Autopilot. Logs contained no
+exceptions; the only stderr output was the known Python 3.10 support warning.
 
 The radar speed pass was also verified against the live worker:
 
@@ -122,14 +118,30 @@ Measured live burst:
 This is a measured burst, not a permanent daily guarantee. Yield will change as
 queries become saturated and are revisited.
 
-Current live query-policy snapshot during verification:
+The always-on query-top-up pass was deployed and live-verified on 2026-07-12:
 
-- 422 base queries;
+- never-attempted variations are pulled into the next discovery slice instead
+  of waiting for a full rotation;
+- a successful provider response counts as tested even when it finds zero
+  videos, while provider failures remain retryable;
+- the radar and Signal Autopilot share the same cross-process write lock,
+  maximum size, duplicate-family rules, and cooldown record;
+- the radar selects only from a reviewed faceless/replicable subject catalog
+  and requires evidence across several already-indexed faceless channels;
+- each run may add at most two queries from different topics, only after 100%
+  first-pass coverage; and
+- Production Lab/legacy configurations remain unchanged because the feature is
+  disabled unless explicitly enabled.
+
+Current live query-policy snapshot after rollout:
+
+- 424 base queries;
 - hard ceiling 450;
-- 4,143 expanded searches;
-- 2,646 searched at least once (63.9%);
-- 1,497 expanded searches still untested; and
-- autonomous additions blocked with `existing_query_backlog`.
+- 4,164 expanded searches;
+- 4,164 searched at least once (100%);
+- 0 expanded searches untested; and
+- no radar query added during rollout because the existing Autopilot addition
+  correctly kept the shared 12-hour cooldown active.
 
 The remaining high-value work is:
 
@@ -309,11 +321,13 @@ Data:
 - index counts come from the `db_stats` Finder tool and are cached;
 - radar status and watchlist are read directly through `sweep_control`.
 
-Important observation:
+Current behavior:
 
-The label says “Live counts,” but the counts stay cached for the lifetime of the
-screen key until the user presses Refresh. The verified UI displayed 59,758
-channels while a direct database read already showed 59,955.
+- Overview counts refresh automatically every 60 seconds;
+- successful writes invalidate the relevant Signal and Finder caches;
+- the research tracker shows exact tested/remaining counts; and
+- near-complete progress uses enough precision that it cannot display 100%
+  while searches remain.
 
 ### Channels
 
@@ -914,6 +928,24 @@ Resolution:
 - 12-hour cooldown;
 - normalized family and 0.80 token-Jaccard near-duplicate rejection; and
 - exact accepted/rejected query results are persisted in Autopilot activity.
+
+### Resolved 2026-07-12: research completion stalled at one or two searches
+
+The old yield file counted only searches that returned videos. A valid provider
+response with zero results therefore looked permanently untested, and the last
+variation could wait for a full cursor rotation.
+
+Resolution:
+
+- `attempts` is recorded separately from productive `searches`;
+- empty successful responses complete first-pass research without falsely
+  increasing zero-yield retirement streaks;
+- failed/unavailable provider calls remain untested and retryable;
+- up to ten never-attempted variations are prioritized in each discovery slice;
+- Overview shows exact remaining counts and never rounds an incomplete pass to
+  100%; and
+- after full coverage, the durable radar may perform the bounded,
+  evidence-backed query top-up described above even while Signal is closed.
 
 ### Resolved 2026-07-11: basic Agent/engine schema disagreement
 
