@@ -13,14 +13,17 @@ is not intended to surface every high-performing channel. Opportunity views
 should suppress music, celebrities, children’s content, major brands/networks,
 one-off viral accidents, malformed records, and unstable tiny-data ratios.
 
-Signal is not the shared scraper engine and does not own a private database.
+Signal is not the shared scraper engine. It physically owns the one shared
+index; it does not maintain a private second database.
 
 ## Boundaries
 
 - Signal-owned code: `D:\Youtube\Signal`
 - Shared engine: `D:\Youtube\Scripter\scripter`
 - Shared live database:
-  `D:\Youtube\Scripter\storage\youtube_index.sqlite3`
+  `D:\Youtube\Signal\storage\youtube_index.sqlite3`
+- Shared radar config, status, queue, logs, and model state:
+  `D:\Youtube\Scripter\storage`
 
 An edit under the shared engine affects both Signal and the Production Lab.
 State that impact explicitly before making such an edit.
@@ -82,6 +85,15 @@ Completed and verified on 2026-07-11:
 - Agent schema/error-status alignment;
 - missing scikit-learn/joblib declarations; and
 - Signal/shared regression suites (25 Signal tests; 113 shared tests).
+
+Completed and verified on 2026-07-12:
+
+- the shared live index was checkpointed, hash-verified, integrity-checked, and
+  relocated into Signal storage;
+- the old Scripter database file and temporary legacy fallback were removed;
+- radar and monitor resumed against the Signal-owned index while their
+  operational state remained in Scripter storage; and
+- Signal/shared regression suites passed (35 Signal tests; 138 shared tests).
 
 Autopilot may add scraper queries without asking each time, but only through
 bounded, measured logic: yield-aware selection, normalized similarity

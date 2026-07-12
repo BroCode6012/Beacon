@@ -188,9 +188,10 @@ must be labeled as shared-impact work.
 
 Primary database:
 
-`D:\Youtube\Scripter\storage\youtube_index.sqlite3`
+`D:\Youtube\Signal\storage\youtube_index.sqlite3`
 
-Supporting state includes:
+Supporting operational state remains under `D:\Youtube\Scripter\storage` and
+includes:
 
 - `scraper_watchlist.json`
 - `radar_status.json`
@@ -201,10 +202,17 @@ Supporting state includes:
 - `faceless_text_model.joblib`
 
 The database is approximately 10 GB and runs in WAL mode. It must never be moved
-or copied casually. Signal and the Production Lab open it in place.
+or copied casually. Signal owns the physical file. Production Lab resolves that
+same shared index separately from its writable per-session database.
 
 `radar_work_queue.sqlite3` is not a second product database. It contains only
 small operational work records and can never replace the shared YouTube index.
+
+The relocation was completed and verified on 2026-07-12: writers were stopped
+cooperatively, the WAL was checkpointed, source and staged-copy SHA-256 hashes
+matched, both copies passed SQLite checks before cutover, both desktop apps and
+all regression suites passed on the new path, and the old Scripter database
+file plus its temporary code fallback were removed.
 
 ---
 
