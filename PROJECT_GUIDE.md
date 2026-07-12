@@ -40,7 +40,8 @@ the split radar pipeline are now established. The main remaining problem is
 - the topic classifier visibly mislabels famous channels;
 - Agent writes still need one deterministic durable audit trail;
 - manual topic corrections still need provenance and locks; and
-- off-laptop discovery still needs a separate deployment design.
+- off-laptop discovery still needs Signal-side sync controls and Oracle
+  provisioning, but its safe inbox architecture and worker now exist.
 
 The next work should remain a quality/auditing pass, not a large new feature.
 
@@ -62,11 +63,12 @@ The first correctness pass is now implemented and verified:
 | Agent contracts | Workspace roles aligned; Finder filters/sorts aligned; error payloads report error status |
 | Radar throughput | Independent fast-discovery and organizer lanes; 4 parallel search fetchers; 1-minute discovery rest |
 | Durable radar work | Coalescing lease-based queue beside the shared index; interrupted work safely returns to the queue |
+| Off-laptop foundation | Signed recurring plans, lightweight Oracle-ready collector, durable scheduler, signed result bundles/acks, idempotent local import |
 | Operator tracking | Overview distinguishes channels waiting from channels actively being organized |
 | Dependencies | `scikit-learn` and `joblib` declared in shared requirements |
 | Git baseline | Signal and Scripter now have separate safe repositories with secrets/data/generated state ignored |
 | Signal tests | **37 passed, 13 parameterized subtests passed** |
-| Shared tests | **148 passed** |
+| Shared tests | **169 passed** |
 | Package health | `pip check`: no broken requirements |
 
 Every atomic change above also passed a separate real Flet launch and visual
@@ -143,6 +145,39 @@ Current live query-policy snapshot after rollout:
 - no radar query added during rollout because the existing Autopilot addition
   correctly kept the shared 12-hour cooldown active.
 
+The off-laptop edge foundation was implemented and verified later on
+2026-07-12:
+
+- the canonical SQLite index stays physically in Signal storage and is never
+  copied, mounted, or opened by Oracle;
+- Signal can snapshot the current radar configuration into a signed,
+  immutable, versioned discovery plan (the live snapshot contains exactly
+  4,164 expanded searches);
+- the edge worker prioritizes every never-tested query before revisiting old
+  ones, then switches repeat searches to newest-upload order;
+- unchanged searches are temporarily retired and periodically reprobed;
+- provider failures remain retryable, while successful empty searches count as
+  tested;
+- free `scrapetube` searches run in bounded parallel batches, then the rotating
+  YouTube key pool is used only for cheap batched video/channel enrichment;
+- per-run quota is capped, exhausted-key knowledge is retained for the UTC day,
+  and the pool resets for the next quota day;
+- output is an append-only signed `youtube.discovery.v1` bundle containing
+  channels, videos, discovery links, snapshots, and per-query outcomes;
+- the laptop importer verifies signature/checksum, imports all rows in one
+  transaction, records the bundle in an idempotency ledger, and writes a signed
+  acknowledgement;
+- a real isolated network smoke collected one query into 3 videos/3 channels
+  at zero API quota and imported it into a temporary index; and
+- the full regression gate passed with 169 shared tests, 37 Signal tests plus
+  13 subtests, all five Signal screens, and an isolated Production Lab window.
+
+This layer is deliberately transport-agnostic. SSH/SFTP, OCI Object Storage, or
+another transport can move the same immutable files later without changing the
+worker, canonical database, or import contract. New cloud capabilities should
+be added as new versioned job/result kinds rather than hard-coded Oracle-only
+behavior.
+
 The remaining high-value work is:
 
 1. add deterministic durable write auditing for Agent actions;
@@ -150,7 +185,8 @@ The remaining high-value work is:
 3. protect manual topic corrections with provenance/locks;
 4. improve Agent/Autopilot Markdown and input layout;
 5. continue replacing remaining full-index organizer scans with incremental work;
-6. design the optional off-laptop cloud discovery inbox; and
+6. add Signal cloud status/sync controls, provision Oracle, and run a shadow
+   pilot before enabling continuous off-laptop collection; and
 7. upgrade the shared runtime to Python 3.11+ before **2026-10-04**.
 
 ---
@@ -185,6 +221,7 @@ The engine owns:
 - channel metrics and filter SQL;
 - niche workspaces;
 - crawling and provider routing;
+- the versioned edge plan/collector/worker/import protocol;
 - the continuous radar cycle;
 - topic classification;
 - faceless classification;
@@ -219,6 +256,8 @@ same shared index separately from its writable per-session database.
 
 `radar_work_queue.sqlite3` is not a second product database. It contains only
 small operational work records and can never replace the shared YouTube index.
+Likewise, the Oracle edge worker may keep a small JSON cursor/status file and
+append-only result bundles, but it does not own a searchable YouTube database.
 
 The relocation was completed and verified on 2026-07-12: writers were stopped
 cooperatively, the WAL was checkpointed, source and staged-copy SHA-256 hashes
@@ -272,6 +311,28 @@ detached radar worker
   |
   v
 Shared SQLite database
+
+Signal/controller
+  |
+  +--> signed discovery plan
+          |
+          v
+      transport (SSH/SFTP or OCI Object Storage; deployment pending)
+          |
+          v
+      Oracle edge worker
+          +--> free parallel searches
+          +--> bounded official API enrichment
+          +--> durable query cursor/yield state
+          |
+          v
+      signed immutable result bundles
+          |
+          v
+      local verified/idempotent importer
+          |
+          v
+      Shared SQLite database
 ```
 
 ### Important architectural rule
@@ -1143,6 +1204,29 @@ Exit condition:
 - Autopilot cannot grow configuration without bounds; and
 - tests are green.
 
+### Phase 1B — off-laptop edge deployment
+
+Goal: keep lightweight discovery running while the laptop is off without
+turning Oracle into a second Signal installation.
+
+Completed foundation:
+
+1. Signed/versioned discovery plans and result bundles.
+2. Bounded free-search plus official-enrichment collector.
+3. Durable query cursor, retry, retirement, and reprobe scheduler.
+4. Atomic/idempotent local import plus signed acknowledgements.
+5. Lightweight `requirements-edge.txt` without Flet, OpenCV, ML, or Bedrock.
+
+Remaining deployment work:
+
+1. Add Signal status, manual sync, and safe automatic inbox-import controls.
+2. Add a transport adapter while keeping the protocol transport-independent.
+3. Provision and harden one Oracle Always Free ARM VM.
+4. Run shadow mode and compare cloud/local results before enabling continuous
+   import.
+5. Keep heavy organization, faceless scoring, ranking, Finder, and the canonical
+   index on the laptop until a separately planned full service migration exists.
+
 ### Phase 2 — improve discovery signal quality
 
 Goal: rank channels that are genuinely useful and replicable.
@@ -1258,9 +1342,9 @@ Confirmed by the user on **2026-07-10**:
    scope Google gave them. Do not document, print, or commit any key. Before
    implementing pooled quota behavior, preserve the written authorization/scope
    outside source control and make the implementation match it.
-7. The local fast-discovery/queue architecture comes first. A cloud/off-laptop
-   collector is a later phase and must not begin by copying or remotely sharing
-   the live 10 GB SQLite file.
+7. The cloud/off-laptop collector must use the signed inbox architecture and
+   must never copy, mount, or remotely share the live SQLite file. Its foundation
+   now exists; provisioning and Signal-side sync controls remain pending.
 
 Initial conservative eligibility rule for implementation and evaluation:
 

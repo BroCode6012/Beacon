@@ -41,6 +41,12 @@ Signal reaches the engine + DB through `engine_link.py` (adds the Scripter repo 
 importing `scripter.*`. Radar config/status/queue/log/model files stay under
 `D:\Youtube\Scripter\storage`; moving the index must never move those operational files with it.
 
+The optional off-laptop Oracle node is an **edge collector, not a fourth copy of
+the app or database**. It receives signed/versioned query plans, keeps only a
+small operational JSON cursor, and produces signed immutable result bundles.
+The laptop verifies and imports those bundles into the one canonical index.
+Never copy, mount, expose, or remotely open the live SQLite file for this design.
+
 ## Files here
 - `signal_app.py` — the app / entry point. Screens: **Overview**, **Channels**, **Real Time**, **Find**. (The old
   separate **Niches** tab was removed — niches are now a **dropdown filter on the Channels tab**. Per-card
@@ -160,13 +166,31 @@ importing `scripter.*`. Radar config/status/queue/log/model files stay under
   lock used by Signal Autopilot. The feature defaults OFF, so Production Lab/legacy configs keep their
   old behavior; Signal's live config explicitly enables it. Live verification on 2026-07-12 reached
   4,164/4,164 tested searches with 0 remaining and added 0 queries because the existing Autopilot
-  cooldown correctly won. Regression gates: 37 Signal tests + 13 subtests; 148 shared tests; all five
+  cooldown correctly won. Regression gates: 37 Signal tests + 13 subtests; 169 shared tests; all five
   Signal screens and an isolated Production Lab profile passed real-window smoke tests.
+  ENGINE NOTE 12 (shared, off-laptop edge collector): `scripter/edge/` now provides a
+  transport-independent `signal-edge` v1 protocol. `plan.py` snapshots up to 10,000 normalized
+  queries into signed immutable `youtube.discovery.plan.v1` files; the current live radar config
+  validates at exactly 4,164 searches. `collector.py` runs bounded parallel no-quota scrapetube
+  searches and, in hybrid mode, uses `YouTubePool` only for cheap batched video/channel
+  enrichment. The pool retains exhausted-key state within one UTC day, resets the next day, and
+  reports quota per batch. `worker.py` persists a JSON cursor, gives never-tested searches absolute
+  priority, immediately runs catch-up batches, treats successful empty responses as tested, retries
+  provider failures with backoff, switches repeat searches to newest-first, retires unchanged
+  queries, and reserves periodic reprobe slots. It writes signed `youtube.discovery.v1` bundles;
+  `importer.py` verifies checksum/HMAC, imports channels/videos/search links/snapshots/query outcomes
+  in one transaction, records an `edge_import_batches` idempotency ledger, and writes signed acks.
+  This is staging, not a second YouTube index. `requirements-edge.txt` intentionally excludes Flet,
+  OpenCV, scikit-learn, and Bedrock so an Oracle ARM node stays lightweight. Real isolated smoke:
+  one free query produced 3 videos + 3 channels, imported into a temporary DB, and acknowledged.
+  Full verification: 169 shared tests, 37 Signal tests + 13 subtests, all five Signal screens, and
+  an isolated Production Lab window. Pending: Signal cloud status/sync UI, transport adapter,
+  Oracle provisioning/hardening, then shadow mode before continuous import.
   ENGINE NOTE 6 (shared, API-key pool + video categorizing): YouTube Data API quota is allocated
-  per Google Cloud project. Google policy prohibits creating or using separate projects/accounts
-  to artificially multiply quota for one service. Signal must use one production project, request
-  an official quota increase when needed, and use key rotation only for resilience/approved keys
-  within policy â€” never as quota sharding.
+  per Google Cloud project. On 2026-07-11 the user reported direct Google authorization to use
+  multiple keys across separate accounts/projects for this workload. Treat that as user-provided,
+  project-specific authorization and keep the implementation inside its exact written scope; the
+  code itself is not evidence of policy permission. Never print, document, or commit a key.
   `scripter/research/youtube_pool.py` `YouTubePool` reads `YOUTUBE_API_KEYS` (comma-separated, in
   `storage/.env`, NEVER in code), uses one key until it 403s `quotaExceeded` then rotates to the next,
   and marks invalid/restricted keys dead + skips them (verified: starting on the known-bad key #2 rotated
