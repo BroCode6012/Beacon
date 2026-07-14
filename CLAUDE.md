@@ -280,8 +280,12 @@ Never copy, mount, expose, or remotely open the live SQLite file for this design
   imported production cycles completed 500/500 searches with zero failures and
   added 161 genuinely new channel IDs plus 5,181 new video IDs to the canonical
   index. That measured yield projects to about 483 channels/hour or 11,592/day
-  if it holds. Immutable revision `3e1217c` is active.
-  Verification: 242 shared tests, 38 Signal tests, `pip check`, and repeated
+  if it holds. Discovery now checks Oracle's small durable organizer history
+  before enqueueing jobs, so channels organized within 30 days never enter the
+  queue. The first production cycle after that change created two jobs instead
+  of roughly nine, and the inherited backlog fell from 71 to 67 while fresh
+  discovery continued. Immutable revision `a3ab046` is active.
+  Verification: 243 shared tests, 38 Signal tests, `pip check`, and repeated
   real-window checks of all five Signal screens.
   ENGINE NOTE 13 (shared, split-radar recovery): on 2026-07-14 a live `py-spy`
   capture proved that the organizer lane had exited while `_run_split_pipeline`

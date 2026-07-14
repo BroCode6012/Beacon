@@ -415,8 +415,15 @@ Turbo Discovery was then deployed and live-verified later on 2026-07-14:
   and 5,181 new video IDs from the same window; 161 channels per 500 searches
   projects to about 483 channels/hour, or 11,592/day, if that measured yield
   holds;
-- immutable shared revision `3e1217c` is active on both Oracle services; and
-- the final regression gate passed with 242 shared tests, 38 Signal tests,
+- discovery now reads the organizer's durable 30-day channel history before
+  enqueueing signed jobs, so repeat channels never enter the queue. This is a
+  read-only SQLite lookup against Oracle's small operational state, not
+  Signal's canonical index;
+- the first post-dedup production cycle created two jobs instead of the prior
+  roughly nine repeat-heavy jobs. The existing backlog fell from 71 to 67 while
+  fresh work continued arriving;
+- immutable shared revision `a3ab046` is active on both Oracle services; and
+- the final regression gate passed with 243 shared tests, 38 Signal tests,
   `pip check`, and repeated visual verification of Overview, Channels loading
   and loaded, Real Time loading and loaded, Find, and Agent.
 
