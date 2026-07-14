@@ -276,9 +276,11 @@ Never copy, mount, expose, or remotely open the live SQLite file for this design
   channels/hour; more than 5% query failures reduce the batch by 25 and double
   the interval, while two healthy cycles recover one step. The base-query
   ceiling is 600, but the two-query autonomous limit, evidence gate,
-  deduplication, per-topic limits, and 12-hour cooldown remain. The first two
-  production cycles completed 125/125 searches with zero failures and created
-  nine organization jobs each. Immutable revision `3e1217c` is active.
+  deduplication, per-topic limits, and 12-hour cooldown remain. The first four
+  imported production cycles completed 500/500 searches with zero failures and
+  added 161 genuinely new channel IDs plus 5,181 new video IDs to the canonical
+  index. That measured yield projects to about 483 channels/hour or 11,592/day
+  if it holds. Immutable revision `3e1217c` is active.
   Verification: 242 shared tests, 38 Signal tests, `pip check`, and repeated
   real-window checks of all five Signal screens.
   ENGINE NOTE 13 (shared, split-radar recovery): on 2026-07-14 a live `py-spy`

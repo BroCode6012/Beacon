@@ -410,10 +410,11 @@ Turbo Discovery was then deployed and live-verified later on 2026-07-14:
 - the bounded base-query ceiling increased from 450 to 600, while the two-query
   autonomous limit, evidence requirement, normalized similarity deduplication,
   per-topic limits, and 12-hour cooldown remain unchanged;
-- the first two production Turbo cycles each completed 125/125 searches with
-  zero failures and zero retry warnings. They examined 4,998 and 4,961 result
-  observations, found 1,184 and 1,091 new video-result observations, and each
-  created nine bounded organization jobs;
+- the first four imported production Turbo cycles completed 500/500 searches
+  with zero failures. The canonical index gained 161 genuinely new channel IDs
+  and 5,181 new video IDs from the same window; 161 channels per 500 searches
+  projects to about 483 channels/hour, or 11,592/day, if that measured yield
+  holds;
 - immutable shared revision `3e1217c` is active on both Oracle services; and
 - the final regression gate passed with 242 shared tests, 38 Signal tests,
   `pip check`, and repeated visual verification of Overview, Channels loading
