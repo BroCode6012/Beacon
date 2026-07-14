@@ -1,7 +1,7 @@
 # Signal — Codebase Investigation and Working Plan
 
 Investigation date: **2026-07-10**  
-Implementation status updated: **2026-07-12**
+Implementation status updated: **2026-07-14**
 
 This document is the durable map of Signal: what it is, why it exists, how it
 works, what is currently running, what was verified, where the important risks
@@ -57,7 +57,7 @@ The first correctness pass is now implemented and verified:
 | Topic reset | Non-empty `__all_topics__` sentinel; legacy `All topics` is normalized |
 | Cache freshness | TTLs, stale-while-refresh, 60-second Overview refresh, topic invalidation |
 | Shared Finder cache | Successful writes clear cached derived reads |
-| Autopilot queries | 450 max, 2 autonomous additions/call, 12-hour cooldown, family/near-duplicate rejection, yield/backlog gate |
+| Autopilot queries | 600 max, 2 autonomous additions/call, 12-hour cooldown, family/near-duplicate rejection, yield/backlog gate |
 | Research tracking | Successful empty provider responses count as tested; provider failures do not; incomplete passes never display as 100% |
 | Always-on query top-up | Radar may add at most 2 reviewed, evidence-backed, cross-topic queries only after 100% first-pass coverage; disabled by default outside Signal |
 | Agent contracts | Workspace roles aligned; Finder filters/sorts aligned; error payloads report error status |
@@ -138,7 +138,7 @@ The always-on query-top-up pass was deployed and live-verified on 2026-07-12:
 Current live query-policy snapshot after rollout:
 
 - 424 base queries;
-- hard ceiling 450;
+- hard ceiling 600;
 - 4,164 expanded searches;
 - 4,164 searched at least once (100%);
 - 0 expanded searches untested; and
@@ -189,6 +189,236 @@ The off-laptop edge foundation was implemented and verified later on
 - the full regression gate passed with 178 shared tests, 41 Signal tests plus
   13 subtests, all five Signal screens, and an isolated Production Lab window.
 
+The laptop synchronization path was accelerated and live-verified on
+2026-07-13:
+
+- up to 20 immutable bundles are downloaded through one tar stream instead of
+  opening one SSH process per file;
+- signed acknowledgements are verified locally, uploaded in bounded batches,
+  and remote files are still removed only after successful local import;
+- one initialized SQLite connection is reused across the drain while every
+  bundle keeps its own verification, savepoint, ledger row, acknowledgement,
+  and archive step;
+- the Windows task now drains up to 100 bundles every two minutes through a
+  windowless `wscript.exe` wrapper, returns the real sync exit code, and never
+  opens a terminal while the operator is using the laptop;
+- a live optimized sync imported two new bundles end-to-end in about 18 seconds
+  with zero errors and left the remote queue empty;
+- an isolated 20-bundle benchmark imported 15,873 channel records in 18.64
+  seconds; and
+- the regression gate passed with 190 shared tests and 42 Signal tests plus
+  13 subtests.
+
+The first cloud-organization stage was deployed and live-verified on
+2026-07-13:
+
+- the Oracle collector now assigns every discovered channel a deterministic
+  clean topic before signing its result bundle;
+- it scores the videos already present in that bounded batch with the shared
+  `text-v3` faceless classifier in balanced mode;
+- signed bundles may include `channel_classifications`; Signal imports those
+  records into the one canonical database and keeps a stronger local
+  classification when it has a larger evidence sample;
+- imported cloud topics only fill channels that do not already have a local
+  topic, so existing local/manual topic decisions still win;
+- the deployed Oracle release produced a real bundle containing 895 channels,
+  895 non-empty topics, and 895 text classifications;
+- Signal imported all 895 channel/topic/classification records, signed the
+  acknowledgement, and left the remote queue empty; and
+- the regression gate passed with 192 shared tests, 42 Signal tests plus
+  13 subtests, and visual smoke tests of Overview, Channels, Real Time, Find,
+  and Agent.
+
+The changing-home-IP gap was closed and live-verified on 2026-07-13:
+
+- a separate OCI API signing key is stored under the Windows user profile with
+  a restricted local ACL; its public half is registered in Oracle;
+- the sync runner checks the laptop's public IPv4 before SSH and keeps exactly
+  one managed TCP/22 ingress rule restricted to that address as a `/32`;
+- the updater adopts only one unambiguous SSH rule, uses Oracle's ETag, and
+  preserves every unrelated ingress rule, egress rule, display name, and tag;
+- the OCI SDK runs in `storage/oci_updater_venv`, isolated from the shared
+  scraper environment because Lightning pins an older `urllib3`;
+- the laptop IP changed during rollout, the prior scheduled sync failed, the
+  updater replaced the stale `/32`, and SSH/sync recovered automatically;
+- subsequent hidden two-minute tasks completed with result `0`, no transport
+  errors, and zero remote bundles pending; and
+- the regression gate passed with 197 shared tests, 42 Signal tests plus
+  13 subtests, and another visual smoke test of all five Signal screens.
+
+The organization-throughput and cloud-control path was tightened and
+live-verified later on 2026-07-13:
+
+- every successful laptop sync now compares the live radar watchlist and edge
+  settings with the last signed discovery plan and publishes a new immutable
+  plan only when that specification changes;
+- the current 4,206-search plan was accepted by Oracle and all 4,206 query
+  states are present in the durable worker state;
+- automatic plan publication is disabled for custom/test sync roots unless it
+  is explicitly enabled, preventing isolated tests from touching the live VM;
+- the laptop radar is intentionally running with local harvesting disabled
+  while Oracle supplies discovery, so its cycles prioritize imported-channel
+  organization instead of repeating the same searches;
+- organization-only cycles skip network expansion, lab sync, intel fuel,
+  remote VLM, niche crawling, whole-index outlier rescoring, and competitor
+  tracking, while retaining enrichment, cataloging, categorization, topic,
+  junk, face, and text-classification work;
+- stale query text no longer masks the organizer's current status in the radar
+  status file or Signal Overview;
+- Oracle free-search failures now receive at most three bounded retries only
+  for transient JSON, connection, timeout, HTTP 429, and HTTP 503 failures,
+  with exponential backoff and jitter;
+- the first production bundle after that deployment completed 49 of 50
+  searches, recovered 14 transient attempts, and delivered 931 channels with
+  topics and classifications, compared with 8-12 failed searches in nearby
+  pre-deployment batches; and
+- the final regression gate passed with 205 shared tests, 43 Signal tests plus
+  13 subtests, and visual verification of Overview, Channels, Real Time, Find,
+  and Agent in a separate real Flet window.
+
+The durable deep-organization worker was deployed and live-verified later on
+2026-07-13:
+
+- Oracle now runs a second hardened systemd service,
+  `signal-edge-organizer.service`, independently from discovery;
+- discovery emits signed `youtube.organization.job.v1` work only for channels
+  attached to newly discovered videos, splits it into 100-channel jobs, and
+  keeps the protocol hard limit at 500 channels/10,000 videos;
+- the organizer keeps only operational cursor/retry state on Oracle. It never
+  opens, copies, mounts, or replaces Signal's canonical SQLite index;
+- channel enrichment resolves each official uploads playlist, catalogs up to
+  30 recent uploads through low-cost `playlistItems.list`, enriches videos and
+  categories in batches, and uses the free channel scraper only as a fallback;
+- every result also carries deterministic topic and `text-v3` classification
+  evidence plus bounded CPU face checks using models stored under Oracle's
+  persistent state directory;
+- signed `youtube.organization.v1` results are imported atomically by the
+  laptop sync. Stronger/newer local classification and face evidence remains
+  authoritative, exclusions stay reversible, and duplicate job revisions are
+  ignored;
+- the first two official-catalog production jobs completed consecutively with
+  zero channel errors: 124 channels/2,510 videos in 147.7 seconds, then
+  157 channels/3,443 videos in 213.0 seconds. They collected 5,292 uploads,
+  filled 5,666 category assignments, and consumed 300 YouTube quota units;
+- the latest discovery run created three bounded jobs for 280 channels with
+  newly discovered videos, no enqueue error, eight catalog workers, and two
+  face workers. Repeated results without a new video are no longer requeued;
+- the automatic two-minute laptop sync imported and acknowledged both
+  production results with no transport/import errors and no remote outbox
+  backlog; and
+- the regression gate passed with 226 shared tests, 43 Signal tests plus
+  13 subtests, and real-window verification of all five Signal screens.
+
+The laptop split-radar organizer was repaired and live-verified on
+2026-07-14:
+
+- a live stack capture showed the organizer lane had exited while the main
+  thread waited forever for the still-running discovery thread;
+- the split pipeline now owns an in-process shutdown event and always wakes the
+  discovery lane before joining it, including unexpected organizer exits;
+- starter-workspace refresh now reuses persisted channel classifications and
+  falls back to classification only on a fresh index, instead of materializing
+  all 1.6 million indexed videos on every maintenance pass;
+- the deadlocked worker was stopped cooperatively and replaced without stopping
+  Signal's canonical database, Oracle discovery, Oracle organization, or the
+  hidden two-minute sync;
+- the repaired worker completed a full live organizer cycle at 01:12
+  Casablanca time, crossed the former failure point, refreshed alerts across
+  11 workspaces, and started its next cycle normally;
+- normal non-vision stages held roughly 130 MB of private memory instead of the
+  old process's 2.38 GB whole-index rescan. The bounded 10-worker OpenCV face
+  stage still has a temporary higher memory peak;
+- the regression gate passed with 228 shared tests, 43 Signal tests plus
+  13 subtests, and two separate real-window smoke passes covering Overview,
+  Channels loading/loaded, Real Time loading/loaded, Find, and Agent.
+
+The overnight catch-up and repeated-payload bottleneck was repaired and
+live-verified later on 2026-07-14:
+
+- the Oracle organizer now removes both channels and their attached videos when
+  its durable state says that channel was already organized inside the 30-day
+  refresh window; video-only repeat jobs are skipped without producing another
+  large result bundle;
+- discovery results are change-aware: every query run is still signed and
+  retained, but unchanged channel/video rows, classifications, discovery links,
+  and snapshots are omitted; new results are emitted immediately and an
+  existing video is emitted again when its observed view count changes;
+- the first production discovery bundle after deployment examined 2,000 result
+  observations, suppressed 1,444 unchanged repeats, retained all 50 query-run
+  records, and emitted only 481 video rows plus 336 channel rows;
+- a controlled 40-result repeat bundle fell from 3,061 compressed bytes to 653
+  bytes, a 78.7% reduction;
+- the laptop importer verifies each immutable bundle independently, isolates
+  each one with a SQLite savepoint, durably commits groups of 20, and writes
+  signed acknowledgements only after that group commits; a malformed middle
+  bundle no longer prevents valid neighboring bundles from importing;
+- the hidden task still starts every two minutes, but after a wake it now keeps
+  draining consecutive 100-bundle slices until both queues are empty or its
+  bounded 90-minute catch-up budget ends;
+- the immutable Oracle release at shared-engine revision `bb567a5` passed its
+  checksum and pre-switch smoke test; both `signal-edge.service` and
+  `signal-edge-organizer.service` are active on that release;
+- a temporary internet interruption left 15 bundles waiting, after which the
+  OCI `/32` updater and hidden task recovered automatically; the final task
+  returned `0`, imported a 28-channel/365-video organization result, and left
+  both the laptop and Oracle queues at zero; and
+- the final regression gate passed with 232 shared tests, 43 Signal tests plus
+  13 subtests, `pip check`, and repeated real-window verification of Overview,
+  Channels, Real Time, Find, and Agent.
+
+The multi-key throughput path was then upgraded and live-verified later on
+2026-07-14:
+
+- the old rotating API pool was replaced by a thread-safe scheduler that gives
+  each healthy key one concurrent lane, preserves batch ordering, and moves
+  pending work away from a key that becomes exhausted or unusable;
+- batched channel/video enrichment, Oracle upload-playlist cataloging, and
+  category enrichment now run across those lanes while existing per-job quota
+  ceilings remain enforced;
+- concurrency scales automatically as future keys are added, using a
+  configurable 16-lane default ceiling and a hard defensive maximum;
+- a hidden-input enrollment command securely merges any number of future keys
+  into the laptop and Oracle environments, deduplicates them, sends values
+  through SSH standard input rather than command arguments, and displays only
+  counts;
+- the immutable production release is shared revision `cdea38e`; both Oracle
+  services are active;
+- all three newly supplied keys passed live calls. One permanently forbidden
+  older key was removed, leaving six configured and six healthy keys;
+- a real 300-channel test created six simultaneous 50-ID batches and reported
+  exactly one quota unit on every one of the six key lanes;
+- the next hidden sync returned `0`, imported and acknowledged fresh work, and
+  left local and Oracle pending counts at zero; and
+- the final regression gate passed with 240 shared tests, 43 Signal tests plus
+  13 subtests, `pip check`, and repeated visual verification of all five Signal
+  screens.
+
+Turbo Discovery was then deployed and live-verified later on 2026-07-14:
+
+- the signed Oracle plan now schedules up to 125 searches every five minutes
+  through 24 bounded network workers, replacing the former 50-search/10-worker
+  setting while preserving the 5,000-result protocol ceiling;
+- the laptop measures recent canonical yield over a six-hour window and places
+  only a rounded, bounded estimate in the signed plan. A 30-point hysteresis
+  prevents small measurement changes from publishing needless revisions;
+- the controller targets at least 450 new channels/hour. At the current
+  conservative 350 channels per 1,000 successful searches, full speed estimates
+  525 channels/hour before normal yield variation;
+- if more than 5% of a cycle's searches fail, Oracle reduces the next batch by
+  25 searches, doubles the rest interval, and never drops below 50. Two healthy
+  cycles restore one 25-search step until full speed returns;
+- the bounded base-query ceiling increased from 450 to 600, while the two-query
+  autonomous limit, evidence requirement, normalized similarity deduplication,
+  per-topic limits, and 12-hour cooldown remain unchanged;
+- the first two production Turbo cycles each completed 125/125 searches with
+  zero failures and zero retry warnings. They examined 4,998 and 4,961 result
+  observations, found 1,184 and 1,091 new video-result observations, and each
+  created nine bounded organization jobs;
+- immutable shared revision `3e1217c` is active on both Oracle services; and
+- the final regression gate passed with 242 shared tests, 38 Signal tests,
+  `pip check`, and repeated visual verification of Overview, Channels loading
+  and loaded, Real Time loading and loaded, Find, and Agent.
+
 This layer is deliberately transport-agnostic. SSH/SFTP, OCI Object Storage, or
 another transport can move the same immutable files later without changing the
 worker, canonical database, or import contract. New cloud capabilities should
@@ -202,8 +432,8 @@ The remaining high-value work is:
 3. protect manual topic corrections with provenance/locks;
 4. improve Agent/Autopilot Markdown and input layout;
 5. continue replacing remaining full-index organizer scans with incremental work;
-6. monitor the provisioned Oracle edge worker and expand versioned cloud job
-   types only after measured pilots; and
+6. move additional measured organization stages to signed, versioned cloud job
+   types without giving Oracle database access; and
 7. upgrade the shared runtime to Python 3.11+ before **2026-10-04**.
 
 ---
@@ -1001,7 +1231,7 @@ Resolution:
 - full measured watchlist/yield summary replaces the arbitrary first 25;
 - autonomous additions are blocked while the existing expanded backlog is
   insufficiently explored;
-- maximum 450 base queries;
+- maximum 600 base queries;
 - maximum two autonomous additions per call;
 - 12-hour cooldown;
 - normalized family and 0.80 token-Jaccard near-duplicate rejection; and

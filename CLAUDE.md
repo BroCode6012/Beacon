@@ -161,7 +161,7 @@ Never copy, mount, expose, or remotely open the live SQLite file for this design
   slice, preventing the last one or two searches from waiting a full rotation. Once expanded coverage
   reaches 100%, optional `query_topup_enabled` logic in `query_topup.py` may add at most two reviewed
   faceless/replicable subjects from different topics. Candidates require cross-channel evidence from
-  classified faceless channels plus related harvest-yield support, and pass the shared 450-query cap,
+  classified faceless channels plus related harvest-yield support, and pass the shared 600-query cap,
   normalized family/similarity deduplication, 12-hour cooldown, per-topic cap, and cross-process config
   lock used by Signal Autopilot. The feature defaults OFF, so Production Lab/legacy configs keep their
   old behavior; Signal's live config explicitly enables it. Live verification on 2026-07-12 reached
@@ -171,28 +171,129 @@ Never copy, mount, expose, or remotely open the live SQLite file for this design
   ENGINE NOTE 12 (shared, off-laptop edge collector): `scripter/edge/` now provides a
   transport-independent `signal-edge` v1 protocol. `plan.py` snapshots up to 10,000 normalized
   queries into signed immutable `youtube.discovery.plan.v1` files; the current live radar config
-  validates at exactly 4,164 searches. `collector.py` runs bounded parallel no-quota scrapetube
+  validates at exactly 4,206 searches. `collector.py` runs bounded parallel no-quota scrapetube
   searches and, in hybrid mode, uses `YouTubePool` only for cheap batched video/channel
   enrichment. The pool retains exhausted-key state within one UTC day, resets the next day, and
   reports quota per batch. `worker.py` persists a JSON cursor, gives never-tested searches absolute
   priority, immediately runs catch-up batches, treats successful empty responses as tested, retries
   provider failures with backoff, switches repeat searches to newest-first, retires unchanged
   queries, and reserves periodic reprobe slots. It writes signed `youtube.discovery.v1` bundles;
-  `importer.py` verifies checksum/HMAC, imports channels/videos/search links/snapshots/query outcomes
-  in one transaction, records an `edge_import_batches` idempotency ledger, and writes signed acks.
+  `importer.py` verifies checksum/HMAC, imports channels/videos/search links/snapshots/query outcomes,
+  records an `edge_import_batches` idempotency ledger, and writes signed acks.
   This is staging, not a second YouTube index. `requirements-edge.txt` intentionally excludes Flet,
-  OpenCV, scikit-learn, and Bedrock so an Oracle ARM node stays lightweight. Real isolated smoke:
+  scikit-learn, and Bedrock; it now includes headless OpenCV/NumPy for the separate bounded face
+  worker. Real isolated smoke:
   one free query produced 3 videos + 3 channels, imported into a temporary DB, and acknowledged.
   `edge/sync.py` adds the laptop-side secure inbox service: non-secret status is read-authorized;
   bounded import is a full-token Finder write; accepted/duplicate bundles are archived and invalid
   bundles stay quarantined. Signal Overview now exposes refresh/manual sync controls and invalidates
   its caches after successful imports while stating that Oracle never owns the canonical database.
+  The provisioned laptop transport batches up to 20 downloads or acknowledgements per SSH session,
+  reuses one initialized SQLite connection, gives each immutable bundle its own savepoint/ledger
+  outcome, durably commits groups of 20, and writes acknowledgements only after commit. It runs a
+  fully windowless 100-bundle drain every two minutes while the laptop is online. A
+  `wscript.exe` wrapper hides the complete PowerShell process tree while waiting and returning its
+  real exit code, so transport/import failures still fail the task without opening a terminal. Live verification
+  on 2026-07-13 imported two new bundles end-to-end in about 18 seconds with zero errors; an isolated
+  20-bundle benchmark imported 15,873 channel records in 18.64 seconds.
+  After a sleeping laptop wakes, one hidden task invocation now keeps draining consecutive
+  100-bundle slices until both queues are empty or a bounded 90-minute catch-up budget expires.
+  The first cloud-organization stage is also live: Oracle gives each discovered channel a clean
+  deterministic topic and a `text-v3` faceless score from the videos in that signed batch. Signal
+  only fills a missing topic and only replaces a text classification when the incoming release is
+  current and its evidence sample is stronger/newer, so local decisions remain authoritative. A
+  real post-deployment bundle imported 895 channels, 895 topics, and 895 classifications with a
+  signed acknowledgement and zero remaining remote bundles.
+  The laptop's changing public IP is now handled before every sync by an OCI-native updater. A
+  separate locally protected API signing key updates exactly one managed TCP/22 security-list rule
+  to the current public IPv4 `/32`, uses ETag concurrency control, and preserves all unrelated
+  ingress, egress, and tag state. Its pinned OCI SDK lives in an isolated storage venv so it cannot
+  conflict with Lightning's `urllib3` requirement. During rollout the public IP changed, the stale
+  rule caused one expected failed sync, the updater repaired the `/32`, and later scheduled tasks
+  returned result 0 with no transport errors and no remote backlog.
+  The sync runner now snapshots the live watchlist and edge settings after a successful connection,
+  signs and publishes a new immutable plan only when that specification changes, and reports plan
+  state separately. Automatic plan publication is blocked for custom/test sync roots unless
+  explicitly enabled; this prevents isolated tests from mutating the production jobs directory.
+  While Oracle supplies discovery, Signal's live radar has local harvesting disabled and executes
+  organization-only cycles. Those cycles retain enrichment, thin cataloging, video categorization,
+  topic/junk/face/text classification, and workspace bookkeeping, but skip network expansion, lab
+  sync, intel fuel, remote VLM, niche crawling, whole-index outlier scoring, and competitor tracking.
+  Signal Overview prefers the fresh organizer message over stale query text.
+  The Oracle collector now retries only transient free-search JSON, timeout, connection, HTTP 429,
+  and HTTP 503 failures, at most three attempts with exponential backoff and jitter. Its first real
+  post-deployment bundle completed 49/50 searches, recovered 14 transient attempts, and delivered
+  931 channels with topics and classifications; nearby earlier batches had 8-12 failures each.
+  A separate `signal-edge-organizer.service` now consumes signed
+  `youtube.organization.job.v1` files and emits signed `youtube.organization.v1` results. Discovery
+  queues only channels attached to newly discovered videos, normally in 100-channel jobs; the
+  protocol remains capped at 500 channels and 10,000 videos. Oracle keeps only operational
+  organizer state, retries, models, jobs, and result files. It never opens or receives the canonical
+  SQLite index. The organizer enriches channels, resolves official uploads playlists, catalogs up
+  to 30 uploads/channel through `playlistItems.list`, batches video/category enrichment, runs
+  deterministic topic and `text-v3` classification, and performs bounded CPU face checks. The
+  importer atomically preserves stronger/newer local evidence and deduplicates source job revisions.
+  Two consecutive production jobs completed with zero channel errors: 124 channels/2,510 videos in
+  147.7 seconds and 157 channels/3,443 videos in 213.0 seconds. Together they collected 5,292
+  uploads, filled 5,666 category assignments, and used 300 quota units. Scheduled sync imported and
+  acknowledged both with no remaining remote outbox bundles.
+  Repeat suppression was tightened on 2026-07-14. The organizer now drops the attached videos of
+  channels already processed inside its refresh window, including video-only repeat jobs.
+  Discovery bundles always retain signed query-run tracking but emit channel/video/classification/
+  discovery/snapshot rows only for new results or an existing video whose observed view count
+  changed. The first production delta bundle examined 2,000 result observations, suppressed 1,444
+  unchanged repeats, retained all 50 query runs, and emitted 481 video rows plus 336 channel rows.
+  A controlled repeat bundle was 78.7% smaller. The deployed immutable revision is `bb567a5`;
+  both Oracle services are active. Following a temporary network interruption, the dynamic `/32`
+  updater and hidden task recovered automatically, returned result 0, and left both queues empty.
   `deploy/oracle-edge/` now builds an allowlisted archive from a committed revision and installs an
   immutable Python 3.11+ release behind an unprivileged, no-inbound-port, systemd-hardened service.
   Persistent jobs/outbox state stays under `/var/lib/signal-edge`; health checks and symlink rollback
-  are explicit. Full verification: 178 shared tests, 41 Signal tests + 13 subtests, all five Signal
-  screens, and an isolated Production Lab window. Pending: transport adapter, Oracle VM creation,
-  then shadow mode before any automatic or continuous import.
+  are explicit. Full verification: 232 shared tests, 43 Signal tests + 13 subtests, and all five
+  Signal screens. Future cloud organization must continue through signed, versioned records rather
+  than copying or remotely opening the canonical database.
+  The authorized YouTube key pool was made concurrent later on 2026-07-14.
+  `YouTubePool` now assigns one in-flight API request to each healthy key,
+  preserves batch order, tracks non-secret per-key unit counts, removes
+  exhausted/forbidden/invalid keys from the active process pool, and moves
+  pending work to the remaining keys. Batched `videos.list` and
+  `channels.list`, Oracle upload-playlist cataloging, and category enrichment
+  all use this pool while respecting existing quota ceilings. Concurrency grows
+  automatically with future keys up to a configurable 16-lane default and a
+  hard safety cap. `scripts/add_edge_youtube_keys.ps1` provides hidden-input,
+  deduplicated laptop + Oracle enrollment through SSH stdin; key values never
+  enter command arguments or result output. Immutable revision `cdea38e` is
+  active. A real six-batch check used all six configured keys simultaneously
+  (`quota_units_by_key` was one for every lane); one permanently forbidden
+  legacy key was removed. Final sync returned result 0 with zero backlog.
+  Verification: 240 shared tests, 43 Signal tests + 13 subtests, `pip check`,
+  and repeated visual checks of all five Signal screens.
+  Turbo Discovery was deployed later on 2026-07-14. The signed plan now uses
+  up to 125 searches every five minutes across 24 bounded workers, still within
+  the protocol's 5,000-result ceiling. The laptop places a rounded six-hour
+  canonical yield estimate in the plan and keeps it stable across changes
+  smaller than 30 channels per 1,000 searches. Oracle targets at least 450 new
+  channels/hour; more than 5% query failures reduce the batch by 25 and double
+  the interval, while two healthy cycles recover one step. The base-query
+  ceiling is 600, but the two-query autonomous limit, evidence gate,
+  deduplication, per-topic limits, and 12-hour cooldown remain. The first two
+  production cycles completed 125/125 searches with zero failures and created
+  nine organization jobs each. Immutable revision `3e1217c` is active.
+  Verification: 242 shared tests, 38 Signal tests, `pip check`, and repeated
+  real-window checks of all five Signal screens.
+  ENGINE NOTE 13 (shared, split-radar recovery): on 2026-07-14 a live `py-spy`
+  capture proved that the organizer lane had exited while `_run_split_pipeline`
+  waited forever for the still-running discovery thread. The split worker now
+  owns a process-local shutdown event and sets it before joining discovery on
+  every organizer exit, including unexpected exceptions. The same investigation
+  found starter-workspace refresh materializing the full 1.6-million-video index
+  even though channel classifications were already persisted. Workspace
+  bootstrap now reuses those saved scores and only classifies as a fresh-index
+  fallback. The old process held 2.38 GB private memory; the repaired live cycle
+  held about 130 MB outside the bounded OpenCV face stage, crossed the former
+  failure point, refreshed 11 workspaces, completed at 01:12 Casablanca time,
+  and began cycle 2 normally. Verification: 228 shared tests, 43 Signal tests +
+  13 subtests, plus two full real-window passes of all five Signal screens.
   ENGINE NOTE 6 (shared, API-key pool + video categorizing): YouTube Data API quota is allocated
   per Google Cloud project. On 2026-07-11 the user reported direct Google authorization to use
   multiple keys across separate accounts/projects for this workload. Treat that as user-provided,

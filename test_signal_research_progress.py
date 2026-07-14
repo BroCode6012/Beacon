@@ -9,7 +9,7 @@ class SignalResearchProgressTests(unittest.TestCase):
     def test_backlog_tracker_shows_exact_tested_and_remaining_counts(self) -> None:
         state = _research_progress_state({
             "count": 422,
-            "max_total": 450,
+            "max_total": 600,
             "expanded_queries": 4_143,
             "searched_queries": 1_896,
             "can_add_autonomously": False,
