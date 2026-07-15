@@ -69,6 +69,7 @@ class Autopilot:
         self.interval = max(5, int(st.get("interval_minutes", DEFAULT_INTERVAL)))
         self.log: list[dict] = list(st.get("log", []))[:50]
         self.running_now = False
+        self._run_lock = threading.Lock()   # atomic guard for run_once (scheduler vs "Run now")
         self.next_run_ts: float | None = None
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -131,48 +132,55 @@ class Autopilot:
             self.run_once()
 
     def run_once(self) -> None:
-        if self.running_now:
-            return
-        self.running_now = True
-        self._render()
-        stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-        actions: list[str] = []
-        query_changes: list[dict] = []
+        # Atomic test-and-set: a scheduled pass and a manual "Run now" must never both start
+        # (double Bedrock cost + concurrent writes to the shared index). try/finally then
+        # guarantees the flag always clears, so a failed or stalled pass can't wedge every
+        # future run.
+        with self._run_lock:
+            if self.running_now:
+                return
+            self.running_now = True
         try:
-            import sweep_control
-            from signal_agent import SignalAgent
-            agent = SignalAgent(
-                self.app.client, sweep_control, ui=self.app, allowed_tools=SAFE_TOOLS,
-                autonomous=True)
-            ok, why = agent.ready()
-            if not ok:
-                summary = f"Not configured: {why}"
-            else:
-                def ev(e):
-                    if e.get("type") == "tool":
-                        actions.append(e.get("name", ""))
-                    elif (e.get("type") == "tool_result"
-                          and e.get("name") == "add_watchlist_queries"):
-                        out = e.get("output")
-                        if isinstance(out, dict):
-                            query_changes.append({
-                                "accepted": list(out.get("accepted") or []),
-                                "rejected": list(out.get("rejected") or []),
-                                "total": out.get("total"),
-                            })
-                summary = agent.run(MAINTENANCE_GOAL, on_event=ev)
-        except Exception as exc:  # noqa: BLE001
-            summary = f"error: {type(exc).__name__}: {exc}"
-        self.log.insert(0, {
-            "at": stamp,
-            "tools": actions,
-            "summary": (summary or "")[:1200],
-            "query_changes": query_changes,
-        })
-        self.log = self.log[:50]
-        self._save()
-        self.running_now = False
-        self._render()
+            self._render()
+            stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+            actions: list[str] = []
+            query_changes: list[dict] = []
+            try:
+                import sweep_control
+                from signal_agent import SignalAgent
+                agent = SignalAgent(
+                    self.app.client, sweep_control, ui=self.app, allowed_tools=SAFE_TOOLS,
+                    autonomous=True)
+                ok, why = agent.ready()
+                if not ok:
+                    summary = f"Not configured: {why}"
+                else:
+                    def ev(e):
+                        if e.get("type") == "tool":
+                            actions.append(e.get("name", ""))
+                        elif (e.get("type") == "tool_result"
+                              and e.get("name") == "add_watchlist_queries"):
+                            out = e.get("output")
+                            if isinstance(out, dict):
+                                query_changes.append({
+                                    "accepted": list(out.get("accepted") or []),
+                                    "rejected": list(out.get("rejected") or []),
+                                    "total": out.get("total"),
+                                })
+                    summary = agent.run(MAINTENANCE_GOAL, on_event=ev)
+            except Exception as exc:  # noqa: BLE001
+                summary = f"error: {type(exc).__name__}: {exc}"
+            self.log.insert(0, {
+                "at": stamp,
+                "tools": actions,
+                "summary": (summary or "")[:1200],
+                "query_changes": query_changes,
+            })
+            self.log = self.log[:50]
+            self._save()
+        finally:
+            self.running_now = False
+            self._render()
 
     def _render(self) -> None:
         try:

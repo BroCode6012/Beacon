@@ -262,6 +262,12 @@ class SignalAgent:
         args = {k: v for k, v in (args or {}).items() if v is not None}
         if self.allowed_tools is not None and name not in self.allowed_tools:
             return {"error": f"'{name}' is disabled in this (restricted) mode"}
+        # Irreversible-write safety: a RESTRICTED/autonomous pass (e.g. Autopilot) must never
+        # re-label the WHOLE index — a full reclassify overwrites manual topic corrections and
+        # there is no undo — so force only_missing. A full interactive agent (allowed_tools is
+        # None) can still do an explicit whole-index reclassify when the user asks for it.
+        if name == "reclassify_topics" and (self.allowed_tools is not None or self.autonomous):
+            args["only_missing"] = True
         if name in _UI:
             if self.ui is None:
                 return {"error": "no app UI attached (running headless)"}

@@ -100,13 +100,45 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
+def _pid_is_worker(pid: int) -> bool:
+    """Best-effort identity check so a REUSED pid (after an unclean worker death, when the
+    OS hands that number to an unrelated process) isn't mistaken for the live worker.
+    CONSERVATIVE by design: returns True whenever it cannot tell, so it can never cause a
+    spurious second worker to launch — it only rejects a pid it can positively identify as
+    NOT the worker (the worker always runs under python/pythonw)."""
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        import ctypes
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        k32 = ctypes.windll.kernel32
+        handle = k32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+        if not handle:
+            return True   # can't inspect -> assume it's the worker (no double launch)
+        try:
+            size = ctypes.c_ulong(2048)
+            buf = ctypes.create_unicode_buffer(size.value)
+            if not k32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size)):
+                return True
+            exe = (buf.value or "").lower()
+            return exe.endswith("python.exe") or exe.endswith("pythonw.exe")
+        finally:
+            k32.CloseHandle(handle)
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as fh:
+            return b"radar" in fh.read().lower()
+    except Exception:  # noqa: BLE001
+        return True
+
+
 def is_running() -> bool:
-    """True if the worker process is alive (pidfile + liveness check)."""
+    """True if the worker process is alive AND is actually our worker (pidfile + liveness +
+    identity check, so a recycled pid can't masquerade as a running scraper)."""
     try:
         pid = int(PID_PATH.read_text(encoding="utf-8").strip())
     except Exception:  # noqa: BLE001
         return False
-    return _pid_alive(pid)
+    return _pid_alive(pid) and _pid_is_worker(pid)
 
 
 def start_worker() -> bool:
