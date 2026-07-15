@@ -427,6 +427,34 @@ Turbo Discovery was then deployed and live-verified later on 2026-07-14:
   `pip check`, and repeated visual verification of Overview, Channels loading
   and loaded, Real Time loading and loaded, Find, and Agent.
 
+The laptop catch-up importer was then permanently accelerated and instrumented
+on 2026-07-15:
+
+- repeated per-row Python-to-SQL calls are now buffered into prepared bulk
+  writes while preserving every bundle savepoint, idempotency ledger,
+  conditional merge rule, transaction boundary, and signed acknowledgement;
+- the import connection uses a larger connection-local SQLite page cache and
+  memory-backed temporary storage without weakening commit durability;
+- cloud records no longer carry or store redundant full YouTube API objects.
+  Video records retain the category ID used by the canonical index, and channel
+  records retain the thumbnail data used by Signal cards; parsed titles,
+  descriptions, counts, duration, URLs, timestamps, and categories remain in
+  their normal columns;
+- on an identical disposable 500,000-video index, five large production bundles
+  fell from 5.434 seconds to 1.352 seconds, a measured **4.02x speedup**. The
+  resulting database was about 70 MB smaller for that sample, and equivalent
+  future compressed bundles measured 28.8% smaller;
+- the sync now writes durable committed-bundle progress, current-round totals,
+  combined laptop/Oracle backlog, rate, and ETA. Signal's Cloud worker card
+  displays that progress and disables overlapping manual sync attempts;
+- immutable shared revision `060c8f2` is active on Oracle release
+  `20260715T132751Z-330208`. Its first production bundle contained 1,410
+  channels and 2,219 videos, used only the approved slim raw fields, imported
+  end-to-end in 13.859 seconds, and left the remote outbox empty; and
+- the final regression gate passed with 245 shared tests, 44 Signal tests plus
+  13 subtests, and real-window verification of the progress card and all five
+  Signal screens.
+
 This layer is deliberately transport-agnostic. SSH/SFTP, OCI Object Storage, or
 another transport can move the same immutable files later without changing the
 worker, canonical database, or import contract. New cloud capabilities should

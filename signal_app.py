@@ -169,6 +169,8 @@ def _cloud_sync_view_state(payload: dict) -> dict:
     last_sync = last_sync if isinstance(last_sync, dict) else {}
     transport = payload.get("transport")
     transport = transport if isinstance(transport, dict) else {}
+    progress = payload.get("progress")
+    progress = progress if isinstance(progress, dict) else {}
     remote_pending = nonnegative_int(transport.get("remote_pending"))
     remote = payload.get("remote")
     remote = remote if isinstance(remote, dict) else {}
@@ -178,6 +180,17 @@ def _cloud_sync_view_state(payload: dict) -> dict:
     synced_at = str(last_sync.get("synced_at") or "")
     remote_state = str(remote.get("state") or "unknown").lower()
     remote_message = str(remote.get("message") or "").strip()
+    progress_state = str(progress.get("state") or "").lower()
+    progress_processed = nonnegative_int(progress.get("processed_bundles"))
+    progress_total = nonnegative_int(progress.get("total_bundles"))
+    progress_backlog = nonnegative_int(progress.get("backlog_remaining"))
+    progress_eta = nonnegative_int(progress.get("eta_seconds"))
+    sync_running = progress_state == "importing"
+    progress_ratio = (
+        min(1.0, progress_processed / progress_total)
+        if progress_total > 0
+        else 0.0
+    )
 
     if not configured:
         badge = "setup pending"
@@ -186,6 +199,24 @@ def _cloud_sync_view_state(payload: dict) -> dict:
             "Oracle is not connected yet. Signal is ready, but the secure "
             "signing key and file transport still need setup."
         )
+    elif sync_running:
+        badge = f"{progress_processed:,}/{progress_total:,} importing"
+        tone = "accent2"
+        message = (
+            f"Signal has safely committed {progress_processed:,} of "
+            f"{progress_total:,} bundles in this import round."
+        )
+        if progress_eta > 0:
+            eta_minutes = max(1, round(progress_eta / 60))
+            message += (
+                f" About {eta_minutes:,} minute"
+                f"{'s' if eta_minutes != 1 else ''} remain at the current speed."
+            )
+        if progress_backlog > max(0, progress_total - progress_processed):
+            message += (
+                f" {progress_backlog:,} bundles remain across the laptop "
+                "and Oracle queues."
+            )
     elif failed:
         badge = "attention"
         tone = "warn"
@@ -258,7 +289,12 @@ def _cloud_sync_view_state(payload: dict) -> dict:
         "last_line": last_line,
         "remote_state": remote_state,
         "remote_message": remote_message,
-        "sync_enabled": configured and (
+        "sync_running": sync_running,
+        "progress_ratio": progress_ratio,
+        "progress_processed": progress_processed,
+        "progress_total": progress_total,
+        "progress_backlog": progress_backlog,
+        "sync_enabled": configured and not sync_running and (
             pending > 0 or transport_configured
         ),
     }
@@ -1454,7 +1490,11 @@ class SignalApp:
             "muted": MUTED,
         }[view["tone"]]
         sync_disabled = self._cloud_syncing or not view["sync_enabled"]
-        sync_text = "Syncingâ€¦" if self._cloud_syncing else "Sync now"
+        sync_text = (
+            "Importing..."
+            if view["sync_running"]
+            else ("Syncing..." if self._cloud_syncing else "Sync now")
+        )
         details: list[ft.Control] = [
             ft.Row(
                 [
@@ -1484,6 +1524,15 @@ class SignalApp:
             ),
             ft.Text(view["message"], size=12, color=color),
         ]
+        if view["sync_running"]:
+            details.append(
+                ft.ProgressBar(
+                    value=view["progress_ratio"],
+                    color=ACCENT2,
+                    bgcolor=BORDER,
+                    height=6,
+                )
+            )
         if view["remote_message"]:
             details.append(muted(f"Oracle: {view['remote_message']}", 11))
         if view["last_line"]:

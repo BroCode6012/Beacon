@@ -84,3 +84,29 @@ def test_cloud_remote_pending_is_visible_without_local_inbox_files():
     assert state["remote_pending"] == 12
     assert state["sync_enabled"] is True
     assert "fetch, verify, and import" in state["message"]
+
+
+def test_cloud_import_progress_shows_committed_count_eta_and_disables_overlap():
+    state = _cloud_sync_view_state(
+        {
+            "configured": True,
+            "transport_configured": True,
+            "pending_bundles": 100,
+            "progress": {
+                "state": "importing",
+                "processed_bundles": 40,
+                "total_bundles": 100,
+                "backlog_remaining": 237,
+                "eta_seconds": 720,
+            },
+        }
+    )
+
+    assert state["badge"] == "40/100 importing"
+    assert state["tone"] == "accent2"
+    assert state["sync_running"] is True
+    assert state["progress_ratio"] == 0.4
+    assert state["progress_backlog"] == 237
+    assert state["sync_enabled"] is False
+    assert "12 minutes remain" in state["message"]
+    assert "237 bundles remain" in state["message"]

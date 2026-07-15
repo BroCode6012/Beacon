@@ -287,6 +287,21 @@ Never copy, mount, expose, or remotely open the live SQLite file for this design
   discovery continued. Immutable revision `a3ab046` is active.
   Verification: 243 shared tests, 38 Signal tests, `pip check`, and repeated
   real-window checks of all five Signal screens.
+  The laptop catch-up path was permanently accelerated on 2026-07-15. Edge
+  datasets now use prepared bulk SQLite writes with a larger connection-local
+  page cache while preserving per-bundle savepoints, idempotency, commit
+  durability, and signed acknowledgements. Discovery and organization bundles
+  retain only raw fields still consumed by the canonical index: channel
+  thumbnails and video category IDs; all parsed fields remain in normal
+  columns. A disposable 500,000-video benchmark improved from 5.434 seconds to
+  1.352 seconds for the same five production bundles (4.02x), and equivalent
+  future bundles were 28.8% smaller. `sync_progress.json` now records committed
+  count, rate, ETA, and combined laptop/Oracle backlog; Signal displays it on
+  the Cloud worker card and disables overlapping sync. Shared revision
+  `060c8f2` is active on Oracle release `20260715T132751Z-330208`; its first
+  1,410-channel/2,219-video production result imported in 13.859 seconds.
+  Verification: 245 shared tests, 44 Signal tests + 13 subtests, and a complete
+  real-window pass of all five screens plus the in-progress cloud card.
   ENGINE NOTE 13 (shared, split-radar recovery): on 2026-07-14 a live `py-spy`
   capture proved that the organizer lane had exited while `_run_split_pipeline`
   waited forever for the still-running discovery thread. The split worker now
