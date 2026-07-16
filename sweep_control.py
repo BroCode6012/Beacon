@@ -173,6 +173,36 @@ def stop_worker() -> None:
     STOP_PATH.write_text("stop", encoding="utf-8")
 
 
+AUTOSTART_SCRIPT = Path(__file__).with_name("install_radar_autostart.ps1")
+
+
+def autostart_installed() -> bool:
+    """True if the 'SignalRadarAutostart' scheduled task exists (keeps the scraper running
+    on login + as a keep-alive). Shells to PowerShell — call OFF the UI thread."""
+    try:
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+             "-File", str(AUTOSTART_SCRIPT), "-Status"],
+            capture_output=True, text=True, timeout=25)
+        return out.stdout.strip().lower().startswith("enabled")
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def set_autostart(on: bool) -> bool:
+    """Install (on) or remove (off) the auto-start-on-login keep-alive task. Returns success.
+    No elevation needed (schtasks /SC MINUTE /IT). Call OFF the UI thread."""
+    cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+           "-File", str(AUTOSTART_SCRIPT)]
+    if not on:
+        cmd.append("-Uninstall")
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+        return out.returncode == 0
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def get_niches() -> list[str]:
     """The editable list of niches / search queries the scraper cycles through."""
     data = _read_watchlist_config()

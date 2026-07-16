@@ -5,6 +5,7 @@
 
 # Generated Signal state
 _autopilot.json
+_targets.json
 *.log
 *.log.*
 __pycache__/

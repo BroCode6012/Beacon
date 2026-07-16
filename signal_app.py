@@ -185,12 +185,81 @@ def _cloud_sync_view_state(payload: dict) -> dict:
     progress_total = nonnegative_int(progress.get("total_bundles"))
     progress_backlog = nonnegative_int(progress.get("backlog_remaining"))
     progress_eta = nonnegative_int(progress.get("eta_seconds"))
+    progress_phase = str(progress.get("phase") or "").lower()
+    transaction_number = nonnegative_int(progress.get("transaction_number"))
+    transaction_total = nonnegative_int(progress.get("transaction_total"))
+    transaction_processed = nonnegative_int(
+        progress.get("transaction_processed")
+    )
+    transaction_size = nonnegative_int(progress.get("transaction_size"))
+    active_bundle = nonnegative_int(progress.get("active_bundle"))
     sync_running = progress_state == "importing"
     progress_ratio = (
         min(1.0, progress_processed / progress_total)
         if progress_total > 0
         else 0.0
     )
+    activity_label = ""
+    activity_ratio = None
+    transaction_label = (
+        f"transaction {transaction_number:,}/{transaction_total:,}"
+        if transaction_number and transaction_total
+        else "current transaction"
+    )
+    if progress_phase == "preparing":
+        activity_label = "Preparing the import round."
+    elif progress_phase == "verifying":
+        bundle_label = (
+            f"bundle {active_bundle:,}/{progress_total:,}"
+            if active_bundle and progress_total
+            else "the next bundle"
+        )
+        activity_label = f"Verifying {bundle_label} before database import."
+        if transaction_size:
+            activity_ratio = min(
+                1.0,
+                transaction_processed / transaction_size,
+            )
+    elif progress_phase == "waiting_for_database":
+        activity_label = (
+            f"{transaction_label.capitalize()} is waiting briefly for the "
+            "database writer."
+        )
+    elif progress_phase == "staging":
+        if transaction_size:
+            activity_label = (
+                f"Staging {transaction_label}: "
+                f"{transaction_processed:,}/{transaction_size:,} bundles prepared."
+            )
+            activity_ratio = min(
+                1.0,
+                transaction_processed / transaction_size,
+            )
+        else:
+            activity_label = f"Staging {transaction_label}."
+    elif progress_phase == "committing":
+        activity_label = (
+            f"Saving {transaction_label} safely to the database."
+        )
+        activity_ratio = 1.0
+    elif progress_phase == "acknowledging":
+        activity_label = (
+            f"{transaction_label.capitalize()} is committed; creating secure "
+            "acknowledgements."
+        )
+        activity_ratio = 1.0
+    elif progress_phase == "transaction_complete":
+        activity_label = (
+            f"{transaction_label.capitalize()} is safely committed; preparing "
+            "the next transaction."
+        )
+        activity_ratio = 1.0
+    elif sync_running:
+        activity_label = (
+            "This import began before detailed step tracking was available. "
+            "Its committed count will still advance after the current safe "
+            "database transaction finishes."
+        )
 
     if not configured:
         badge = "setup pending"
@@ -200,12 +269,17 @@ def _cloud_sync_view_state(payload: dict) -> dict:
             "signing key and file transport still need setup."
         )
     elif sync_running:
-        badge = f"{progress_processed:,}/{progress_total:,} importing"
+        badge = f"{progress_processed:,}/{progress_total:,} committed"
         tone = "accent2"
         message = (
-            f"Signal has safely committed {progress_processed:,} of "
+            f"Import is active. Signal has safely committed {progress_processed:,} of "
             f"{progress_total:,} bundles in this import round."
         )
+        if transaction_size and progress_processed < progress_total:
+            message += (
+                f" The committed count advances after this "
+                f"{transaction_size:,}-bundle transaction finishes."
+            )
         if progress_eta > 0:
             eta_minutes = max(1, round(progress_eta / 60))
             message += (
@@ -294,6 +368,9 @@ def _cloud_sync_view_state(payload: dict) -> dict:
         "progress_processed": progress_processed,
         "progress_total": progress_total,
         "progress_backlog": progress_backlog,
+        "progress_phase": progress_phase,
+        "activity_label": activity_label,
+        "activity_ratio": activity_ratio,
         "sync_enabled": configured and not sync_running and (
             pending > 0 or transport_configured
         ),
@@ -330,10 +407,12 @@ CH_PAGE = 120
 ALL_TOPICS = "__all_topics__"
 OVERVIEW_REFRESH_SECONDS = max(
     5, int(os.getenv("SIGNAL_OVERVIEW_REFRESH_SECONDS", "60")))
+CLOUD_PROGRESS_REFRESH_SECONDS = max(
+    2, int(os.getenv("SIGNAL_CLOUD_PROGRESS_REFRESH_SECONDS", "3")))
 CACHE_ERROR_TTL_SECONDS = 15
 CACHE_TTL_SECONDS = {
     "overview": OVERVIEW_REFRESH_SECONDS,
-    "edge_sync": 10,
+    "edge_sync": CLOUD_PROGRESS_REFRESH_SECONDS,
     "topics": 300,
     "niches": 300,
     "channels:": 120,
@@ -352,7 +431,7 @@ def _pipeline_progress_state(status: dict) -> dict | None:
         raw = raw if isinstance(raw, dict) else {}
         state = str(raw.get("state") or fallback)
         message = str(
-            raw.get("current_query") or raw.get("message") or state
+            raw.get("message") or raw.get("current_query") or state
         ).strip()
         return {"state": state, "message": message}
 
@@ -450,6 +529,7 @@ class SignalApp:
         self.rt_chip: str | None = None    # active preset chip on Real Time
         self._rt_watch_started = False
         self._overview_watch_started = False
+        self._cloud_watch_started = False
         # progressive paging (no hard cap): how many cards are currently loaded per tab.
         # "Show more" grows these; they reset to CH_PAGE when the filter/window changes.
         self.ch_shown = CH_PAGE
@@ -1328,6 +1408,7 @@ class SignalApp:
 
     def _render_overview(self) -> None:
         self._watch_overview()
+        self._watch_cloud_sync()
         self.content.controls.append(muted(
             f"Live counts from the shared index · auto-refreshes every "
             f"{OVERVIEW_REFRESH_SECONDS}s · {self._cache_updated_text('overview')}."))
@@ -1349,6 +1430,7 @@ class SignalApp:
             ))
         # live background-scraper card (status read fresh each render, not cached)
         self.content.controls.append(self._scraper_card())
+        self.content.controls.append(self._scrape_targets_card())
         self.content.controls.append(self._cloud_sync_card())
 
     def _research_progress_card(self) -> ft.Control:
@@ -1442,11 +1524,63 @@ class SignalApp:
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _cloud_tick(self) -> None:
+        """Refresh cloud progress silently while an import is active."""
+        key = "edge_sync"
+        if key in self._loading:
+            return
+        self._loading.add(key)
+        gen = self._epoch.get(key, 0)
+
+        def work():
+            try:
+                result = {
+                    "data": self.client.call("edge_sync_status")
+                }
+            except Exception:  # noqa: BLE001 - keep the last good progress snapshot
+                self._loading.discard(key)
+                return
+            self._loading.discard(key)
+            if self._epoch.get(key, 0) != gen:
+                return
+            self.cache[key] = self._cache_entry(result)
+            if self.section == "Overview":
+                try:
+                    self._render()
+                except Exception:  # noqa: BLE001
+                    pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _watch_cloud_sync(self) -> None:
+        """Poll live import progress without making the user press Refresh."""
+        if self._cloud_watch_started:
+            return
+        self._cloud_watch_started = True
+
+        def worker():
+            while True:
+                time.sleep(CLOUD_PROGRESS_REFRESH_SECONDS)
+                if self.section != "Overview":
+                    continue
+                entry = self.cache.get("edge_sync") or {}
+                data = entry.get("data")
+                data = data if isinstance(data, dict) else {}
+                progress = data.get("progress")
+                progress = progress if isinstance(progress, dict) else {}
+                if (
+                    self._cloud_syncing
+                    or str(progress.get("state") or "").lower() == "importing"
+                ):
+                    self._cloud_tick()
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _cloud_sync_card(self) -> ft.Control:
         entry = self._ensure(
             "edge_sync",
             lambda: self.client.call("edge_sync_status"),
-            "Checking cloud workerâ€¦",
+            "Checking cloud worker…",
         )
         header = ft.Row(
             [
@@ -1458,7 +1592,7 @@ class SignalApp:
         if entry is None:
             return self.card(
                 header,
-                self._loading_note("Checking the secure cloud inboxâ€¦"),
+                self._loading_note("Checking the secure cloud inbox…"),
             )
         if "error" in entry:
             return self.card(
@@ -1525,13 +1659,71 @@ class SignalApp:
             ft.Text(view["message"], size=12, color=color),
         ]
         if view["sync_running"]:
-            details.append(
+            progress_controls: list[ft.Control] = [
+                ft.Row(
+                    [
+                        muted("Safely committed", 10),
+                        ft.Container(expand=True),
+                        ft.Text(
+                            f"{view['progress_processed']:,}/"
+                            f"{view['progress_total']:,}",
+                            size=10,
+                            color=ACCENT2,
+                            weight=ft.FontWeight.BOLD,
+                        ),
+                    ]
+                ),
                 ft.ProgressBar(
                     value=view["progress_ratio"],
                     color=ACCENT2,
                     bgcolor=BORDER,
                     height=6,
+                ),
+            ]
+            if view["activity_label"]:
+                activity_row: list[ft.Control] = [
+                    ft.ProgressRing(
+                        width=14,
+                        height=14,
+                        stroke_width=2,
+                        color=ACCENT,
+                    ),
+                    ft.Text(
+                        view["activity_label"],
+                        size=11,
+                        color=TEXT,
+                        expand=True,
+                    ),
+                ]
+                progress_controls.append(
+                    ft.Container(
+                        ft.Column(
+                            [
+                                ft.Row(activity_row, spacing=8),
+                                *(
+                                    [
+                                        ft.ProgressBar(
+                                            value=view["activity_ratio"],
+                                            color=ACCENT,
+                                            bgcolor=BORDER,
+                                            height=4,
+                                        )
+                                    ]
+                                    if view["activity_ratio"] is not None
+                                    else []
+                                ),
+                            ],
+                            spacing=6,
+                            tight=True,
+                        ),
+                        padding=10,
+                        border_radius=8,
+                        bgcolor=BG,
+                        border=ft.border.all(1, BORDER),
+                    )
                 )
+            details.append(
+                ft.Column(progress_controls, spacing=7, tight=True)
             )
         if view["remote_message"]:
             details.append(muted(f"Oracle: {view['remote_message']}", 11))
@@ -1581,7 +1773,7 @@ class SignalApp:
                     self._invalidate("edge_sync")
             self._render()
 
-        self.run_bg(work, done, "Importing cloud discoveriesâ€¦")
+        self.run_bg(work, done, "Importing cloud discoveries…")
 
     def _scraper_card(self) -> ft.Control:
         st = sweep_control.read_status()
@@ -1687,6 +1879,35 @@ class SignalApp:
                 border=ft.border.all(1, BORDER),
             )
 
+        # auto-start-on-login toggle (status read off-thread + cached so render never blocks)
+        auto_on = getattr(self, "_autostart_on", None)
+        if auto_on is None and not getattr(self, "_autostart_checking", False):
+            self._autostart_checking = True
+
+            def _chk():
+                try:
+                    self._autostart_on = sweep_control.autostart_installed()
+                except Exception:  # noqa: BLE001
+                    self._autostart_on = False
+                self._autostart_checking = False
+                if self.section == "Overview":
+                    try:
+                        self._render()
+                    except Exception:  # noqa: BLE001
+                        pass
+
+            threading.Thread(target=_chk, daemon=True).start()
+        autostart_label = ("Auto-start on login  ·  checking…" if auto_on is None
+                           else ("Auto-start on login  ·  ON" if auto_on
+                                 else "Auto-start on login  ·  off"))
+        autostart_row = ft.Row([
+            ft.Switch(value=bool(auto_on), active_color=ACCENT, scale=0.8,
+                      on_change=self._toggle_autostart,
+                      tooltip="Keep the scraper running automatically — starts within ~5 min of "
+                              "login and restarts it if it ever dies (no admin needed)"),
+            muted(autostart_label, 12),
+        ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+
         return self.card(
             ft.Row([h("Background scraper", 16), badge,
                     ft.Container(expand=True), start_btn, stop_btn],
@@ -1695,6 +1916,7 @@ class SignalApp:
             pipeline_note,
             muted("Reuses the engine's radar worker — keeps running even if you "
                   "close Signal. Your manual Deep sweep still works alongside it.", 11),
+            autostart_row,
             ft.TextButton(f"Edit niches / queries ({len(niches)})",
                           icon=ft.Icons.EDIT, on_click=_toggle),
             box)
@@ -1713,6 +1935,28 @@ class SignalApp:
         self.toast("Stop requested — it'll finish the current step and stop.")
         self._render()
         self._watch_sweep()                  # auto-refresh once it actually exits
+
+    def _toggle_autostart(self, e) -> None:
+        want = bool(e.control.value)
+        self._autostart_on = want   # optimistic; confirmed after the task op
+
+        def work():
+            sweep_control.set_autostart(want)
+            return sweep_control.autostart_installed()
+
+        def done(installed):
+            self._autostart_on = bool(installed)
+            if want and installed:
+                self.toast("Auto-start ON — the scraper keeps itself running (starts ~5 min "
+                           "after login, restarts if it dies).")
+            elif not want and not installed:
+                self.toast("Auto-start off — the scraper won't launch itself anymore.")
+            else:
+                self.toast("Couldn't change auto-start — run install_radar_autostart.ps1 "
+                           "manually.")
+            self._render()
+
+        self.run_bg(work, done, "Updating auto-start…")
 
     def _watch_sweep(self, seconds: int = 25) -> None:
         """Briefly poll the scraper's real state so the card catches up to a
@@ -1856,6 +2100,13 @@ class SignalApp:
         return sum(1 for k in self._FILTER_KEYS
                    if filt.get(k) not in (None, "", False))
 
+    def _close_dialog(self, dlg) -> None:
+        """Dismiss a transient UI dialog without changing the user's state."""
+        try:
+            self.page.close(dlg)
+        except Exception:  # noqa: BLE001
+            pass
+
     def _open_filters(self, _=None, target: str = "channels") -> None:
         """Open the Filters modal (shared by Channels + Real Time via `target`)."""
         filt = self.ch_filters if target == "channels" else self.rt_filters
@@ -1915,17 +2166,51 @@ class SignalApp:
             width=360, padding=ft.padding.only(top=4))
 
         dlg = ft.AlertDialog(
-            modal=True, bgcolor=PANEL,
-            title=ft.Row([ft.Icon(ft.Icons.TUNE, color=ACCENT, size=20),
-                          ft.Text("Filters", color=TEXT)], spacing=8),
+            modal=False, bgcolor=PANEL,
+            title=ft.Row(
+                [
+                    ft.Row(
+                        [
+                            ft.Icon(ft.Icons.TUNE, color=ACCENT, size=20),
+                            ft.Text("Filters", color=TEXT),
+                        ],
+                        spacing=8,
+                    ),
+                    ft.IconButton(
+                        ft.Icons.CLOSE,
+                        icon_color=MUTED,
+                        tooltip="Close filters",
+                        on_click=lambda e: self._close_dialog(dlg),
+                    ),
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            ),
             content=content,
-            actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             actions=[
-                ft.OutlinedButton("Reset", icon=ft.Icons.RESTART_ALT,
-                                  on_click=lambda e: self._reset_filters(dlg, target)),
-                ft.FilledButton("Apply", icon=ft.Icons.CHECK,
-                                on_click=lambda e: self._apply_filters(fields, state, dlg, target),
-                                style=ft.ButtonStyle(bgcolor=ACCENT, color=BG)),
+                ft.Row(
+                    [
+                        ft.OutlinedButton(
+                            "Reset",
+                            icon=ft.Icons.RESTART_ALT,
+                            on_click=lambda e: self._reset_filters(dlg, target),
+                        ),
+                        ft.Container(expand=True),
+                        ft.TextButton(
+                            "Cancel",
+                            icon=ft.Icons.CLOSE,
+                            on_click=lambda e: self._close_dialog(dlg),
+                        ),
+                        ft.FilledButton(
+                            "Apply",
+                            icon=ft.Icons.CHECK,
+                            on_click=lambda e: self._apply_filters(
+                                fields, state, dlg, target
+                            ),
+                            style=ft.ButtonStyle(bgcolor=ACCENT, color=BG),
+                        ),
+                    ],
+                    spacing=8,
+                )
             ])
         self.page.open(dlg)
 
@@ -1941,10 +2226,7 @@ class SignalApp:
             self.ch_chip = "Custom"
         else:
             self.rt_shown = CH_PAGE          # new filter → back to first page
-        try:
-            self.page.close(dlg)
-        except Exception:  # noqa: BLE001
-            pass
+        self._close_dialog(dlg)
         self._render()
 
     def _reset_filters(self, dlg, target: str = "channels") -> None:
@@ -1956,10 +2238,7 @@ class SignalApp:
         else:
             self.rt_filters = {}
             self.rt_shown = CH_PAGE
-        try:
-            self.page.close(dlg)
-        except Exception:  # noqa: BLE001
-            pass
+        self._close_dialog(dlg)
         self._render()
         self._open_filters(target=target)
 
@@ -1979,6 +2258,233 @@ class SignalApp:
             "_min_outlier": f"outlier ≥ {v}x",
             "video_format": f"format: {v}",
         }.get(k)
+
+    # -- Scrape Targets (steer the scraper at chosen niches, on demand) --------------
+    def _scrape_targets_card(self) -> ft.Control:
+        import scrape_targets
+        targets = scrape_targets.list_targets()
+        # Accurate, ENGINE-AGNOSTIC per-target counts come from the database (both the laptop
+        # worker AND Oracle write channels.category + first_seen), computed off-thread + cached
+        # so render never blocks. This fixes the old "laptop-only" progress that read 0 while
+        # Oracle was actually finding channels.
+        self._refresh_target_counts(targets)
+        counts = getattr(self, "_target_counts", None) or {}
+
+        running = sweep_control.is_running()
+        smsg = str((sweep_control.read_status() or {}).get("message") or "").strip()
+        if not running:
+            local = ft.Row([ft.Icon(ft.Icons.PAUSE_CIRCLE_OUTLINE, color=MUTED, size=15),
+                            muted("Local scraper OFF — Start it above (or turn on auto-start).",
+                                  11)], spacing=6, wrap=True)
+        else:
+            local = ft.Row([ft.Icon(ft.Icons.RADAR, color=ACCENT, size=15),
+                            muted(f"Local scraper live — {smsg or 'running'}", 11)],
+                           spacing=6, wrap=True)
+        oracle = self._oracle_status_line()
+
+        topic_dd = self._topic_dd(None, self._target_pick_topic)
+        subj = ft.TextField(
+            label="…or type a subject (e.g. deep sea exploration)", width=340,
+            border_color=BORDER, dense=True, value=getattr(self, "_target_subject", ""),
+            on_change=lambda e: setattr(self, "_target_subject", e.control.value),
+            on_submit=self._target_add_typed)
+        add_btn = ft.OutlinedButton(
+            "Add target", icon=ft.Icons.ADD, on_click=self._target_add_typed,
+            style=ft.ButtonStyle(color=ACCENT, side=ft.BorderSide(1, ACCENT)))
+        input_row = ft.Row([topic_dd, subj, add_btn], wrap=True, spacing=10,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER)
+
+        rows = []
+        for t in targets:
+            on = t.get("enabled", True)
+            c = counts.get(t.get("id"))
+            toggle = ft.Switch(
+                value=on, active_color=ACCENT, scale=0.8,
+                tooltip="Pause / resume scraping this niche",
+                on_change=lambda e, tid=t.get("id"): self._target_toggle(tid, e.control.value))
+            badge = ft.Container(
+                ft.Text("focusing" if on else "paused", size=10, color=BG if on else MUTED),
+                bgcolor=ACCENT if on else CARD, padding=ft.padding.symmetric(1, 8),
+                border_radius=20, border=ft.border.all(1, ACCENT if on else BORDER))
+            if not on:
+                prog = muted("paused — not being scraped", 11)
+            elif c is None:
+                prog = muted("counting…", 11)
+            else:
+                found = int(c.get("found", 0) or 0)
+                days = int(c.get("days", 0) or 0)
+                prog = ft.Text(
+                    f"≈{found:,} channels found in this niche"
+                    + (f" · last {days}d" if days else ""),
+                    size=11, weight=ft.FontWeight.BOLD, color=ACCENT if found else MUTED)
+            remove = ft.OutlinedButton(
+                "Remove", icon=ft.Icons.CLOSE,
+                on_click=lambda e, tid=t.get("id"): self._target_remove(tid),
+                tooltip="Stop scraping this niche and remove the target",
+                style=ft.ButtonStyle(color=WARN, side=ft.BorderSide(1, WARN)))
+            rows.append(ft.Row(
+                [toggle, badge,
+                 ft.Text(str(t.get("label") or "?"), size=13, color=TEXT, width=170),
+                 prog, remove],
+                spacing=10, wrap=True, vertical_alignment=ft.CrossAxisAlignment.CENTER))
+
+        body = [
+            ft.Row([ft.Icon(ft.Icons.GPS_FIXED, color=ACCENT2, size=18),
+                    h("Focus the scraper on a niche", 16)], spacing=8),
+            muted("Pick a topic or type a subject — the scraper (laptop + Oracle) hunts there, "
+                  "and new channels get auto-categorized into the matching Topic/filters. Counts "
+                  "below come from your database, so they include BOTH engines. Pause or Remove "
+                  "a target anytime.", 11),
+            local,
+        ]
+        if oracle is not None:
+            body.append(oracle)
+        body.append(input_row)
+        if rows:
+            body.append(muted(f"Active targets ({len(targets)}):", 11))
+            body.extend(rows)
+        else:
+            body.append(muted("No targets yet — add one above to steer discovery.", 11))
+        return self.card(*body)
+
+    def _refresh_target_counts(self, targets: list[dict]) -> None:
+        """Background: exact DB counts of channels discovered via each target's searches, via the
+        finder (count_channels category_contains + recent window). Captures BOTH the laptop worker
+        AND Oracle (both write channels.category + first_seen_at). Throttled (30s) + cached so the
+        card render never blocks and never loops."""
+        import time as _t
+        if getattr(self, "_target_counts_busy", False):
+            return
+        if (getattr(self, "_target_counts", None) is not None
+                and _t.monotonic() - getattr(self, "_target_counts_at", 0.0) < 30):
+            return
+        self._target_counts_busy = True
+        self._target_counts_at = _t.monotonic()
+        snapshot = list(targets)
+
+        def work():
+            import datetime as _dt
+            result: dict = {}
+            for t in snapshot:
+                tid = t.get("id")
+                seed = (t.get("queries") or [""])[0]
+                if not tid or not seed:
+                    continue
+                days = 7
+                try:
+                    added = _dt.datetime.strptime(str(t.get("added_at", "")), "%Y-%m-%d %H:%M")
+                    days = max(1, (_dt.datetime.now() - added).days + 1)
+                except Exception:  # noqa: BLE001
+                    pass
+                try:
+                    res = self.client.call(
+                        "count_channels", category_contains=seed, days=days,
+                        faceless_only=False)
+                    n = 0
+                    if isinstance(res, list) and res:
+                        n = int((res[0] or {}).get("count", 0) or 0)
+                    elif isinstance(res, dict):
+                        n = int(res.get("count", 0) or 0)
+                    result[tid] = {"found": n, "days": days}
+                except Exception:  # noqa: BLE001
+                    result[tid] = None
+            self._target_counts = result
+            self._target_counts_busy = False
+            if self.section == "Overview":
+                try:
+                    self._render()
+                except Exception:  # noqa: BLE001
+                    pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _oracle_status_line(self):
+        """One-line read of the off-laptop Oracle edge node (from its synced status file), so the
+        user sees discovery is happening there even when the local scraper is off."""
+        try:
+            import json
+            base = sweep_control.SCRIPTER_ROOT / "storage" / "edge_sync"
+            path = base / "remote_status.json"
+            if not path.exists():
+                return None
+            remote = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(remote, dict) or not remote:
+                return None
+            state = str(remote.get("state") or "unknown")
+            est = 0.0
+            reps = remote.get("reports") or []
+            if reps and isinstance(reps[0], dict):
+                est = float(reps[0].get("estimated_channels_per_hour") or 0)
+            bits = [f"Oracle edge: {state}"]
+            if est:
+                bits.append(f"~{int(est)}/hr")
+            return ft.Row([ft.Icon(ft.Icons.CLOUD_DONE, color=ACCENT2, size=15),
+                           muted(" · ".join(bits), 11)], spacing=6, wrap=True)
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _target_pick_topic(self, e) -> None:
+        topic = self._topic_or_none(e.control.value)
+        if topic:
+            self._target_add(topic, kind="topic")
+
+    def _target_add_typed(self, _=None) -> None:
+        subj = (getattr(self, "_target_subject", "") or "").strip()
+        if not subj:
+            self.toast("Type a subject first (e.g. “deep sea exploration”).")
+            return
+        self._target_subject = ""
+        self._target_add(subj, kind="subject")
+
+    def _target_add(self, subject: str, *, kind: str) -> None:
+        import scrape_targets
+
+        def work():
+            return scrape_targets.add_target(subject, kind=kind)
+
+        def done(target):
+            if not target:
+                self.toast("Couldn't add that target.")
+            else:
+                tail = "" if sweep_control.is_running() else " — click Start scraping to begin"
+                self.toast(f"🎯 Targeting “{target.get('label')}” — the scraper will focus "
+                           f"here{tail}.")
+            self._render()
+
+        self.run_bg(work, done, f"Adding target “{subject}”…")
+
+    def _target_toggle(self, tid, on) -> None:
+        import scrape_targets
+
+        def work():
+            scrape_targets.set_enabled(tid, bool(on))
+            return True
+
+        self.run_bg(work, lambda _r: self._render(), "Updating target…")
+
+    def _target_remove(self, tid) -> None:
+        import scrape_targets
+
+        def work():
+            scrape_targets.remove_target(tid)
+            return True
+
+        def done(_r):
+            self.toast("Target removed.")
+            self._render()
+
+        self.run_bg(work, done, "Removing target…")
+
+    def _ch_scrape_more(self, _=None) -> None:
+        subject = self._topic_or_none(self.ch_topic)
+        kind = "topic"
+        if not subject and self.ch_niche:
+            subject = self.ch_niche.get("name")
+            kind = "niche"
+        if not subject:
+            self.toast("Pick a Topic (or a niche) first, then “Scrape more of this”.")
+            return
+        self._target_add(subject, kind=kind)
 
     def _render_channels(self) -> None:
         # reset paging back to the first page whenever the filter/sort/niche changed
@@ -2023,9 +2529,18 @@ class SignalApp:
             icon=ft.Icons.TUNE, on_click=self._open_filters,
             style=ft.ButtonStyle(color=TEXT if nfilt else MUTED,
                                  side=ft.BorderSide(1, ACCENT if nfilt else BORDER)))
+        # "Scrape more of this" only makes sense when there's a "this" — a Topic or a niche
+        # selected. Otherwise it's DISABLED (greyed) so it visibly can't be used.
+        can_target = bool(self._topic_or_none(self.ch_topic)) or bool(self.ch_niche)
+        scrape_more = ft.OutlinedButton(
+            "Scrape more of this", icon=ft.Icons.TRAVEL_EXPLORE,
+            on_click=self._ch_scrape_more, disabled=not can_target,
+            tooltip=None if can_target else "Pick a Topic or a niche first to scrape more of it",
+            style=ft.ButtonStyle(color=ACCENT if can_target else MUTED,
+                                 side=ft.BorderSide(1, ACCENT if can_target else BORDER)))
 
-        toolbar = [ft.Row([niche_dd, topic_dd, sort_dd, filters_btn], wrap=True, spacing=10,
-                           vertical_alignment=ft.CrossAxisAlignment.CENTER)]
+        toolbar = [ft.Row([niche_dd, topic_dd, sort_dd, filters_btn, scrape_more], wrap=True,
+                           spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER)]
         if self.ch_niche:
             nname = self.ch_niche.get("name") or "this niche"
             view_btns = []
