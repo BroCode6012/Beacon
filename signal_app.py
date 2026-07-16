@@ -548,8 +548,11 @@ class SignalApp:
         self._ch_last_base = None          # detects a filter/sort/niche change → reset paging
         # NexLev-style Channels browser: the active filter set + which preset chip.
         # (keys with a leading _ are client-side only, stripped before the finder call)
-        self.ch_filters: dict = {**CH_CHIPS[0][1], "limit": 60}
-        self.ch_chip = CH_CHIPS[0][0]
+        # Default = NO preset selected (just the default sort, no metric filters). Presets are
+        # optional toggles the user opts into; nothing is force-highlighted. ch_chip=None means
+        # "no preset" (same as "Custom": no chip lit).
+        self.ch_filters: dict = {"sort": "opportunity_score", "limit": 60}
+        self.ch_chip: str | None = None
         # persistent "now scraping X" confirmation on the Channels tab (a fleeting toast
         # left the user unsure anything happened); cleared when the filter changes/dismissed
         self._scrape_banner: dict | None = None
@@ -2214,11 +2217,17 @@ class SignalApp:
         self._render()
 
     def _ch_pick_chip(self, name: str, preset: dict) -> None:
-        # A preset replaces metric/format filters; niche + topic live in separate
-        # state and therefore survive.
-        self.ch_filters = {**preset, "limit": 60}
-        self.ch_filters.setdefault("sort", "opportunity_score")
-        self.ch_chip = name
+        # Presets TOGGLE: clicking the active preset deselects it (back to no preset — just
+        # the default sort, no metric filters), so the user is never forced to have one on.
+        # A preset replaces metric/format filters; niche + topic live in separate state and survive.
+        if self.ch_chip == name:
+            self.ch_filters = {"sort": self.ch_filters.get("sort", "opportunity_score"),
+                               "limit": 60}
+            self.ch_chip = None
+        else:
+            self.ch_filters = {**preset, "limit": 60}
+            self.ch_filters.setdefault("sort", "opportunity_score")
+            self.ch_chip = name
         self._render()
 
     def _ch_remove_filter(self, key: str) -> None:
@@ -2861,9 +2870,9 @@ class SignalApp:
             padding=14, border_radius=12, bgcolor=CARD, border=ft.border.all(1, ACCENT))
 
     def _ch_clear_all(self, _=None) -> None:
-        # wipe every Channels narrowing back to the default browse (Best Opportunities).
-        self.ch_filters = {**CH_CHIPS[0][1], "limit": 60}
-        self.ch_chip = CH_CHIPS[0][0]
+        # wipe every Channels narrowing back to the default browse (NO preset selected).
+        self.ch_filters = {"sort": "opportunity_score", "limit": 60}
+        self.ch_chip = None
         self.ch_topic = None
         self.ch_niche = None
         self.ch_view = "index"
@@ -3090,16 +3099,21 @@ class SignalApp:
         # wipe every Real-Time narrowing: metric filters, topic, back to a wide window.
         self.rt_filters = {}
         self.rt_topic = None
-        self.rt_chip = "All"
+        self.rt_chip = None
         self.rt_window = 30
         self.rt_shown = CH_PAGE
         self._render()
 
     def _rt_pick_chip(self, name: str, preset: dict) -> None:
-        # a preset REPLACES the metric filters; RT always sorts by discovery time, so
+        # Presets TOGGLE (same as Channels): clicking the active one deselects it.
+        # A preset REPLACES the metric filters; RT always sorts by discovery time, so
         # drop the preset's 'sort' key (it doesn't apply to the newest-first feed).
-        self.rt_filters = {k: v for k, v in preset.items() if k != "sort"}
-        self.rt_chip = name
+        if self.rt_chip == name:
+            self.rt_filters = {}
+            self.rt_chip = None
+        else:
+            self.rt_filters = {k: v for k, v in preset.items() if k != "sort"}
+            self.rt_chip = name
         self.rt_shown = CH_PAGE
         self._render()
 
