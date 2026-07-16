@@ -511,6 +511,11 @@ class SignalApp:
         self._busy_lock = threading.Lock()
         self._busy_tasks: dict[int, str] = {}
         self._busy_seq = 0
+        # _render() rebuilds self.content.controls (clear + many appends) and is called from
+        # MANY daemon threads (cache loads, 60s/3s ticks, target-count refresh, watchers).
+        # Without serialization two renders interleave and corrupt the control list (duplicated
+        # / missing cards, page.update on a half-built tree). RLock: same-thread re-entrancy safe.
+        self._render_lock = threading.RLock()
         # in-memory data cache so switching tabs is instant (load once, reuse).
         # keys: "overview", "niches", f"niche:{id}", "find_channels".
         self.cache: dict[str, dict] = {}
@@ -680,12 +685,15 @@ class SignalApp:
 
     def _begin_busy(self, msg: str) -> int:
         """Register one background operation and return its unique token."""
+        # Apply the visible state INSIDE the lock: otherwise two overlapping begin/end
+        # pairs can apply out of order (a stale "not busy" landing after a "busy"), leaving
+        # the spinner/bar stuck opposite to reality.
         with self._busy_lock:
             self._busy_seq += 1
             token = self._busy_seq
             self._busy_tasks[token] = msg
             current = self._busy_tasks[max(self._busy_tasks)]
-        self._apply_busy_state(True, current)
+            self._apply_busy_state(True, current)
         return token
 
     def _end_busy(self, token: int) -> None:
@@ -694,7 +702,7 @@ class SignalApp:
             self._busy_tasks.pop(token, None)
             busy = bool(self._busy_tasks)
             current = self._busy_tasks[max(self._busy_tasks)] if busy else ""
-        self._apply_busy_state(busy, current)
+            self._apply_busy_state(busy, current)
 
     def run_bg(self, fn, on_done, start_msg: str) -> None:
         """Run a finder call off the UI thread; re-render on completion."""
@@ -820,11 +828,21 @@ class SignalApp:
         self.agent_log.append({"kind": "user", "text": text})
         self._render()
         agent = self._get_agent()
-        self.run_bg(
-            lambda: agent.run(text, on_event=self._agent_event),
-            on_done=lambda _r: (self.toast(""),
-                                self._render() if self.section == "Agent" else None),
-            start_msg="Agent is thinking…")
+
+        def done(r):
+            # Bedrock errors + the round-limit message are RETURNED by run() (not streamed
+            # via on_event), so without this the agent just appears to freeze silently.
+            # Skip when it equals the already-streamed final text (avoid a duplicate bubble).
+            already = (self.agent_log and self.agent_log[-1].get("kind") == "agent"
+                       and self.agent_log[-1].get("text") == r)
+            if isinstance(r, str) and r.strip() and not already:
+                self.agent_log.append({"kind": "agent", "text": r})
+            self.toast("")
+            if self.section == "Agent":
+                self._render()
+
+        self.run_bg(lambda: agent.run(text, on_event=self._agent_event),
+                    on_done=done, start_msg="Agent is thinking…")
 
     _TOOL_NAMES = {
         "count_channels": "Counted channels", "find_channels": "Found channels",
@@ -1410,6 +1428,14 @@ class SignalApp:
                         time.sleep(4)
                         if self._epoch.get(key, 0) != gen:
                             return
+                        # The loader reads LIVE filter state, so if the user changed the
+                        # filter/window in the last 4s its result belongs to a DIFFERENT key.
+                        # Bail unless our key is still the section's active one (mirrors _rt_tick),
+                        # or we'd cache the new filter's rows under this stale key.
+                        live = (self._channels_key() if key.startswith("channels:")
+                                else self._rt_key())
+                        if live != key:
+                            return
                         try:
                             fresh = loader()
                         except Exception:  # noqa: BLE001
@@ -1468,35 +1494,38 @@ class SignalApp:
 
     # -- render -------------------------------------------------------------
     def _render(self) -> None:
-        # refresh nav highlight on the MOUNTED nav column (not a throwaway copy)
-        try:
-            self._nav_col.controls = self._nav_tiles()
-        except Exception:  # noqa: BLE001
-            pass
-        self.content.controls = []
-        conn = ("self-hosted (in-process)" if self.hosting
-                else f"connected → {self.client.base_url}")
-        self.content.controls.append(ft.Row([
-            h(self.section, 22),
-            ft.Container(muted(f"finder: {conn}", 11), expand=True,
-                         alignment=ft.alignment.center_right),
-            ft.IconButton(ft.Icons.REFRESH, icon_color=MUTED, icon_size=18,
-                          tooltip="Refresh this tab's data", on_click=self._refresh),
-        ], vertical_alignment=ft.CrossAxisAlignment.CENTER))
-        if self.section == "Overview":
-            self._render_overview()
-        elif self.section == "Channels":
-            self._render_channels()
-        elif self.section == "Real Time":
-            self._render_realtime()
-        elif self.section == "Find":
-            self._render_find()
-        elif self.section == "Agent":
-            self._render_agent()
-        try:
-            self.page.update()
-        except Exception:  # noqa: BLE001
-            pass
+        # Serialized: many daemon threads call _render(); without the lock two rebuilds
+        # of self.content.controls interleave and produce duplicated/missing cards.
+        with self._render_lock:
+            # refresh nav highlight on the MOUNTED nav column (not a throwaway copy)
+            try:
+                self._nav_col.controls = self._nav_tiles()
+            except Exception:  # noqa: BLE001
+                pass
+            self.content.controls = []
+            conn = ("self-hosted (in-process)" if self.hosting
+                    else f"connected → {self.client.base_url}")
+            self.content.controls.append(ft.Row([
+                h(self.section, 22),
+                ft.Container(muted(f"finder: {conn}", 11), expand=True,
+                             alignment=ft.alignment.center_right),
+                ft.IconButton(ft.Icons.REFRESH, icon_color=MUTED, icon_size=18,
+                              tooltip="Refresh this tab's data", on_click=self._refresh),
+            ], vertical_alignment=ft.CrossAxisAlignment.CENTER))
+            if self.section == "Overview":
+                self._render_overview()
+            elif self.section == "Channels":
+                self._render_channels()
+            elif self.section == "Real Time":
+                self._render_realtime()
+            elif self.section == "Find":
+                self._render_find()
+            elif self.section == "Agent":
+                self._render_agent()
+            try:
+                self.page.update()
+            except Exception:  # noqa: BLE001
+                pass
 
     def _render_overview(self) -> None:
         self._watch_overview()
@@ -2185,7 +2214,7 @@ class SignalApp:
     _FILTER_KEYS = ("min_subs", "max_subs", "min_avg_views", "max_avg_views",
                     "max_days_since_start", "min_days_since_start", "min_uploads",
                     "max_uploads", "_min_outlier", "min_views_per_sub",
-                    "category_contains", "video_format")
+                    "category_contains", "video_format", "days")
 
     def _active_filter_count(self, filt: dict | None = None) -> int:
         filt = self.ch_filters if filt is None else filt
@@ -2317,6 +2346,7 @@ class SignalApp:
         if target == "channels":
             self.ch_chip = "Custom"
         else:
+            self.rt_chip = "Custom"          # edited filters no longer match a preset chip
             self.rt_shown = CH_PAGE          # new filter → back to first page
         self._close_dialog(dlg)
         self._render()
@@ -2329,6 +2359,7 @@ class SignalApp:
             self.ch_chip = "Custom"
         else:
             self.rt_filters = {}
+            self.rt_chip = "Custom"          # cleared filters no longer match a preset chip
             self.rt_shown = CH_PAGE
         self._close_dialog(dlg)
         self._render()
@@ -2365,6 +2396,7 @@ class SignalApp:
             "min_days_since_start": f"age ≥ {iv}d",
             "min_uploads": f"uploads ≥ {iv}",
             "max_uploads": f"uploads ≤ {iv}",
+            "days": f"added ≤ {iv}d",   # discovery-recency window (set by a target click-through)
         }.get(k)
 
     # -- Scrape Targets (steer the scraper at chosen niches, on demand) --------------
@@ -2604,22 +2636,31 @@ class SignalApp:
             reps = remote.get("reports") or []
             if reps and isinstance(reps[0], dict):
                 est = float(reps[0].get("estimated_channels_per_hour") or 0)
-            running = state in ("running", "collecting", "working", "active", "busy")
-            heard = ""
+            claims_running = state in ("running", "collecting", "working", "active", "busy")
+            # Freshness from the file mtime (when we last synced this status). A "running"
+            # status that hasn't updated in a while means the node likely crashed/went offline,
+            # so DON'T report it as running (else a dead Oracle shows a green dot forever).
+            secs = None
             try:
                 secs = int(max(0, time.time() - path.stat().st_mtime))
-                if secs < 60:
-                    heard = "just now"
-                elif secs < 3600:
-                    heard = f"{secs // 60}m ago"
-                elif secs < 86400:
-                    heard = f"{secs // 3600}h ago"
-                else:
-                    heard = f"{secs // 86400}d ago"
             except Exception:  # noqa: BLE001
                 pass
-            bits = [f"Oracle helper: {state}"]
-            if est:
+            STALE_SECS = 1800  # 30 min
+            stale = secs is not None and secs >= STALE_SECS
+            running = claims_running and not stale
+
+            def _rel(s: int) -> str:
+                if s < 60:
+                    return "just now"
+                if s < 3600:
+                    return f"{s // 60}m ago"
+                if s < 86400:
+                    return f"{s // 3600}h ago"
+                return f"{s // 86400}d ago"
+
+            heard = _rel(secs) if secs is not None else ""
+            bits = [f"Oracle helper: {state}" + (" (stale)" if stale else "")]
+            if est and not stale:
                 bits.append(f"~{int(est)}/hr")
             if heard:
                 bits.append(f"last heard {heard}")
@@ -3214,24 +3255,47 @@ class SignalApp:
         niche_field = ft.TextField(label="Niche / topic to sweep", border_color=BORDER,
                                    dense=True, expand=True,
                                    hint_text="e.g. amish frugal pest control")
+        sweeping = getattr(self, "_deep_sweeping", False)
 
         def deep_sweep(_):
             q = (niche_field.value or "").strip()
             if not q:
                 self.toast("Type a niche to sweep first.")
                 return
-            self.run_bg(lambda: self.client.call("deep_sweep", niche=q, queries=100),
-                        lambda r: (self.toast(f"Deep sweep done: {json.dumps(r, default=str)[:180]}"),
-                                   self._invalidate_all(), self._render()),
+            if getattr(self, "_deep_sweeping", False):
+                return                       # already running — don't queue a 2nd ~100-query sweep
+            self._deep_sweeping = True
+
+            def work():
+                try:
+                    return self.client.call("deep_sweep", niche=q, queries=100)
+                finally:
+                    # reset + re-render on BOTH success and failure so the button never
+                    # stays stuck disabled (run_bg's error path doesn't call on_done).
+                    self._deep_sweeping = False
+                    if self.section == "Find":
+                        try:
+                            self._render()
+                        except Exception:  # noqa: BLE001
+                            pass
+
+            def done(r):
+                self.toast(f"Deep sweep done: {json.dumps(r, default=str)[:180]}")
+                self._invalidate_all()
+                self._render()
+
+            self.run_bg(work, done,
                         f"Deep-sweeping '{q}' (~100 angles)… this runs the scraper, give it a bit.")
+            self._render()                   # reflect the disabled state immediately
 
         self.content.controls.append(self.card(
             h("Deep sweep a niche", 16),
             muted("Carpet-bomb ~100 search angles and flood faceless finds into the index "
                   "(full-access finder command — writes)."),
             ft.Row([niche_field,
-                    ft.FilledButton("Deep sweep", icon=ft.Icons.TRAVEL_EXPLORE,
-                                    on_click=deep_sweep,
+                    ft.FilledButton("Deep-sweeping…" if sweeping else "Deep sweep",
+                                    icon=ft.Icons.TRAVEL_EXPLORE, on_click=deep_sweep,
+                                    disabled=sweeping,
                                     style=ft.ButtonStyle(bgcolor=ACCENT, color="#0b0f14"))],
                    spacing=10),
         ))

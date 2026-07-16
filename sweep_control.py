@@ -187,13 +187,16 @@ def is_running() -> bool:
 def start_worker() -> bool:
     """Launch the background scraper (continuous), detached + hidden. No-op if
     already running. Returns True if it launched a new process."""
-    if is_running():
-        return False
-    # clear any leftover stop flag so the fresh worker doesn't immediately exit
+    # Clear any pending stop flag FIRST — even when a worker is already alive. Otherwise
+    # Stop-then-Start (worker still mid-cycle) would leave the flag set, and the worker would
+    # honour it and exit after its current step, silently stopping the scraper the user just
+    # asked to (re)start.
     try:
         STOP_PATH.unlink()
     except FileNotFoundError:
         pass
+    if is_running():
+        return False
     creationflags = 0
     if os.name == "nt":
         # DETACHED_PROCESS: survives Signal closing; pythonw = no console window.
@@ -275,6 +278,20 @@ def update_niches(mutator) -> list[str]:
         data["watchlist"] = [str(n).strip() for n in (result or []) if str(n).strip()]
         _write_watchlist_config(data)
         return data["watchlist"]
+
+
+def update_config(mutator) -> dict:
+    """Atomic read-modify-write of the WHOLE scraper config dict under the cross-process lock.
+    `mutator` receives the current config dict, mutates it in place (or returns a new dict).
+    Use for non-watchlist settings (e.g. harvest_per_cycle) so a concurrent watchlist writer's
+    entry isn't clobbered by an unlocked read-then-write of the shared file."""
+    with _WATCHLIST_LOCK, watchlist_config_lock(WATCHLIST_PATH):
+        data = _read_watchlist_config()
+        result = mutator(data)
+        if isinstance(result, dict):
+            data = result
+        _write_watchlist_config(data)
+        return data
 
 
 def _read_watchlist_config() -> dict:

@@ -32,12 +32,19 @@ class FilterLabelTests(unittest.TestCase):
         self.assertEqual(self.app._ch_filter_label("video_format", "long"), "format: long")
         self.assertEqual(self.app._ch_filter_label("faceless_only", True), "faceless only")
 
+    def test_days_discovery_window_is_a_visible_removable_chip(self) -> None:
+        # Regression for the target click-through: the discovery-recency `days` window must
+        # render a chip (so it's visible + removable) and count as an active filter.
+        self.assertEqual(self.app._ch_filter_label("days", 1), "added ≤ 1d")
+        self.assertIn("days", self.app._FILTER_KEYS)
+        self.assertEqual(self.app._active_filter_count({"days": 7}), 1)
+
     def test_non_numeric_value_for_numeric_key_is_skipped_not_crashed(self) -> None:
         # A malformed value for a numeric key returns None (chip hidden) instead of raising.
         self.assertIsNone(self.app._ch_filter_label("max_days_since_start", "oops"))
 
     def test_unknown_key_returns_none(self) -> None:
-        self.assertIsNone(self.app._ch_filter_label("days", 1))
+        self.assertIsNone(self.app._ch_filter_label("sort", "opportunity_score"))
 
 
 if __name__ == "__main__":  # pragma: no cover

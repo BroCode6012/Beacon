@@ -127,5 +127,55 @@ class SignalAgentToolResultTests(unittest.TestCase):
         self.assertIn(f"Stopped after {MAX_TOOL_ROUNDS} tool rounds", result)
 
 
+class _ThrottleOnceBedrock:
+    """Raises on the FIRST converse (simulating a Bedrock throttle), then succeeds."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def converse(self, **_kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            raise RuntimeError("ThrottlingException: slow down")
+        return {
+            "stopReason": "end_turn",
+            "output": {"message": {"role": "assistant", "content": [{"text": "ok"}]}},
+        }
+
+
+class SignalAgentHistoryRollbackTests(unittest.TestCase):
+    @patch.dict("os.environ", {
+        "AWS_ACCESS_KEY_ID": "test", "AWS_SECRET_ACCESS_KEY": "test"})
+    def test_bedrock_error_rolls_back_the_incomplete_turn(self) -> None:
+        # Regression: a failed turn must NOT leave a dangling user message, else the next
+        # turn appends a 2nd user message → two consecutive user turns → Converse rejects
+        # every later turn permanently.
+        agent = SignalAgent(_Finder([]), sweep=object(), model="test-model")
+        agent._client = _ThrottleOnceBedrock()
+
+        r1 = agent.run("first")
+        self.assertTrue(r1.startswith("⚠️ Bedrock error"))
+        # history rolled back to empty — no dangling user turn
+        self.assertEqual(agent.messages, [])
+
+        # the SAME agent must still work on the next turn (history not bricked)
+        r2 = agent.run("second")
+        self.assertEqual(r2, "ok")
+        # exactly one user turn + one assistant reply survive; roles alternate correctly
+        roles = [m["role"] for m in agent.messages]
+        self.assertEqual(roles, ["user", "assistant"])
+
+    @patch.dict("os.environ", {
+        "AWS_ACCESS_KEY_ID": "test", "AWS_SECRET_ACCESS_KEY": "test"})
+    def test_round_limit_rolls_back_so_next_turn_is_valid(self) -> None:
+        agent = SignalAgent(_Finder([]), sweep=object(), model="test-model")
+        agent._client = _AlwaysToolBedrock()
+
+        agent.run("loop")   # exhausts MAX_TOOL_ROUNDS
+
+        # the exhausted turn is rolled back — no dangling tool-result (user-role) tail
+        self.assertEqual(agent.messages, [])
+
+
 if __name__ == "__main__":
     unittest.main()

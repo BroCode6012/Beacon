@@ -146,22 +146,29 @@ def add_target(subject: str, *, label: str | None = None, kind: str = "subject")
                 _save(new)                 # persist state FIRST, then sync the watchlist
                 _reconcile(old, new)
                 return next(t for t in new if t.get("id") == existing.get("id"))
-        # A seed ALREADY in the watchlist is base/manual (or another source's) — do NOT claim
-        # ownership of it, so removing this target later can't delete someone else's query.
-        existing_wl = {str(q).strip() for q in sweep_control.get_niches()}
-        owned = [] if seed in existing_wl else [seed]
+        # Decide ownership (did WE introduce this seed?) AND add it to the watchlist in ONE
+        # atomic critical section, from the SAME snapshot. An unlocked get_niches() read here
+        # could race a concurrent writer (radar top-up / Autopilot) adding the same normalized
+        # seed: we'd then wrongly claim to "own" it and delete their query when this target is
+        # later removed. Deciding under the lock (a seed already present = not ours) closes that.
+        captured = {"owned": [seed]}
+
+        def _add(current: list[str]) -> list[str]:
+            have = {str(q).strip() for q in current}
+            captured["owned"] = [] if seed in have else [seed]
+            return current if seed in have else current + [seed]
+
+        sweep_control.update_niches(_add)
         target = {
             "id": uuid.uuid4().hex[:8],
             "label": (label or subject).strip() or seed,
             "kind": kind,
             "queries": [seed],
-            "owned": owned,
+            "owned": captured["owned"],
             "enabled": True,
             "added_at": _now(),
         }
-        new = old + [target]
-        _save(new)
-        _reconcile(old, new)
+        _save(old + [target])
         return target
 
 

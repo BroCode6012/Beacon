@@ -299,24 +299,31 @@ class SignalAgent:
             )
         if name == "remove_watchlist_queries":
             drop = {str(q).strip().lower() for q in (args.get("queries") or [])}
-            wl = self.sweep.get_niches() or []
-            kept = [q for q in wl if q.strip().lower() not in drop]
-            self.sweep.save_niches(kept)
-            return {"removed": len(wl) - len(kept), "total": len(kept)}
+            # atomic read-modify-write under the cross-process lock, else a concurrent
+            # watchlist writer (radar top-up / Autopilot) can be clobbered by this remove.
+            counts = {"before": 0, "after": 0}
+
+            def _rm(cur):
+                counts["before"] = len(cur)
+                kept = [q for q in cur if str(q).strip().lower() not in drop]
+                counts["after"] = len(kept)
+                return kept
+
+            self.sweep.update_niches(_rm)
+            return {"removed": counts["before"] - counts["after"], "total": counts["after"]}
         if name == "set_scraper_config":
-            import json
-            path = self.sweep.WATCHLIST_PATH
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-            except Exception:  # noqa: BLE001
-                data = {}
             applied = {}
-            for k in _SCRAPER_CFG_KEYS:
-                if k in args and args[k] is not None:
-                    data[k] = int(args[k]); applied[k] = int(args[k])
-            tmp = path.with_name(path.name + ".tmp")
-            tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-            tmp.replace(path)
+
+            def _apply_cfg(data):
+                for k in _SCRAPER_CFG_KEYS:
+                    if k in args and args[k] is not None:
+                        data[k] = int(args[k])
+                        applied[k] = int(args[k])
+                return data
+
+            # locked read-modify-write of the shared config file (preserves the watchlist +
+            # any concurrent edits, instead of overwriting the whole file from a stale read).
+            self.sweep.update_config(_apply_cfg)
             return {"applied": applied, "note": "takes effect on the next scraper cycle"}
         # Signal channel searches are always constrained to faceless, repeatable
         # opportunities. The engine flag is optional for Production Lab callers,
@@ -337,6 +344,12 @@ class SignalAgent:
         client = self._bedrock()
         tools = (TOOLS if self.allowed_tools is None
                  else [t for t in TOOLS if t["toolSpec"]["name"] in self.allowed_tools])
+        # Roll-back point: if this turn can't complete cleanly (Bedrock error, or rounds
+        # exhausted mid tool-loop), we DROP everything appended this turn. Otherwise the
+        # history would end on a user/tool-result message; the next turn appends another
+        # user message → two consecutive user turns, which the Converse API rejects,
+        # permanently bricking every later turn until Clear.
+        base = len(self.messages)
         self.messages.append({"role": "user", "content": [{"text": user_text}]})
         final = ""
         for _ in range(MAX_TOOL_ROUNDS):
@@ -349,6 +362,7 @@ class SignalAgent:
                     inferenceConfig={"maxTokens": 2000, "temperature": 0.0},
                 )
             except Exception as exc:  # noqa: BLE001 — surface Bedrock errors to the UI
+                del self.messages[base:]
                 return f"⚠️ Bedrock error: {type(exc).__name__}: {exc}"
             msg = resp.get("output", {}).get("message", {})
             self.messages.append(msg)
@@ -380,6 +394,9 @@ class SignalAgent:
                     "status": status,
                 }})
             self.messages.append({"role": "user", "content": results})
+        # Rounds exhausted without a final assistant text → history ends on tool-results
+        # (user role). Roll the whole turn back so the next message isn't rejected.
+        del self.messages[base:]
         detail = f" Last partial response: {final}" if final else ""
         return (
             f"⚠️ Stopped after {MAX_TOOL_ROUNDS} tool rounds before the task finished."

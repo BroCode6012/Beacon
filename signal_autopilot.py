@@ -70,6 +70,8 @@ class Autopilot:
         self.log: list[dict] = list(st.get("log", []))[:50]
         self.running_now = False
         self._run_lock = threading.Lock()   # atomic guard for run_once (scheduler vs "Run now")
+        self._ctl_lock = threading.Lock()   # serializes start()/loop-exit so a fast Off→On
+        #                                     can't leave 'enabled' with no running thread
         self.next_run_ts: float | None = None
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -99,11 +101,18 @@ class Autopilot:
             self.next_run_ts = None
 
     def start(self) -> None:
-        if self._thread and self._thread.is_alive():
+        if self.disabled_by_env:
             return
-        self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, daemon=True)
-        self._thread.start()
+        # Under _ctl_lock (paired with the loop's exit check) so a fast Off→On is race-free:
+        # clearing _stop FIRST means a still-alive thread just keeps running (un-stopped);
+        # if the thread is exiting it will have already nulled self._thread under the same
+        # lock, so we spawn a fresh one. Either way: enabled ⇒ exactly one runner.
+        with self._ctl_lock:
+            self._stop.clear()
+            if self._thread and self._thread.is_alive():
+                return
+            self._thread = threading.Thread(target=self._loop, daemon=True)
+            self._thread.start()
 
     def run_now(self) -> None:
         """Trigger an immediate maintenance run (the 'Run now' button)."""
@@ -119,7 +128,13 @@ class Autopilot:
     # -- the loop -------------------------------------------------------------------
     def _loop(self) -> None:
         first = True
-        while not self._stop.is_set() and self.enabled:
+        while True:
+            # Decide continue-vs-exit under _ctl_lock so a concurrent start() (fast Off→On)
+            # can't slip between "I decided to exit" and "I'm gone" and leave no runner.
+            with self._ctl_lock:
+                if self._stop.is_set() or not self.enabled:
+                    self._thread = None   # signal 'no runner' so start() will spawn a fresh one
+                    return
             delay = 20 if first else self.interval * 60   # short delay before first run
             first = False
             self.next_run_ts = time.time() + delay
@@ -127,8 +142,10 @@ class Autopilot:
             while waited < delay and not self._stop.is_set() and self.enabled:
                 time.sleep(5)
                 waited += 5
-            if self._stop.is_set() or not self.enabled:
-                break
+            with self._ctl_lock:
+                if self._stop.is_set() or not self.enabled:
+                    self._thread = None
+                    return
             self.run_once()
 
     def run_once(self) -> None:
