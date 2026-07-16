@@ -515,6 +515,10 @@ class SignalApp:
         self.cache: dict[str, dict] = {}
         self._loading: set[str] = set()
         self._epoch: dict[str, int] = {}   # bumped on invalidate → voids in-flight loads
+        self._tc_lock = threading.Lock()   # guards the scrape-target count refresher state
+        self._target_counts = None         # {tid: {found,days} | {"error":True}} | None
+        self._target_counts_at = 0.0       # monotonic time the last pass FINISHED
+        self._target_counts_busy = False
         self._rechecked: set[str] = set()  # browse keys that already got a transient-empty recheck
         self._find_requested = False       # has the user asked to load faceless channels?
         # optimistic scraper state so the Start/Stop buttons flip INSTANTLY on click
@@ -2310,6 +2314,8 @@ class SignalApp:
                 prog = muted("paused — not being scraped", 11)
             elif c is None:
                 prog = muted("counting…", 11)
+            elif c.get("error"):
+                prog = muted("count unavailable — will retry", 11)
             else:
                 found = int(c.get("found", 0) or 0)
                 days = int(c.get("days", 0) or 0)
@@ -2353,13 +2359,16 @@ class SignalApp:
         AND Oracle (both write channels.category + first_seen_at). Throttled (30s) + cached so the
         card render never blocks and never loops."""
         import time as _t
-        if getattr(self, "_target_counts_busy", False):
-            return
-        if (getattr(self, "_target_counts", None) is not None
-                and _t.monotonic() - getattr(self, "_target_counts_at", 0.0) < 30):
-            return
-        self._target_counts_busy = True
-        self._target_counts_at = _t.monotonic()
+        # Locked test-and-set so concurrent re-renders (60s tick, cloud tick, nav) can't launch
+        # duplicate count passes; the 30s throttle is measured from when the LAST pass FINISHED
+        # (stamped in work()), so a pass slower than 30s can't turn into a back-to-back loop.
+        with self._tc_lock:
+            if self._target_counts_busy:
+                return
+            if (self._target_counts is not None
+                    and _t.monotonic() - self._target_counts_at < 30):
+                return
+            self._target_counts_busy = True
         snapshot = list(targets)
 
         def work():
@@ -2387,9 +2396,11 @@ class SignalApp:
                         n = int(res.get("count", 0) or 0)
                     result[tid] = {"found": n, "days": days}
                 except Exception:  # noqa: BLE001
-                    result[tid] = None
-            self._target_counts = result
-            self._target_counts_busy = False
+                    result[tid] = {"error": True}   # distinct from "not computed yet" (None)
+            with self._tc_lock:
+                self._target_counts = result
+                self._target_counts_at = _t.monotonic()   # rest starts when the pass FINISHED
+                self._target_counts_busy = False
             if self.section == "Overview":
                 try:
                     self._render()

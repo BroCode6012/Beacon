@@ -100,21 +100,64 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
+def _win_process_cmdline(pid: int):
+    """Full command line of a Windows process (fast, no subprocess) via
+    NtQueryInformationProcess(ProcessCommandLineInformation). Returns the string, or None if it
+    can't be read (so the caller can fall back)."""
+    import ctypes
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    ProcessCommandLineInformation = 60
+    STATUS_SUCCESS = 0
+
+    class _UNICODE_STRING(ctypes.Structure):
+        _fields_ = [("Length", ctypes.c_ushort),
+                    ("MaximumLength", ctypes.c_ushort),
+                    ("Buffer", ctypes.c_void_p)]
+
+    k32 = ctypes.windll.kernel32
+    ntdll = ctypes.windll.ntdll
+    handle = k32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+    if not handle:
+        return None
+    try:
+        need = ctypes.c_ulong(0)
+        ntdll.NtQueryInformationProcess(
+            handle, ProcessCommandLineInformation, None, 0, ctypes.byref(need))
+        if need.value == 0:
+            return None
+        buf = (ctypes.c_byte * need.value)()
+        status = ntdll.NtQueryInformationProcess(
+            handle, ProcessCommandLineInformation, buf, need.value, ctypes.byref(need))
+        if status != STATUS_SUCCESS:
+            return None
+        us = ctypes.cast(buf, ctypes.POINTER(_UNICODE_STRING)).contents
+        if not us.Buffer or us.Length == 0:
+            return ""
+        return ctypes.wstring_at(us.Buffer, us.Length // 2)
+    except Exception:  # noqa: BLE001
+        return None
+    finally:
+        k32.CloseHandle(handle)
+
+
 def _pid_is_worker(pid: int) -> bool:
-    """Best-effort identity check so a REUSED pid (after an unclean worker death, when the
-    OS hands that number to an unrelated process) isn't mistaken for the live worker.
-    CONSERVATIVE by design: returns True whenever it cannot tell, so it can never cause a
-    spurious second worker to launch — it only rejects a pid it can positively identify as
-    NOT the worker (the worker always runs under python/pythonw)."""
+    """Confirm a pid is ACTUALLY our radar worker, so a REUSED pid (after an unclean death, when
+    Windows hands that number to another process — INCLUDING the Signal app itself, which also
+    runs under python.exe) is not mistaken for a live worker. Checks the command line for
+    'radar-worker'. If the command line can't be read, falls back to the weaker exe-name signal —
+    the worker's own pid-file singleton is the real backstop against ever running two."""
     if pid <= 0:
         return False
     if os.name == "nt":
+        cmdline = _win_process_cmdline(pid)
+        if cmdline is not None:
+            return "radar-worker" in cmdline.lower()
         import ctypes
         PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
         k32 = ctypes.windll.kernel32
         handle = k32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
         if not handle:
-            return True   # can't inspect -> assume it's the worker (no double launch)
+            return True
         try:
             size = ctypes.c_ulong(2048)
             buf = ctypes.create_unicode_buffer(size.value)
@@ -126,7 +169,7 @@ def _pid_is_worker(pid: int) -> bool:
             k32.CloseHandle(handle)
     try:
         with open(f"/proc/{pid}/cmdline", "rb") as fh:
-            return b"radar" in fh.read().lower()
+            return b"radar-worker" in fh.read().lower()
     except Exception:  # noqa: BLE001
         return True
 
@@ -184,7 +227,9 @@ def autostart_installed() -> bool:
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
              "-File", str(AUTOSTART_SCRIPT), "-Status"],
             capture_output=True, text=True, timeout=25)
-        return out.stdout.strip().lower().startswith("enabled")
+        # -Status prints "enabled:<State>". Only Ready/Running actually RUNS — a task that
+        # exists but is Disabled would never fire, so it must read as OFF (not "enabled").
+        return out.stdout.strip().lower() in ("enabled:ready", "enabled:running")
     except Exception:  # noqa: BLE001
         return False
 
@@ -216,6 +261,20 @@ def save_niches(niches: list[str]) -> None:
         data = _read_watchlist_config()
         data["watchlist"] = [n.strip() for n in niches if n.strip()]
         _write_watchlist_config(data)
+
+
+def update_niches(mutator) -> list[str]:
+    """Atomic read-modify-write of the watchlist under the cross-process lock. `mutator` takes
+    the CURRENT list and returns the new list; the read + compute + write all happen while the
+    lock is held, so a concurrent writer (Autopilot top-up, the radar worker) can't have its
+    entry silently overwritten by a read-then-write race."""
+    with _WATCHLIST_LOCK, watchlist_config_lock(WATCHLIST_PATH):
+        data = _read_watchlist_config()
+        current = [str(x) for x in (data.get("watchlist") or [])]
+        result = mutator(list(current))
+        data["watchlist"] = [str(n).strip() for n in (result or []) if str(n).strip()]
+        _write_watchlist_config(data)
+        return data["watchlist"]
 
 
 def _read_watchlist_config() -> dict:
