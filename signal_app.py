@@ -1697,6 +1697,21 @@ class SignalApp:
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _cloud_progress_age(self):
+        """Seconds since the cloud import progress file was last written (or None). A large
+        age while the state is still 'importing' means the import is STALLED — hung, usually
+        waiting for the local scraper to release the SQLite write lock — rather than actively
+        working. Lets the card distinguish 'quiet/stuck' from 'busy'. (Reads the file mtime
+        directly, like _oracle_state, so it stays a Signal-side display concern.)"""
+        try:
+            path = (sweep_control.SCRIPTER_ROOT / "storage" / "edge_sync"
+                    / "sync_progress.json")
+            if not path.exists():
+                return None
+            return max(0.0, time.time() - path.stat().st_mtime)
+        except Exception:  # noqa: BLE001
+            return None
+
     def _cloud_sync_card(self) -> ft.Control:
         entry = self._ensure(
             "edge_sync",
@@ -1801,6 +1816,27 @@ class SignalApp:
                     height=6,
                 ),
             ]
+            # STALLED detection: a live "importing" state whose progress file hasn't been
+            # written in a while is hung (usually blocked on the DB write lock held by the
+            # local scraper), not working. Say so plainly instead of a frozen spinner —
+            # otherwise it looks identical to active work (the 30-min "stuck" report).
+            stall_age = self._cloud_progress_age()
+            if stall_age is not None and stall_age > 90:
+                mins = int(stall_age // 60)
+                ago = f"{mins}m" if mins else f"{int(stall_age)}s"
+                progress_controls.insert(0, ft.Container(
+                    ft.Row(
+                        [
+                            ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color=AMBER, size=16),
+                            ft.Text(
+                                f"Import looks stalled — no progress for {ago}. It's most "
+                                "likely waiting for the local scraper to finish writing to "
+                                "the database; it retries automatically.",
+                                size=11, color=AMBER, expand=True),
+                        ],
+                        spacing=8),
+                    padding=10, border_radius=8, bgcolor=BG,
+                    border=ft.border.all(1, AMBER)))
             if view["activity_label"]:
                 activity_row: list[ft.Control] = [
                     ft.ProgressRing(
