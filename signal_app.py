@@ -37,6 +37,7 @@ MUTED = "#8b98a5"
 ACCENT = "#86efac"      # Signal green (matches the old Signal nav accent)
 ACCENT2 = "#9dd1ff"
 WARN = "#fca5a5"
+AMBER = "#fcd34d"       # "waiting / attention" — not an error, but not running either
 
 HOST = os.getenv("FINDER_HOST", "127.0.0.1")
 PORT = int(os.getenv("FINDER_PORT", "8765"))
@@ -544,6 +545,9 @@ class SignalApp:
         # (keys with a leading _ are client-side only, stripped before the finder call)
         self.ch_filters: dict = {**CH_CHIPS[0][1], "limit": 60}
         self.ch_chip = CH_CHIPS[0][0]
+        # persistent "now scraping X" confirmation on the Channels tab (a fleeting toast
+        # left the user unsure anything happened); cleared when the filter changes/dismissed
+        self._scrape_banner: dict | None = None
 
         page.title = "Signal — Niche Finder"
         page.bgcolor = BG
@@ -567,8 +571,18 @@ class SignalApp:
         self.status = ft.Text("", size=12, color=MUTED)
         self.spinner = ft.ProgressRing(width=15, height=15, stroke_width=2,
                                        color=ACCENT, visible=False)
+        # A slim indeterminate bar across the TOP of the content area, shown whenever
+        # ANY background work is in flight — so the user sees activity where their eyes
+        # already are (on the cards), not only via the tiny footer spinner.
+        self.busy_bar = ft.ProgressBar(visible=False, bar_height=3,
+                                       color=ACCENT, bgcolor=BG)
         nav = self._nav()
-        body = ft.Container(self.content, expand=True, padding=24, bgcolor=BG)
+        body = ft.Container(
+            ft.Column([
+                self.busy_bar,
+                ft.Container(self.content, expand=True, padding=24),
+            ], spacing=0, expand=True),
+            expand=True, padding=0, bgcolor=BG)
         status_bar = ft.Container(
             ft.Row([self.spinner, self.status], spacing=8),
             padding=ft.padding.symmetric(6, 16), bgcolor=PANEL,
@@ -652,6 +666,13 @@ class SignalApp:
         self._busy = busy
         self.spinner.visible = busy
         self.status.value = msg
+        # Make the whole page visibly pulse while work runs, and colour the status
+        # text so "something is happening" reads at a glance (not a grey 12px line).
+        try:
+            self.busy_bar.visible = busy
+        except Exception:  # noqa: BLE001 — bar not built yet during very early boot
+            pass
+        self.status.color = ACCENT if busy else MUTED
         try:
             self.page.update()
         except Exception:  # noqa: BLE001
@@ -778,6 +799,12 @@ class SignalApp:
         elif t == "tool":
             self.agent_log.append({"kind": "tool", "name": e.get("name", ""),
                                    "input": e.get("input") or {}})
+        elif t == "tool_result":
+            # what the tool actually DID (count touched, success/failure) — so a real
+            # change to the index is never invisible and errors show a red flag.
+            self.agent_log.append({"kind": "tool_result", "name": e.get("name", ""),
+                                   "status": e.get("status", "success"),
+                                   "output": e.get("output")})
         else:
             return
         if self.section == "Agent":
@@ -799,6 +826,54 @@ class SignalApp:
                                 self._render() if self.section == "Agent" else None),
             start_msg="Agent is thinking…")
 
+    _TOOL_NAMES = {
+        "count_channels": "Counted channels", "find_channels": "Found channels",
+        "recent_channels": "Newest channels", "list_topics": "Listed topics",
+        "list_niches": "Listed niches", "db_stats": "Read index stats",
+        "get_channel_details": "Read channel details", "get_niche_channels": "Read niche channels",
+        "find_rising_videos": "Found rising videos", "discover_channels": "Discovered channels",
+        "radar_status": "Checked scraper status",
+        "exclude_channels": "Hid channels", "exclude_by_filter": "Hid channels by filter",
+        "run_junk_filter": "Cleaned junk", "unexclude_channels": "Restored channels",
+        "reclassify_topics": "Reclassified topics", "set_channel_topic": "Set channel topic",
+        "create_niche": "Created niche", "add_channel_to_niche": "Added to niche",
+        "crawl_niche": "Deep-swept a niche", "deep_sweep": "Deep-swept a niche",
+        "start_scraper": "Started the scraper", "stop_scraper": "Stopped the scraper",
+        "add_watchlist_queries": "Added searches", "remove_watchlist_queries": "Removed searches",
+        "get_watchlist_queries": "Read searches", "set_scraper_config": "Updated scraper config",
+        "show_channels": "Opened Channels view", "open_view": "Switched view",
+        "clear_channel_filters": "Cleared Channels filters",
+    }
+
+    def _tool_pretty_name(self, name: str) -> str:
+        return self._TOOL_NAMES.get(name, str(name).replace("_", " ").capitalize())
+
+    def _tool_result_summary(self, name: str, status, output) -> str:
+        """Plain-language, count-carrying summary of what a tool DID (green) or the error
+        it hit (red) — so the agent's actions are legible, not raw JSON."""
+        pretty = self._tool_pretty_name(name)
+        if status == "error":
+            msg = str(output.get("error")) if isinstance(output, dict) else ""
+            return f"{pretty} failed: {msg[:140]}" if msg else f"{pretty} failed."
+        o = output
+        if isinstance(o, list):
+            if len(o) == 1 and isinstance(o[0], dict) and "count" in o[0]:
+                return f"{pretty} — {int(o[0]['count']):,} channels"
+            return f"{pretty} — {len(o):,} result{'s' if len(o) != 1 else ''}"
+        if isinstance(o, dict):
+            for k, verb in (("count", "channels"), ("excluded", "channels hidden"),
+                            ("unexcluded", "channels restored"), ("updated", "channels updated"),
+                            ("added", "added"), ("removed", "removed"), ("created", "created"),
+                            ("hidden", "channels hidden")):
+                v = o.get(k)
+                if isinstance(v, (int, float)) and not isinstance(v, bool):
+                    return f"{pretty} — {int(v):,} {verb}"
+            if o.get("opened"):
+                return f"{pretty} — opened {o['opened']}"
+            if o.get("niche") or o.get("niche_id"):
+                return f"{pretty} — {o.get('niche') or o.get('niche_id')}"
+        return f"{pretty} — done"
+
     def _agent_bubble(self, m: dict) -> ft.Control:
         kind = m.get("kind")
         if kind == "user":
@@ -811,7 +886,18 @@ class SignalApp:
             inp = m.get("input") or {}
             arg = ", ".join(f"{k}={v}" for k, v in list(inp.items())[:3])
             return ft.Row([ft.Icon(ft.Icons.BUILD, size=13, color=MUTED),
-                           muted(f"{m.get('name','')}({arg})", 11)], spacing=6)
+                           muted(f"{self._tool_pretty_name(m.get('name',''))} "
+                                 f"· {m.get('name','')}({arg})", 11)], spacing=6)
+        if kind == "tool_result":
+            ok = m.get("status") != "error"
+            summary = self._tool_result_summary(m.get("name", ""), m.get("status"),
+                                                m.get("output"))
+            col = ACCENT if ok else WARN
+            return ft.Row(
+                [ft.Icon(ft.Icons.CHECK_CIRCLE if ok else ft.Icons.ERROR_OUTLINE,
+                         size=14, color=col),
+                 ft.Text(summary, size=11, color=col, selectable=True, expand=True)],
+                spacing=6, vertical_alignment=ft.CrossAxisAlignment.START)
         return ft.Row([ft.Container(
             ft.Text(m.get("text", ""), color=TEXT, selectable=True),
             bgcolor=PANEL, border=ft.border.all(1, BORDER),
@@ -829,9 +915,9 @@ class SignalApp:
             self.content.controls.append(self._error_card(
                 f"Agent needs setup: {why}. Add your AWS keys + SIGNAL_BEDROCK_MODEL to "
                 "Signal's .env (D:\\Youtube\\Signal\\.env), then reopen Signal."))
-        # Autopilot control (background maintenance loop)
-        self.content.controls.append(self._autopilot_card())
-        # input row FIRST so it's always visible (transcript can grow tall below it)
+        # Chat input + transcript come FIRST — this is a chat tab, so the input must be the
+        # first interactive thing you see (the Autopilot card + its saved log used to push it
+        # off-screen). Autopilot is secondary maintenance, so it renders BELOW.
         self._agent_input = ft.TextField(
             hint_text="Message the agent…", expand=True, border_color=BORDER,
             on_submit=lambda e: self._agent_send(e.control.value))
@@ -848,6 +934,8 @@ class SignalApp:
             "“list the topics”  ·  “what's the scraper doing?”  ·  “start the scraper”.", 12)]
         self.content.controls.append(self.card(
             ft.ListView(bubbles, spacing=10, auto_scroll=True, height=360, padding=6)))
+        # Autopilot control (background maintenance loop) — secondary, below the chat.
+        self.content.controls.append(self._autopilot_card())
 
     def _autopilot_card(self) -> ft.Control:
         ap = self.autopilot
@@ -2247,20 +2335,36 @@ class SignalApp:
         self._open_filters(target=target)
 
     def _ch_filter_label(self, k, v):
+        # NOTE: evaluate lazily (if/elif), NOT one big dict literal — a dict literal would
+        # run int(v) for the numeric entries even when k is a STRING filter like
+        # category_contains="history", crashing with "invalid literal for int()".
+        if k == "faceless_only":
+            return "faceless only" if v else None
+        if k == "category_contains":
+            return f"category ~ {v}"
+        if k == "video_format":
+            return f"format: {v}"
+        if k == "min_views_per_sub":
+            return f"views/sub ≥ {v}"
+        if k == "_min_outlier":
+            return f"outlier ≥ {v}x"
+        if k == "min_subs":
+            return f"subs ≥ {human_num(v)}"
+        if k == "max_subs":
+            return f"subs ≤ {human_num(v)}"
+        if k == "min_avg_views":
+            return f"avg views ≥ {human_num(v)}"
+        if k == "max_avg_views":
+            return f"avg views ≤ {human_num(v)}"
+        try:
+            iv = int(v)
+        except (ValueError, TypeError):
+            return None
         return {
-            "faceless_only": "faceless only" if v else None,
-            "max_subs": f"subs ≤ {human_num(v)}",
-            "min_subs": f"subs ≥ {human_num(v)}",
-            "min_avg_views": f"avg views ≥ {human_num(v)}",
-            "max_avg_views": f"avg views ≤ {human_num(v)}",
-            "max_days_since_start": f"age ≤ {int(v)}d",
-            "min_days_since_start": f"age ≥ {int(v)}d",
-            "min_uploads": f"uploads ≥ {int(v)}",
-            "max_uploads": f"uploads ≤ {int(v)}",
-            "min_views_per_sub": f"views/sub ≥ {v}",
-            "category_contains": f"category ~ {v}",
-            "_min_outlier": f"outlier ≥ {v}x",
-            "video_format": f"format: {v}",
+            "max_days_since_start": f"age ≤ {iv}d",
+            "min_days_since_start": f"age ≥ {iv}d",
+            "min_uploads": f"uploads ≥ {iv}",
+            "max_uploads": f"uploads ≤ {iv}",
         }.get(k)
 
     # -- Scrape Targets (steer the scraper at chosen niches, on demand) --------------
@@ -2273,18 +2377,8 @@ class SignalApp:
         # Oracle was actually finding channels.
         self._refresh_target_counts(targets)
         counts = getattr(self, "_target_counts", None) or {}
-
-        running = sweep_control.is_running()
-        smsg = str((sweep_control.read_status() or {}).get("message") or "").strip()
-        if not running:
-            local = ft.Row([ft.Icon(ft.Icons.PAUSE_CIRCLE_OUTLINE, color=MUTED, size=15),
-                            muted("Local scraper OFF — Start it above (or turn on auto-start).",
-                                  11)], spacing=6, wrap=True)
-        else:
-            local = ft.Row([ft.Icon(ft.Icons.RADAR, color=ACCENT, size=15),
-                            muted(f"Local scraper live — {smsg or 'running'}", 11)],
-                           spacing=6, wrap=True)
-        oracle = self._oracle_status_line()
+        ds = self._discovery_status()
+        any_running = ds["any"]
 
         topic_dd = self._topic_dd(None, self._target_pick_topic)
         subj = ft.TextField(
@@ -2301,38 +2395,42 @@ class SignalApp:
         rows = []
         for t in targets:
             on = t.get("enabled", True)
+            active = on and any_running       # green only when ACTUALLY being scraped
             c = counts.get(t.get("id"))
             toggle = ft.Switch(
                 value=on, active_color=ACCENT, scale=0.8,
                 tooltip="Pause / resume scraping this niche",
                 on_change=lambda e, tid=t.get("id"): self._target_toggle(tid, e.control.value))
-            badge = ft.Container(
-                ft.Text("focusing" if on else "paused", size=10, color=BG if on else MUTED),
-                bgcolor=ACCENT if on else CARD, padding=ft.padding.symmetric(1, 8),
-                border_radius=20, border=ft.border.all(1, ACCENT if on else BORDER))
-            if not on:
-                prog = muted("paused — not being scraped", 11)
-            elif c is None:
-                prog = muted("counting…", 11)
-            elif c.get("error"):
-                prog = muted("count unavailable — will retry", 11)
+            if active:
+                btxt, bfg, bbg, bbd = "focusing", BG, ACCENT, ACCENT
+            elif on:
+                btxt, bfg, bbg, bbd = "waiting", AMBER, CARD, AMBER
             else:
-                found = int(c.get("found", 0) or 0)
-                days = int(c.get("days", 0) or 0)
-                prog = ft.Text(
-                    f"≈{found:,} channels found in this niche"
-                    + (f" · last {days}d" if days else ""),
-                    size=11, weight=ft.FontWeight.BOLD, color=ACCENT if found else MUTED)
+                btxt, bfg, bbg, bbd = "paused", MUTED, CARD, BORDER
+            badge = ft.Container(
+                ft.Text(btxt, size=10, color=bfg),
+                bgcolor=bbg, padding=ft.padding.symmetric(1, 8),
+                border_radius=20, border=ft.border.all(1, bbd))
+            prog = self._target_progress_control(t, c, on, any_running)
             remove = ft.OutlinedButton(
                 "Remove", icon=ft.Icons.CLOSE,
                 on_click=lambda e, tid=t.get("id"): self._target_remove(tid),
                 tooltip="Stop scraping this niche and remove the target",
                 style=ft.ButtonStyle(color=WARN, side=ft.BorderSide(1, WARN)))
-            rows.append(ft.Row(
+            # A tidy per-target block: top line = toggle/badge/name/remove; the
+            # click-through + progress sits just under it. (No expand inside a wrap Row —
+            # that misbehaves in Flet; two stacked rows keep the layout clean.)
+            top = ft.Row(
                 [toggle, badge,
-                 ft.Text(str(t.get("label") or "?"), size=13, color=TEXT, width=170),
-                 prog, remove],
-                spacing=10, wrap=True, vertical_alignment=ft.CrossAxisAlignment.CENTER))
+                 ft.Text(str(t.get("label") or "?"), size=13, weight=ft.FontWeight.BOLD,
+                         color=TEXT),
+                 ft.Container(expand=True), remove],
+                spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+            rows.append(ft.Container(
+                ft.Column([top, ft.Container(prog, padding=ft.padding.only(left=52))],
+                          spacing=4, tight=True),
+                padding=ft.padding.symmetric(8, 10), border_radius=8, bgcolor=PANEL,
+                border=ft.border.all(1, BORDER)))
 
         body = [
             ft.Row([ft.Icon(ft.Icons.GPS_FIXED, color=ACCENT2, size=18),
@@ -2341,10 +2439,8 @@ class SignalApp:
                   "and new channels get auto-categorized into the matching Topic/filters. Counts "
                   "below come from your database, so they include BOTH engines. Pause or Remove "
                   "a target anytime.", 11),
-            local,
+            self._who_is_finding(ds),
         ]
-        if oracle is not None:
-            body.append(oracle)
         body.append(input_row)
         if rows:
             body.append(muted(f"Active targets ({len(targets)}):", 11))
@@ -2373,6 +2469,12 @@ class SignalApp:
 
         def work():
             import datetime as _dt
+            import scrape_targets
+            ys = None
+            try:
+                ys = scrape_targets._yield_state()   # read the yield log ONCE for all targets
+            except Exception:  # noqa: BLE001
+                ys = {}
             result: dict = {}
             for t in snapshot:
                 tid = t.get("id")
@@ -2385,16 +2487,31 @@ class SignalApp:
                     days = max(1, (_dt.datetime.now() - added).days + 1)
                 except Exception:  # noqa: BLE001
                     pass
+                # laptop-side search progress (how many of the target's fanned-out searches
+                # the worker has tested at least once) → a Queued/Finding/Swept state word
+                run = searches = 0
                 try:
-                    res = self.client.call(
-                        "count_channels", category_contains=seed, days=days,
-                        faceless_only=False)
-                    n = 0
+                    st = scrape_targets.target_stats(t, ys)
+                    run, searches = int(st.get("run", 0)), int(st.get("searches", 0))
+                except Exception:  # noqa: BLE001
+                    pass
+                def _count(**extra):
+                    res = self.client.call("count_channels", category_contains=seed,
+                                           days=days, **extra)
                     if isinstance(res, list) and res:
-                        n = int((res[0] or {}).get("count", 0) or 0)
-                    elif isinstance(res, dict):
-                        n = int(res.get("count", 0) or 0)
-                    result[tid] = {"found": n, "days": days}
+                        return int((res[0] or {}).get("count", 0) or 0)
+                    if isinstance(res, dict):
+                        return int(res.get("count", 0) or 0)
+                    return 0
+                try:
+                    # `found` = everything discovered here (honest "is my target working?"),
+                    # `opps` = the faceless replicable subset the Channels grid actually shows,
+                    # so the click-through number matches what the user then sees (no 308→17
+                    # surprise). Both are cheap COUNT queries.
+                    found = _count(faceless_only=False)
+                    opps = _count(faceless_only=True, replicable_only=True)
+                    result[tid] = {"found": found, "opps": opps, "days": days,
+                                   "run": run, "searches": searches}
                 except Exception:  # noqa: BLE001
                     result[tid] = {"error": True}   # distinct from "not computed yet" (None)
             with self._tc_lock:
@@ -2409,30 +2526,152 @@ class SignalApp:
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _oracle_status_line(self):
-        """One-line read of the off-laptop Oracle edge node (from its synced status file), so the
-        user sees discovery is happening there even when the local scraper is off."""
+    def _target_progress_control(self, t: dict, c, on: bool, any_running: bool) -> ft.Control:
+        """One target's live status: a click-through to the channels it found + a plain
+        progress line (Queued / Finding… / Swept) so the number isn't dead text."""
+        if not on:
+            return muted("paused — not being scraped", 11)
+        if c is None:
+            return ft.Row([ft.ProgressRing(width=12, height=12, stroke_width=2, color=MUTED),
+                           muted("counting…", 11)], spacing=6)
+        if c.get("error"):
+            return muted("count unavailable — will retry", 11)
+        found = int(c.get("found", 0) or 0)
+        opps = int(c.get("opps", 0) or 0)
+        days = int(c.get("days", 0) or 0)
+        run = int(c.get("run", 0) or 0)
+        searches = int(c.get("searches", 0) or 0)
+        # the click-through shows the faceless-replicable opportunities (Signal's grid gate),
+        # so the LINK number is `opps` — clicking it shows exactly that many.
+        label = f"View {opps:,} opportunities →" if opps else "No opportunities yet"
+        link = ft.TextButton(
+            label, icon=ft.Icons.OPEN_IN_NEW if opps else None, disabled=not opps,
+            on_click=lambda _e, tt=t: self._view_target_channels(tt),
+            tooltip=("Open the Channels tab filtered to exactly these channels"
+                     if opps else None),
+            style=ft.ButtonStyle(color=ACCENT if opps else MUTED,
+                                 padding=ft.padding.symmetric(2, 8)))
+        if searches and run >= searches:
+            state = "Swept"
+        elif run > 0:
+            state = "Finding…"
+        else:
+            state = "Queued"
+        bits = [f"{found:,} discovered here" + (f" in last {days}d" if days else "")]
+        if searches:
+            bits.append(f"{state} · {run}/{searches} searches tested")
+        bits.append("being scraped now" if any_running else "scraper off — Start above")
+        return ft.Column([link, muted(" · ".join(bits), 10)], spacing=0, tight=True)
+
+    def _view_target_channels(self, target: dict) -> None:
+        """Jump to the Channels tab filtered to exactly the channels this target found —
+        the SAME query the count uses (category_contains=seed within the target's window),
+        so the grid matches the number the user clicked."""
+        seed = ""
         try:
-            import json
-            base = sweep_control.SCRIPTER_ROOT / "storage" / "edge_sync"
-            path = base / "remote_status.json"
+            seed = str((target.get("queries") or [""])[0] or "").strip()
+        except Exception:  # noqa: BLE001
+            pass
+        c = (getattr(self, "_target_counts", None) or {}).get(target.get("id")) or {}
+        days = int(c.get("days", 0) or 0)
+        filt: dict = {"sort": "opportunity_score", "limit": 60}
+        if seed:
+            filt["category_contains"] = seed
+        if days:
+            filt["days"] = days      # discovery-recency window (find_channels now honors it)
+        self.ch_filters = filt
+        self.ch_chip = "Custom"
+        self.ch_topic = None
+        self.ch_niche = None
+        self.ch_view = "index"
+        self.ch_shown = CH_PAGE
+        self.section = "Channels"
+        self._render()
+        self.toast(f"Showing the channels found for “{target.get('label')}”.")
+
+    def _oracle_state(self):
+        """(is_running, human_text) for the off-laptop Oracle edge helper. ALWAYS returns a
+        text so the user can tell 'working' from 'quiet' from 'not set up' — never hidden."""
+        try:
+            path = sweep_control.SCRIPTER_ROOT / "storage" / "edge_sync" / "remote_status.json"
             if not path.exists():
-                return None
+                return False, "Oracle helper: not set up yet"
             remote = json.loads(path.read_text(encoding="utf-8"))
             if not isinstance(remote, dict) or not remote:
-                return None
-            state = str(remote.get("state") or "unknown")
+                return False, "Oracle helper: not reporting yet"
+            state = str(remote.get("state") or "unknown").lower()
             est = 0.0
             reps = remote.get("reports") or []
             if reps and isinstance(reps[0], dict):
                 est = float(reps[0].get("estimated_channels_per_hour") or 0)
-            bits = [f"Oracle edge: {state}"]
+            running = state in ("running", "collecting", "working", "active", "busy")
+            heard = ""
+            try:
+                secs = int(max(0, time.time() - path.stat().st_mtime))
+                if secs < 60:
+                    heard = "just now"
+                elif secs < 3600:
+                    heard = f"{secs // 60}m ago"
+                elif secs < 86400:
+                    heard = f"{secs // 3600}h ago"
+                else:
+                    heard = f"{secs // 86400}d ago"
+            except Exception:  # noqa: BLE001
+                pass
+            bits = [f"Oracle helper: {state}"]
             if est:
                 bits.append(f"~{int(est)}/hr")
-            return ft.Row([ft.Icon(ft.Icons.CLOUD_DONE, color=ACCENT2, size=15),
-                           muted(" · ".join(bits), 11)], spacing=6, wrap=True)
+            if heard:
+                bits.append(f"last heard {heard}")
+            return running, " · ".join(bits)
         except Exception:  # noqa: BLE001
-            return None
+            return False, "Oracle helper: status unavailable"
+
+    def _discovery_status(self) -> dict:
+        """Who is actually finding channels right now — the laptop worker + Oracle helper."""
+        try:
+            local = bool(sweep_control.is_running())
+        except Exception:  # noqa: BLE001
+            local = False
+        smsg = ""
+        try:
+            smsg = str((sweep_control.read_status() or {}).get("message") or "").strip()
+        except Exception:  # noqa: BLE001
+            pass
+        orunning, otext = self._oracle_state()
+        return {"local": local, "local_msg": smsg, "oracle_running": orunning,
+                "oracle_text": otext, "any": local or orunning}
+
+    def _who_is_finding(self, ds: dict) -> ft.Control:
+        """A single honest 'who's discovering right now' summary: two engine chips + a
+        headline that turns amber when NOTHING is running (so 'off' can't masquerade as 'on')."""
+        def engine(label, running, detail):
+            col = ACCENT if running else MUTED
+            return ft.Container(
+                ft.Column([
+                    ft.Row([ft.Text("●" if running else "○", size=13, color=col),
+                            ft.Text(label, size=12, weight=ft.FontWeight.BOLD, color=TEXT)],
+                           spacing=6),
+                    ft.Text(detail, size=10, color=MUTED, max_lines=2,
+                            overflow=ft.TextOverflow.ELLIPSIS),
+                ], spacing=3, tight=True),
+                bgcolor=PANEL, border_radius=8, padding=10, expand=True,
+                border=ft.border.all(1, col if running else BORDER))
+        laptop = (ds["local_msg"] or "running") if ds["local"] else "off — Start scraping above"
+        chips = ft.Row([engine("This laptop", ds["local"], laptop),
+                        engine("Oracle helper", ds["oracle_running"], ds["oracle_text"])],
+                       spacing=10)
+        if ds["any"]:
+            head = ft.Row([ft.Icon(ft.Icons.SENSORS, color=ACCENT, size=15),
+                           muted("Finding channels now — enabled targets below are being "
+                                 "scraped.", 11)], spacing=6, wrap=True)
+        else:
+            head = ft.Row([ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color=AMBER, size=15),
+                           ft.Text("Nothing is discovering right now — Start the scraper above "
+                                   "(or turn on auto-start).", size=11, color=AMBER, expand=True)],
+                          spacing=6)
+        return ft.Column([muted("Who's finding channels right now", 11), head, chips],
+                         spacing=8, tight=True)
 
     def _target_pick_topic(self, e) -> None:
         topic = self._topic_or_none(e.control.value)
@@ -2495,7 +2734,64 @@ class SignalApp:
         if not subject:
             self.toast("Pick a Topic (or a niche) first, then “Scrape more of this”.")
             return
+        # show a persistent confirmation banner (survives the re-render) so the click
+        # visibly does something and the user knows WHERE the channels will show up.
+        self._scrape_banner = {"label": subject, "kind": kind}
         self._target_add(subject, kind=kind)
+
+    def _scrape_banner_card(self) -> ft.Control | None:
+        """Persistent 'now scraping X' confirmation on Channels, with links to the results."""
+        b = getattr(self, "_scrape_banner", None)
+        if not b:
+            return None
+        label = str(b.get("label") or "this niche")
+        is_topic = b.get("kind") == "topic"
+
+        def watch(_):
+            self._scrape_banner = None
+            if is_topic:
+                self.rt_topic = label
+            self.rt_window = 30
+            self.rt_shown = CH_PAGE
+            self.section = "Real Time"
+            self._render()
+
+        def see(_):
+            self._scrape_banner = None
+            self.section = "Overview"
+            self._render()
+
+        dismiss = ft.IconButton(
+            ft.Icons.CLOSE, icon_size=16, icon_color=MUTED, tooltip="Dismiss",
+            on_click=lambda _e: (setattr(self, "_scrape_banner", None), self._render()))
+        where = (f"under Topic = “{label}”" if is_topic else "under the matching Topic")
+        return ft.Container(
+            ft.Column([
+                ft.Row([ft.Icon(ft.Icons.GPS_FIXED, color=ACCENT, size=18),
+                        ft.Text(f"Now scraping “{label}”.", size=13,
+                                weight=ft.FontWeight.BOLD, color=TEXT),
+                        ft.Container(expand=True), dismiss],
+                       vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                muted(f"New channels will appear on the Real Time feed and {where} — they "
+                      "take a cycle or two to be categorized first.", 11),
+                ft.Row([
+                    ft.OutlinedButton("Watch on Real Time", icon=ft.Icons.BOLT, on_click=watch,
+                                      style=ft.ButtonStyle(color=ACCENT,
+                                                           side=ft.BorderSide(1, ACCENT))),
+                    ft.TextButton("See it on Overview", icon=ft.Icons.GPS_FIXED, on_click=see),
+                ], spacing=10, wrap=True),
+            ], spacing=8, tight=True),
+            padding=14, border_radius=12, bgcolor=CARD, border=ft.border.all(1, ACCENT))
+
+    def _ch_clear_all(self, _=None) -> None:
+        # wipe every Channels narrowing back to the default browse (Best Opportunities).
+        self.ch_filters = {**CH_CHIPS[0][1], "limit": 60}
+        self.ch_chip = CH_CHIPS[0][0]
+        self.ch_topic = None
+        self.ch_niche = None
+        self.ch_view = "index"
+        self.ch_shown = CH_PAGE
+        self._render()
 
     def _render_channels(self) -> None:
         # reset paging back to the first page whenever the filter/sort/niche changed
@@ -2504,6 +2800,7 @@ class SignalApp:
         if base != self._ch_last_base:
             self._ch_last_base = base
             self.ch_shown = CH_PAGE
+            self._scrape_banner = None      # a filter change means we've moved on
 
         self.content.controls.append(muted(
             "Browse faceless formats with repeatable performance evidence. Music, brands, "
@@ -2596,6 +2893,10 @@ class SignalApp:
 
         self.content.controls.append(self.card(h("Channels", 16), *toolbar))
 
+        banner = self._scrape_banner_card()
+        if banner is not None:
+            self.content.controls.append(banner)
+
         # load + results
         entry = self._ensure(self._channels_key(), self._load_channels, "Loading channels…")
         if entry is None:
@@ -2615,6 +2916,34 @@ class SignalApp:
         sub = muted(f"{scope} · sorted by {cur_sort.replace('_', ' ')} · {tail}", 11)
         head = ft.Row([count, sub], wrap=True, spacing=8,
                       vertical_alignment=ft.CrossAxisAlignment.CENTER)
+        if not rows:
+            # Smart empty-state (same idea as Real Time): filters COMBINE, so name what's
+            # active + offer one-click recovery, instead of a bare "Nothing here yet."
+            nfilt = self._active_filter_count()
+            narrowed = nfilt > 0 or bool(self.ch_topic) or bool(self.ch_niche)
+            if narrowed:
+                bits = []
+                if self.ch_niche:
+                    bits.append(f"niche “{self.ch_niche.get('name')}”")
+                if self.ch_topic:
+                    bits.append(f"topic “{self.ch_topic}”")
+                if nfilt:
+                    bits.append(f"{nfilt} metric filter{'s' if nfilt != 1 else ''}")
+                why = " + ".join(bits)
+                note = muted(
+                    f"No channels match your current filters ({why}). These filters COMBINE "
+                    "— stacking them makes a very narrow slice that can genuinely be empty. "
+                    "Remove a filter above, or clear them all.")
+                clear = ft.OutlinedButton(
+                    "Clear all filters", icon=ft.Icons.FILTER_ALT_OFF,
+                    on_click=self._ch_clear_all,
+                    style=ft.ButtonStyle(side=ft.BorderSide(1, ACCENT), color=TEXT))
+                self.content.controls.append(self.card(head, note, clear))
+            else:
+                self.content.controls.append(self.card(
+                    head, muted("Nothing here yet. The scraper adds channels continuously — "
+                                "check back in a bit, or widen your search.")))
+            return
         body = [head, self.card_grid(rows, "channel", limit=len(rows))]
         if more:
             body.append(ft.Row([ft.OutlinedButton(
