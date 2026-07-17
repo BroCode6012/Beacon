@@ -48,6 +48,10 @@ STORAGE = SCRIPTER_ROOT / "storage"
 
 STATUS_PATH = STORAGE / "radar_status.json"
 STOP_PATH = STORAGE / "radar_stop.flag"
+# Signal-owned "the user deliberately paused the scraper" marker. Distinct from the engine's
+# transient STOP_PATH (which the worker consumes/deletes on exit): PAUSE_PATH persists until an
+# explicit Start, so the auto-start keep-alive can tell "user stopped it" from "it crashed".
+PAUSE_PATH = STORAGE / "signal_scraper_paused.flag"
 PID_PATH = STORAGE / "radar_worker.pid"
 WATCHLIST_PATH = STORAGE / "scraper_watchlist.json"
 HARVEST_YIELD_PATH = STORAGE / "harvest_yield.json"
@@ -184,17 +188,24 @@ def is_running() -> bool:
     return _pid_alive(pid) and _pid_is_worker(pid)
 
 
-def start_worker() -> bool:
+def start_worker(clear_stop: bool = True) -> bool:
     """Launch the background scraper (continuous), detached + hidden. No-op if
-    already running. Returns True if it launched a new process."""
-    # Clear any pending stop flag FIRST — even when a worker is already alive. Otherwise
-    # Stop-then-Start (worker still mid-cycle) would leave the flag set, and the worker would
-    # honour it and exit after its current step, silently stopping the scraper the user just
-    # asked to (re)start.
-    try:
-        STOP_PATH.unlink()
-    except FileNotFoundError:
-        pass
+    already running. Returns True if it launched a new process.
+
+    clear_stop=True  → an EXPLICIT user Start: cancel any pending stop + the user's pause, so
+                       Start always wins (fixes Stop-then-Start silently exiting the worker).
+    clear_stop=False → the auto-start KEEP-ALIVE: must RESPECT a deliberate user pause — it may
+                       revive a crashed worker but must never override a Stop, else the keep-alive
+                       would wipe the stop request every few minutes and Stop could never stick."""
+    if clear_stop:
+        # explicit Start — cancel a pending stop AND the persistent user pause.
+        for p in (STOP_PATH, PAUSE_PATH):
+            try:
+                p.unlink()
+            except FileNotFoundError:
+                pass
+    elif PAUSE_PATH.exists():
+        return False   # user deliberately paused it — the keep-alive must not relaunch it
     if is_running():
         return False
     creationflags = 0
@@ -214,9 +225,11 @@ def start_worker() -> bool:
 
 
 def stop_worker() -> None:
-    """Ask the worker to stop after its current step (writes the stop flag)."""
+    """Ask the worker to stop after its current step, and mark it PAUSED so the auto-start
+    keep-alive won't relaunch it within minutes. Only an explicit Start clears the pause."""
     STOP_PATH.parent.mkdir(parents=True, exist_ok=True)
     STOP_PATH.write_text("stop", encoding="utf-8")
+    PAUSE_PATH.write_text("paused by user", encoding="utf-8")
 
 
 AUTOSTART_SCRIPT = Path(__file__).with_name("install_radar_autostart.ps1")

@@ -19,11 +19,13 @@ import sweep_control
 
 def main() -> int:
     try:
-        launched = sweep_control.start_worker()
+        # clear_stop=False: the keep-alive REVIVES a crashed worker but RESPECTS a deliberate
+        # user Stop (pause marker) — it must never wipe a Stop the user just made.
+        launched = sweep_control.start_worker(clear_stop=False)
     except Exception as exc:  # noqa: BLE001
         print(f"autostart error: {type(exc).__name__}: {exc}")
         return 1
-    print("started the scraper" if launched else "scraper already running")
+    print("started the scraper" if launched else "scraper already running or paused")
     return 0
 
 
