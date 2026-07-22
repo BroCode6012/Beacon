@@ -50,6 +50,21 @@ class SignalPipelineStatusTests(unittest.TestCase):
         self.assertIn("being organized now", state["queue_text"])
         self.assertNotIn("are waiting", state["queue_text"])
 
+    def test_fresh_lane_message_wins_over_stale_query_name(self) -> None:
+        state = _pipeline_progress_state({
+            "pipeline_mode": "split",
+            "organizer": {
+                "state": "running",
+                "message": "organizing channel backlog",
+                "current_query": "stale niche query",
+            },
+        })
+
+        self.assertEqual(
+            state["organizer"]["message"],
+            "organizing channel backlog",
+        )
+
     def test_empty_split_queue_has_plain_language_state(self) -> None:
         state = _pipeline_progress_state({"pipeline_mode": "split"})
 

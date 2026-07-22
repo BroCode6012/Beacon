@@ -302,6 +302,23 @@ Never copy, mount, expose, or remotely open the live SQLite file for this design
   1,410-channel/2,219-video production result imported in 13.859 seconds.
   Verification: 245 shared tests, 44 Signal tests + 13 subtests, and a complete
   real-window pass of all five screens plus the in-progress cloud card.
+  On 2026-07-16 the progress contract gained live, non-secret transaction
+  activity (`verifying`, `waiting_for_database`, `staging`, `committing`,
+  `acknowledging`) while keeping `processed_bundles` strictly committed-only.
+  Signal shows the committed bar separately from the live transaction bar and
+  polls every three seconds during imports. Older already-running imports get
+  a compatibility explanation; the next process automatically emits detailed
+  steps. Verification: 249 shared tests, 48 Signal tests + 13 subtests, and
+  real-window checks of both progress modes plus all five screens.
+  On 2026-07-17 post-commit Oracle acknowledgements moved to one coalescing
+  background SSH worker. It retains 20-file batches and the durable-commit
+  barrier, overlaps upload with the next import transaction, waits for the
+  final upload before returning, and leaves failed signed acknowledgements for
+  retry. A second background worker passively checkpoints the canonical WAL
+  after commits and makes bounded truncate attempts above 128 MiB (250 ms while
+  active, 1.5 seconds after close). Sync status records the maintenance outcome.
+  Verification: 252 shared tests, 55 Signal tests + 16 subtests, real SQLite
+  WAL growth/truncation, blocked-SSH overlap, and two five-screen app passes.
   ENGINE NOTE 13 (shared, split-radar recovery): on 2026-07-14 a live `py-spy`
   capture proved that the organizer lane had exited while `_run_split_pipeline`
   waited forever for the still-running discovery thread. The split worker now

@@ -455,6 +455,46 @@ on 2026-07-15:
   13 subtests, and real-window verification of the progress card and all five
   Signal screens.
 
+Cloud-import progress visibility was tightened on 2026-07-16:
+
+- the importer now publishes non-secret live phases before a transaction
+  commits: verifying, waiting for the database writer, staging each bundle,
+  committing, and acknowledging;
+- the durable committed count remains separate and still advances only after
+  the full transaction commits, preserving the existing safety guarantee;
+- Signal shows both counters, explains why `0 committed` can still mean active
+  work, and refreshes the Cloud worker card every three seconds during an
+  import without requiring the operator to press Refresh;
+- imports started by the previous release show an explicit compatibility
+  explanation, while the next sync automatically gains detailed live steps;
+  and
+- verification passed with 249 shared tests, 48 Signal tests plus 13 subtests,
+  and real-window checks of both progress modes and all five Signal screens.
+
+Cloud-import batch handoff and WAL maintenance were corrected on 2026-07-17:
+
+- signed local acknowledgements are still created only after their database
+  transaction commits, but a single coalescing background worker now sends
+  them to Oracle in the existing 20-file SSH batches while the importer starts
+  the next database transaction;
+- the importer waits for any final acknowledgement batch before returning.
+  Failed uploads leave the signed local acknowledgement in place for the next
+  scheduled retry, so transport overlap does not weaken delivery safety;
+- a separate coalescing WAL worker performs passive checkpoints after committed
+  import groups. When the WAL reaches 128 MiB it makes a bounded truncate
+  attempt: 250 ms during active importing and 1.5 seconds after the importer
+  connection closes. Busy attempts remain retryable instead of blocking the
+  next batch;
+- each sync result now records WAL attempts, truncate attempts/successes, busy
+  attempts, errors, and the last before/after byte counts;
+- a concurrency regression test held the first SSH acknowledgement batch open
+  and proved the next database transaction continued while Oracle could see
+  only already-committed bundles. A real SQLite regression test grew and then
+  truncated an oversized WAL; and
+- verification passed with 252 shared tests, 55 Signal tests plus 16 subtests,
+  and two isolated real-window passes of Overview, Channels, Real Time, Find,
+  and Agent.
+
 This layer is deliberately transport-agnostic. SSH/SFTP, OCI Object Storage, or
 another transport can move the same immutable files later without changing the
 worker, canonical database, or import contract. New cloud capabilities should
