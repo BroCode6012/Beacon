@@ -4,13 +4,13 @@ import threading
 import time
 import unittest
 
-from signal_agent import SignalAgent
-from signal_app import SignalApp
+from beacon_agent import BeaconAgent
+from beacon_app import BeaconApp
 
 
-class SignalCacheTests(unittest.TestCase):
-    def _app(self) -> SignalApp:
-        app = SignalApp.__new__(SignalApp)
+class BeaconCacheTests(unittest.TestCase):
+    def _app(self) -> BeaconApp:
+        app = BeaconApp.__new__(BeaconApp)
         app.cache = {}
         app._loading = set()
         app._epoch = {}
@@ -18,7 +18,7 @@ class SignalCacheTests(unittest.TestCase):
         app.section = "Channels"
         app._render = lambda: None  # type: ignore[method-assign]
 
-        def run_now(fn, on_done, _msg):
+        def run_now(fn, on_done, _msg, **_kwargs):
             on_done(fn())
 
         app.run_bg = run_now  # type: ignore[method-assign]
@@ -37,7 +37,7 @@ class SignalCacheTests(unittest.TestCase):
     def test_stale_entry_stays_visible_while_replaced(self) -> None:
         app = self._app()
         stale = app._cache_entry({"data": ["old"]})
-        stale["_cached_at"] = time.monotonic() - 1_000
+        stale["_cached_at"] = time.monotonic() - (app._cache_ttl("topics") + 1)
         app.cache["topics"] = stale
 
         entry = app._ensure("topics", lambda: ["new"], "Refreshing topics")
@@ -86,10 +86,10 @@ class _Ui:
         self.changed.append(name)
 
 
-class SignalAgentCacheInvalidationTests(unittest.TestCase):
+class BeaconAgentCacheInvalidationTests(unittest.TestCase):
     def test_successful_write_notifies_ui_but_read_does_not(self) -> None:
         ui = _Ui()
-        agent = SignalAgent(_Finder(), sweep=object(), ui=ui)
+        agent = BeaconAgent(_Finder(), sweep=object(), ui=ui)
 
         agent._dispatch("run_junk_filter", {})
         agent._dispatch("list_topics", {})
@@ -98,7 +98,7 @@ class SignalAgentCacheInvalidationTests(unittest.TestCase):
 
     def test_failed_write_does_not_invalidate_good_cached_data(self) -> None:
         ui = _Ui()
-        agent = SignalAgent(_Finder({"error": "no change"}), sweep=object(), ui=ui)
+        agent = BeaconAgent(_Finder({"error": "no change"}), sweep=object(), ui=ui)
 
         agent._dispatch("reclassify_topics", {"only_missing": True})
 

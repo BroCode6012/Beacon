@@ -1,13 +1,13 @@
 """Ensure the background radar scraper is running — idempotent, safe to call repeatedly.
 
-Used by the "auto-start on login" scheduled task (SignalRadarAutostart): it fires at logon
+Used by the "auto-start on login" scheduled task (BeaconRadarAutostart): it fires at logon
 AND every 15 minutes, calling sweep_control.start_worker(), which is a no-op when a worker is
 already alive. So the scraper comes up when you log in and is quietly restarted within ~15 min
 if it ever dies — and it never runs two workers (the worker self-guards via its pid file, and
 start_worker checks is_running first).
 
 Run manually to start it right now:
-    D:\\Youtube\\Scripter\\.venv\\Scripts\\pythonw.exe D:\\Youtube\\Signal\\scraper_autostart.py
+    D:\\Youtube\\Quill\\.venv\\Scripts\\pythonw.exe D:\\Youtube\\Beacon\\scraper_autostart.py
 """
 from __future__ import annotations
 

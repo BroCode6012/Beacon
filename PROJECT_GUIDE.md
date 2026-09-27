@@ -1,9 +1,9 @@
-# Signal — Codebase Investigation and Working Plan
+# Beacon — Codebase Investigation and Working Plan
 
 Investigation date: **2026-07-10**  
-Implementation status updated: **2026-07-14**
+Implementation status updated: **2026-08-17**
 
-This document is the durable map of Signal: what it is, why it exists, how it
+This document is the durable map of Beacon: what it is, why it exists, how it
 works, what is currently running, what was verified, where the important risks
 are, and the order in which the project should be improved.
 
@@ -14,7 +14,7 @@ adding data, so counts will continue to rise.
 
 ## 1. Executive summary
 
-Signal is a Windows desktop control room for finding YouTube channel and niche
+Beacon is a Windows desktop control room for finding YouTube channel and niche
 opportunities. Its intended job is to help a non-technical operator:
 
 - discover channels continuously;
@@ -25,9 +25,9 @@ opportunities. Its intended job is to help a non-technical operator:
 - monitor the background discovery pipeline; and
 - ask an AI agent to search, organize, clean, and control the index.
 
-Signal is not the scraper engine and it does not own a separate database. It is
-a small Flet UI and orchestration layer in `D:\Youtube\Signal`. The heavy logic
-lives in the shared Scripter engine in `D:\Youtube\Scripter`, and both Signal and
+Beacon is not the scraper engine and it does not own a separate database. It is
+a small Flet UI and orchestration layer in `D:\Youtube\Beacon`. The heavy logic
+lives in the shared Scripter engine in `D:\Youtube\Quill`, and both Beacon and
 the Production Lab use the same SQLite index.
 
 The architectural separation is good. Basic connectivity, cache correctness,
@@ -51,7 +51,7 @@ The first correctness pass is now implemented and verified:
 
 | Area | Current verified state |
 |---|---|
-| Opportunity scope | Signal always requests faceless + replicable channels |
+| Opportunity scope | Beacon always requests faceless + replicable channels |
 | Shared ranking | Optional `replicable_only` gate and stabilized `opportunity_score` |
 | Loading state | Concurrent background tasks are counted; stale status text clears |
 | Topic reset | Non-empty `__all_topics__` sentinel; legacy `All topics` is normalized |
@@ -59,15 +59,15 @@ The first correctness pass is now implemented and verified:
 | Shared Finder cache | Successful writes clear cached derived reads |
 | Autopilot queries | 600 max, 2 autonomous additions/call, 12-hour cooldown, family/near-duplicate rejection, yield/backlog gate |
 | Research tracking | Successful empty provider responses count as tested; provider failures do not; incomplete passes never display as 100% |
-| Always-on query top-up | Radar may add at most 2 reviewed, evidence-backed, cross-topic queries only after 100% first-pass coverage; disabled by default outside Signal |
+| Always-on query top-up | Radar may add at most 2 reviewed, evidence-backed, cross-topic queries only after 100% first-pass coverage; disabled by default outside Beacon |
 | Agent contracts | Workspace roles aligned; Finder filters/sorts aligned; error payloads report error status |
 | Radar throughput | Independent fast-discovery and organizer lanes; 4 parallel search fetchers; 1-minute discovery rest |
 | Durable radar work | Coalescing lease-based queue beside the shared index; interrupted work safely returns to the queue |
 | Off-laptop foundation | Signed recurring plans, lightweight Oracle-ready collector, durable scheduler, signed result bundles/acks, idempotent local import, Finder-gated status/manual sync, hardened immutable Oracle deployment package |
 | Operator tracking | Overview distinguishes channels waiting from channels actively being organized |
 | Dependencies | `scikit-learn` and `joblib` declared in shared requirements |
-| Git baseline | Signal and Scripter now have separate safe repositories with secrets/data/generated state ignored |
-| Signal tests | **41 passed, 13 parameterized subtests passed** |
+| Git baseline | Beacon and Scripter now have separate safe repositories with secrets/data/generated state ignored |
+| Beacon tests | **41 passed, 13 parameterized subtests passed** |
 | Shared tests | **178 passed** |
 | Package health | `pip check`: no broken requirements |
 
@@ -75,6 +75,34 @@ Every atomic change above also passed a separate real Flet launch and visual
 smoke test of Overview, Channels, Real Time, Find, and Agent. Verification
 instances used isolated Finder ports and disabled Autopilot. Logs contained no
 exceptions; the only stderr output was the known Python 3.10 support warning.
+
+### Verified interface redesign — 2026-07-31
+
+Beacon now uses a light “Daylight Flight Deck” design across all five screens:
+an ink-blue navigation rail, cool paper canvas, white evidence surfaces,
+signal-green state marks, cobalt analysis accents, and restrained motion. The
+direction takes inspiration from Nexlev's creator-tool clarity without copying
+its branding or weakening Beacon's operations-and-evidence identity.
+
+The redesign is Beacon-only. It did not change the shared engine, live database,
+watchlist, radar state, Finder authorization model, or Agent write boundaries.
+
+Verified behavior:
+
+- Overview separates research coverage, index health, and discovery operations
+  into plain-language operational surfaces.
+- Channels and Real Time visibly enforce the faceless + replicable scope.
+- Opportunity cards show eligibility, core metrics, evidence strength, named
+  qualification factors, and a plain-language score rationale.
+- Find clearly separates starting a deep sweep from reviewing the current
+  opportunity shortlist.
+- Agent places the investigation input first, renders Markdown responses, and
+  presents Autopilot history as compact expandable audit entries.
+- Controls wrap and cards remain readable at the enforced 1040×700 minimum
+  window size without clipping sort values or metric labels.
+- All **45 Beacon tests** passed, `pip check` reported no broken requirements,
+  and an isolated real Flet instance passed visual checks of loading, empty,
+  success, expanded-history, and responsive states across all five screens.
 
 The radar speed pass was also verified against the live worker:
 
@@ -88,13 +116,74 @@ The radar speed pass was also verified against the live worker:
   full 61,000-channel index);
 - workspace snapshots are batched; and
 - expensive workspace alert rebuilding is limited to once per 60 minutes in
-  Signal's live config instead of every cycle.
+  Beacon's live config instead of every cycle.
+
+### Verified Niche Watch and Hermes Niche Desk — 2026-08-17
+
+Beacon now exposes the niche-intelligence layer without adding a sixth screen:
+
+- Overview places **Niche Watch** below the refresh-status row. It combines a
+  deduplicated unread-alert feed with workspace channel/video sizes,
+  automatic-upkeep state, signal counts, and direct workspace/evidence actions.
+  Severity is written in every alert label, read acknowledgement has an
+  immediate undo, and large alert/workspace lists expand progressively.
+- Channels shows a contextual **Niche workspace** brief when a workspace is
+  selected. It keeps workspace and Topic concepts separate, shows a 2×2 metric
+  layout at the 1040×700 minimum, and provides reversible pause/resume controls.
+- Agent includes one **Autonomous work** ledger for Oracle discovery and
+  organization, niche upkeep, Hermes's latest brief, and Beacon Autopilot.
+- Alert acknowledgement and automatic-upkeep changes go through full-token
+  Finder writes. No direct SQLite access was added to `beacon_app.py`.
+
+The shared Finder registry gained additive, schema-free tools:
+
+- `list_niche_signals` returns the newest alert per
+  `(niche_id, entity_type, entity_id, alert_type)` plus workspace summaries;
+- `mark_niche_alert_read` changes exact alerts or one niche and is reversible;
+- `set_niche_autonomous` pauses/resumes workspace snapshots, alerts, and upkeep;
+  and
+- `publish_niche_signal` accepts only bounded, validated operator/Hermes
+  notification types.
+
+Hermes now has a bounded Niche Desk coordinator:
+
+- `signal_niche_operator.py` reads and writes only through Finder and keeps a
+  durable JSONL audit;
+- the scheduled Hermes skill contract requires one bounded packet to be
+  delegated to exactly three leaf roles—Scout, Classifier, and Curator—while
+  `signal_niche_operator.py` remains the single write coordinator;
+- topic writes are missing-only, organization is capped at eight fresh
+  candidates with confidence at least `0.85`, and notifications are capped at
+  three;
+- cron job `9de4bd55d5a2` runs daily at **08:30 local time**; its first scheduled
+  run is **2026-08-18 08:30 +01:00**; and
+- the six-hour freshness watchdog now targets Beacon's real live index. Its
+  forced **2026-08-17 15:31 +01:00** run completed successfully without the
+  former missing-table crash and reported three stale pipeline signals for
+  attention.
+
+The first live bounded operator cycle completed on **2026-08-17**:
+
+- missing-only topic classification changed `0` rows;
+- six reviewed channels were added to existing workspaces, with
+  `untrack_competitor` as the documented undo;
+- three Hermes notifications were published with `0` duplicates; and
+- Beacon visibly showed the three fresh briefs and updated workspace sizes.
+
+Verification passed **53 Beacon tests**, `pip check`, and **155 shared tests**
+with only the pre-existing dirty thumbnail-persistence module excluded. An
+isolated seeded-index workflow covered loading, success, empty, error,
+recovery, mark-read/undo, progressive alert/workspace expansion, pause/resume,
+and 1040×700 responsiveness. A second isolated Finder/app pair then opened the
+live index read-only for verification and smoke-tested Overview, Channels,
+Real Time, Find, and Agent. Logs contained no exceptions; only the known
+Python 3.10 support warning appeared.
 
 The split-pipeline pass was implemented and live-verified later on 2026-07-11:
 
 - discovery no longer waits for enrichment, cataloging, filters, niche crawling,
   scoring, or workspace maintenance;
-- Signal's live config uses `split_pipeline_enabled: true` and
+- Beacon's live config uses `split_pipeline_enabled: true` and
   `discovery_interval_minutes: 1`;
 - the existing heavy radar cycle runs as the organizer with harvest disabled;
 - newly found channels create small durable organization batches in
@@ -106,7 +195,7 @@ The split-pipeline pass was implemented and live-verified later on 2026-07-11:
   cycle;
 - Production Lab remains on legacy behavior by default because split mode is
   opt-in at configuration level; and
-- Signal Overview shows the two lanes plus exact waiting and actively-organizing
+- Beacon Overview shows the two lanes plus exact waiting and actively-organizing
   channel counts.
 
 Measured live burst:
@@ -126,7 +215,7 @@ The always-on query-top-up pass was deployed and live-verified on 2026-07-12:
   of waiting for a full rotation;
 - a successful provider response counts as tested even when it finds zero
   videos, while provider failures remain retryable;
-- the radar and Signal Autopilot share the same cross-process write lock,
+- the radar and Beacon Autopilot share the same cross-process write lock,
   maximum size, duplicate-family rules, and cooldown record;
 - the radar selects only from a reviewed faceless/replicable subject catalog
   and requires evidence across several already-indexed faceless channels;
@@ -148,9 +237,9 @@ Current live query-policy snapshot after rollout:
 The off-laptop edge foundation was implemented and verified later on
 2026-07-12:
 
-- the canonical SQLite index stays physically in Signal storage and is never
+- the canonical SQLite index stays physically in Beacon storage and is never
   copied, mounted, or opened by Oracle;
-- Signal can snapshot the current radar configuration into a signed,
+- Beacon can snapshot the current radar configuration into a signed,
   immutable, versioned discovery plan (the live snapshot contains exactly
   4,164 expanded searches);
 - the edge worker prioritizes every never-tested query before revisiting old
@@ -170,7 +259,7 @@ The off-laptop edge foundation was implemented and verified later on
 - the shared sync service reports only non-secret inbox/worker state, imports a
   bounded inbox slice, archives accepted or duplicate bundles, and leaves
   rejected bundles quarantined for inspection;
-- Signal accesses that service only through Finder: status is read-authorized,
+- Beacon accesses that service only through Finder: status is read-authorized,
   importing requires the full write token, successful imports invalidate local
   caches, and the Overview card explains that Oracle never owns the main
   database;
@@ -186,8 +275,8 @@ The off-laptop edge foundation was implemented and verified later on
   supports explicit health checks and symlink rollback;
 - a real isolated network smoke collected one query into 3 videos/3 channels
   at zero API quota and imported it into a temporary index; and
-- the full regression gate passed with 178 shared tests, 41 Signal tests plus
-  13 subtests, all five Signal screens, and an isolated Production Lab window.
+- the full regression gate passed with 178 shared tests, 41 Beacon tests plus
+  13 subtests, all five Beacon screens, and an isolated Production Lab window.
 
 The laptop synchronization path was accelerated and live-verified on
 2026-07-13:
@@ -206,7 +295,7 @@ The laptop synchronization path was accelerated and live-verified on
   with zero errors and left the remote queue empty;
 - an isolated 20-bundle benchmark imported 15,873 channel records in 18.64
   seconds; and
-- the regression gate passed with 190 shared tests and 42 Signal tests plus
+- the regression gate passed with 190 shared tests and 42 Beacon tests plus
   13 subtests.
 
 The first cloud-organization stage was deployed and live-verified on
@@ -216,16 +305,16 @@ The first cloud-organization stage was deployed and live-verified on
   clean topic before signing its result bundle;
 - it scores the videos already present in that bounded batch with the shared
   `text-v3` faceless classifier in balanced mode;
-- signed bundles may include `channel_classifications`; Signal imports those
+- signed bundles may include `channel_classifications`; Beacon imports those
   records into the one canonical database and keeps a stronger local
   classification when it has a larger evidence sample;
 - imported cloud topics only fill channels that do not already have a local
   topic, so existing local/manual topic decisions still win;
 - the deployed Oracle release produced a real bundle containing 895 channels,
   895 non-empty topics, and 895 text classifications;
-- Signal imported all 895 channel/topic/classification records, signed the
+- Beacon imported all 895 channel/topic/classification records, signed the
   acknowledgement, and left the remote queue empty; and
-- the regression gate passed with 192 shared tests, 42 Signal tests plus
+- the regression gate passed with 192 shared tests, 42 Beacon tests plus
   13 subtests, and visual smoke tests of Overview, Channels, Real Time, Find,
   and Agent.
 
@@ -243,8 +332,8 @@ The changing-home-IP gap was closed and live-verified on 2026-07-13:
   updater replaced the stale `/32`, and SSH/sync recovered automatically;
 - subsequent hidden two-minute tasks completed with result `0`, no transport
   errors, and zero remote bundles pending; and
-- the regression gate passed with 197 shared tests, 42 Signal tests plus
-  13 subtests, and another visual smoke test of all five Signal screens.
+- the regression gate passed with 197 shared tests, 42 Beacon tests plus
+  13 subtests, and another visual smoke test of all five Beacon screens.
 
 The organization-throughput and cloud-control path was tightened and
 live-verified later on 2026-07-13:
@@ -264,7 +353,7 @@ live-verified later on 2026-07-13:
   tracking, while retaining enrichment, cataloging, categorization, topic,
   junk, face, and text-classification work;
 - stale query text no longer masks the organizer's current status in the radar
-  status file or Signal Overview;
+  status file or Beacon Overview;
 - Oracle free-search failures now receive at most three bounded retries only
   for transient JSON, connection, timeout, HTTP 429, and HTTP 503 failures,
   with exponential backoff and jitter;
@@ -272,7 +361,7 @@ live-verified later on 2026-07-13:
   searches, recovered 14 transient attempts, and delivered 931 channels with
   topics and classifications, compared with 8-12 failed searches in nearby
   pre-deployment batches; and
-- the final regression gate passed with 205 shared tests, 43 Signal tests plus
+- the final regression gate passed with 205 shared tests, 43 Beacon tests plus
   13 subtests, and visual verification of Overview, Channels, Real Time, Find,
   and Agent in a separate real Flet window.
 
@@ -285,7 +374,7 @@ The durable deep-organization worker was deployed and live-verified later on
   attached to newly discovered videos, splits it into 100-channel jobs, and
   keeps the protocol hard limit at 500 channels/10,000 videos;
 - the organizer keeps only operational cursor/retry state on Oracle. It never
-  opens, copies, mounts, or replaces Signal's canonical SQLite index;
+  opens, copies, mounts, or replaces Beacon's canonical SQLite index;
 - channel enrichment resolves each official uploads playlist, catalogs up to
   30 recent uploads through low-cost `playlistItems.list`, enriches videos and
   categories in batches, and uses the free channel scraper only as a fallback;
@@ -306,8 +395,8 @@ The durable deep-organization worker was deployed and live-verified later on
 - the automatic two-minute laptop sync imported and acknowledged both
   production results with no transport/import errors and no remote outbox
   backlog; and
-- the regression gate passed with 226 shared tests, 43 Signal tests plus
-  13 subtests, and real-window verification of all five Signal screens.
+- the regression gate passed with 226 shared tests, 43 Beacon tests plus
+  13 subtests, and real-window verification of all five Beacon screens.
 
 The laptop split-radar organizer was repaired and live-verified on
 2026-07-14:
@@ -320,7 +409,7 @@ The laptop split-radar organizer was repaired and live-verified on
   falls back to classification only on a fresh index, instead of materializing
   all 1.6 million indexed videos on every maintenance pass;
 - the deadlocked worker was stopped cooperatively and replaced without stopping
-  Signal's canonical database, Oracle discovery, Oracle organization, or the
+  Beacon's canonical database, Oracle discovery, Oracle organization, or the
   hidden two-minute sync;
 - the repaired worker completed a full live organizer cycle at 01:12
   Casablanca time, crossed the former failure point, refreshed alerts across
@@ -328,7 +417,7 @@ The laptop split-radar organizer was repaired and live-verified on
 - normal non-vision stages held roughly 130 MB of private memory instead of the
   old process's 2.38 GB whole-index rescan. The bounded 10-worker OpenCV face
   stage still has a temporary higher memory peak;
-- the regression gate passed with 228 shared tests, 43 Signal tests plus
+- the regression gate passed with 228 shared tests, 43 Beacon tests plus
   13 subtests, and two separate real-window smoke passes covering Overview,
   Channels loading/loaded, Real Time loading/loaded, Find, and Agent.
 
@@ -362,7 +451,7 @@ live-verified later on 2026-07-14:
   OCI `/32` updater and hidden task recovered automatically; the final task
   returned `0`, imported a 28-channel/365-video organization result, and left
   both the laptop and Oracle queues at zero; and
-- the final regression gate passed with 232 shared tests, 43 Signal tests plus
+- the final regression gate passed with 232 shared tests, 43 Beacon tests plus
   13 subtests, `pip check`, and repeated real-window verification of Overview,
   Channels, Real Time, Find, and Agent.
 
@@ -389,8 +478,8 @@ The multi-key throughput path was then upgraded and live-verified later on
   exactly one quota unit on every one of the six key lanes;
 - the next hidden sync returned `0`, imported and acknowledged fresh work, and
   left local and Oracle pending counts at zero; and
-- the final regression gate passed with 240 shared tests, 43 Signal tests plus
-  13 subtests, `pip check`, and repeated visual verification of all five Signal
+- the final regression gate passed with 240 shared tests, 43 Beacon tests plus
+  13 subtests, `pip check`, and repeated visual verification of all five Beacon
   screens.
 
 Turbo Discovery was then deployed and live-verified later on 2026-07-14:
@@ -418,12 +507,12 @@ Turbo Discovery was then deployed and live-verified later on 2026-07-14:
 - discovery now reads the organizer's durable 30-day channel history before
   enqueueing signed jobs, so repeat channels never enter the queue. This is a
   read-only SQLite lookup against Oracle's small operational state, not
-  Signal's canonical index;
+  Beacon's canonical index;
 - the first post-dedup production cycle created two jobs instead of the prior
   roughly nine repeat-heavy jobs. The existing backlog fell from 71 to 67 while
   fresh work continued arriving;
 - immutable shared revision `a3ab046` is active on both Oracle services; and
-- the final regression gate passed with 243 shared tests, 38 Signal tests,
+- the final regression gate passed with 243 shared tests, 38 Beacon tests,
   `pip check`, and repeated visual verification of Overview, Channels loading
   and loaded, Real Time loading and loaded, Find, and Agent.
 
@@ -437,7 +526,7 @@ on 2026-07-15:
   memory-backed temporary storage without weakening commit durability;
 - cloud records no longer carry or store redundant full YouTube API objects.
   Video records retain the category ID used by the canonical index, and channel
-  records retain the thumbnail data used by Signal cards; parsed titles,
+  records retain the thumbnail data used by Beacon cards; parsed titles,
   descriptions, counts, duration, URLs, timestamps, and categories remain in
   their normal columns;
 - on an identical disposable 500,000-video index, five large production bundles
@@ -445,15 +534,15 @@ on 2026-07-15:
   resulting database was about 70 MB smaller for that sample, and equivalent
   future compressed bundles measured 28.8% smaller;
 - the sync now writes durable committed-bundle progress, current-round totals,
-  combined laptop/Oracle backlog, rate, and ETA. Signal's Cloud worker card
+  combined laptop/Oracle backlog, rate, and ETA. Beacon's Cloud worker card
   displays that progress and disables overlapping manual sync attempts;
 - immutable shared revision `060c8f2` is active on Oracle release
   `20260715T132751Z-330208`. Its first production bundle contained 1,410
   channels and 2,219 videos, used only the approved slim raw fields, imported
   end-to-end in 13.859 seconds, and left the remote outbox empty; and
-- the final regression gate passed with 245 shared tests, 44 Signal tests plus
+- the final regression gate passed with 245 shared tests, 44 Beacon tests plus
   13 subtests, and real-window verification of the progress card and all five
-  Signal screens.
+  Beacon screens.
 
 Cloud-import progress visibility was tightened on 2026-07-16:
 
@@ -462,14 +551,14 @@ Cloud-import progress visibility was tightened on 2026-07-16:
   committing, and acknowledging;
 - the durable committed count remains separate and still advances only after
   the full transaction commits, preserving the existing safety guarantee;
-- Signal shows both counters, explains why `0 committed` can still mean active
+- Beacon shows both counters, explains why `0 committed` can still mean active
   work, and refreshes the Cloud worker card every three seconds during an
   import without requiring the operator to press Refresh;
 - imports started by the previous release show an explicit compatibility
   explanation, while the next sync automatically gains detailed live steps;
   and
-- verification passed with 249 shared tests, 48 Signal tests plus 13 subtests,
-  and real-window checks of both progress modes and all five Signal screens.
+- verification passed with 249 shared tests, 48 Beacon tests plus 13 subtests,
+  and real-window checks of both progress modes and all five Beacon screens.
 
 Cloud-import batch handoff and WAL maintenance were corrected on 2026-07-17:
 
@@ -491,7 +580,7 @@ Cloud-import batch handoff and WAL maintenance were corrected on 2026-07-17:
   and proved the next database transaction continued while Oracle could see
   only already-committed bundles. A real SQLite regression test grew and then
   truncated an oversized WAL; and
-- verification passed with 252 shared tests, 55 Signal tests plus 16 subtests,
+- verification passed with 252 shared tests, 55 Beacon tests plus 16 subtests,
   and two isolated real-window passes of Overview, Channels, Real Time, Find,
   and Agent.
 
@@ -518,25 +607,25 @@ The remaining high-value work is:
 
 There are three code/data ownership zones.
 
-### A. Signal-owned code
+### A. Beacon-owned code
 
-Location: `D:\Youtube\Signal`
+Location: `D:\Youtube\Beacon`
 
-Signal owns:
+Beacon owns:
 
 - the Flet desktop window and five screens;
 - Finder service discovery/self-hosting;
 - UI state, caching, cards, filters, and paging;
 - start/stop controls for the radar worker;
-- the Signal-specific Bedrock agent;
+- the Beacon-specific Bedrock agent;
 - the optional Autopilot loop; and
 - the Windows screenshot/click verification helper.
 
-Changes here affect Signal only.
+Changes here affect Beacon only.
 
 ### B. Shared Scripter engine
 
-Location: `D:\Youtube\Scripter\scripter`
+Location: `D:\Youtube\Quill\scripter`
 
 The engine owns:
 
@@ -553,16 +642,16 @@ The engine owns:
 - outlier and velocity logic; and
 - Production Lab services.
 
-Changes here can affect both Signal and the Production Lab. Every engine change
+Changes here can affect both Beacon and the Production Lab. Every engine change
 must be labeled as shared-impact work.
 
 ### C. Shared live data
 
 Primary database:
 
-`D:\Youtube\Signal\storage\youtube_index.sqlite3`
+`D:\Youtube\Beacon\storage\youtube_index.sqlite3`
 
-Supporting operational state remains under `D:\Youtube\Scripter\storage` and
+Supporting operational state remains under `D:\Youtube\Quill\storage` and
 includes:
 
 - `scraper_watchlist.json`
@@ -573,8 +662,8 @@ includes:
 - `radar_work_queue.sqlite3`
 - `faceless_text_model.joblib`
 
-The database is approximately 10 GB and runs in WAL mode. It must never be moved
-or copied casually. Signal owns the physical file. Production Lab resolves that
+The database is approximately 24 GB (2026-09-11) and runs in WAL mode. It must never be moved
+or copied casually. Beacon owns the physical file. Production Lab resolves that
 same shared index separately from its writable per-session database.
 
 `radar_work_queue.sqlite3` is not a second product database. It contains only
@@ -596,9 +685,9 @@ file plus its temporary code fallback were removed.
 User
   |
   v
-Signal Flet app (signal_app.py)
+Beacon Flet app (beacon_app.py)
   |                         \
-  | FinderClient             \ SignalAgent / Autopilot
+  | FinderClient             \ BeaconAgent / Autopilot
   v                           \        |
 Local Finder HTTP API                  AWS Bedrock
 (local_api.py)                         |
@@ -616,7 +705,7 @@ YouTubeStore
   v
 Shared SQLite database
 
-Signal Overview
+Beacon Overview
   |
   v
 sweep_control.py
@@ -635,7 +724,7 @@ detached radar worker
   v
 Shared SQLite database
 
-Signal/controller
+Beacon/controller
   |
   +--> signed discovery plan
           |
@@ -660,7 +749,7 @@ Signal/controller
 
 ### Important architectural rule
 
-Normal Signal UI features should go through `FinderClient`. They should not
+Normal Beacon UI features should go through `FinderClient`. They should not
 embed direct SQLite queries or import internal scraper services. Direct database
 access is acceptable for diagnostics such as `check_engine.py`, not for normal
 screen behavior.
@@ -669,22 +758,22 @@ screen behavior.
 
 ## 4. Startup and runtime flow
 
-1. `signal_app.py` imports `engine_link` first.
+1. `beacon_app.py` imports `engine_link` first.
 2. `engine_link.py`:
-   - places `D:\Youtube\Scripter` on `sys.path`; and
+   - places `D:\Youtube\Quill` on `sys.path`; and
    - sets `YOUTUBE_INDEX_DB` unless the environment already overrides it.
-3. Signal looks for a shared Finder token file, then tries the configured Finder
+3. Beacon looks for a shared Finder token file, then tries the configured Finder
    URL.
-4. If no Finder is reachable, Signal creates the Finder server in a daemon
+4. If no Finder is reachable, Beacon creates the Finder server in a daemon
    thread inside its own process.
-5. Signal creates the optional Autopilot controller and starts it only when the
+5. Beacon creates the optional Autopilot controller and starts it only when the
    saved state says it is enabled.
 6. The Flet shell renders the current section.
 7. Each data screen lazily starts background Finder calls and caches their
    results in memory.
-8. The radar worker is independent. It keeps running after Signal closes.
+8. The radar worker is independent. It keeps running after Beacon closes.
 
-The current running Signal instance is self-hosting its Finder on port `8799`.
+The current running Beacon instance is self-hosting its Finder on port `8799`.
 The default port `8765` was not listening during this investigation.
 
 ---
@@ -708,10 +797,14 @@ Data:
 Current behavior:
 
 - Overview counts refresh automatically every 60 seconds;
-- successful writes invalidate the relevant Signal and Finder caches;
+- successful writes invalidate the relevant Beacon and Finder caches;
+- Niche Watch shows deduplicated unread alerts and true workspace sizes;
+- workspace evidence time and alert-detection time remain separate clocks;
 - the research tracker shows exact tested/remaining counts; and
 - near-complete progress uses enough precision that it cannot display 100%
-  while searches remain.
+  while searches remain;
+- research coverage, index counts, scraper state, queue state, and cloud
+  collection are grouped into distinct plain-language operational surfaces.
 
 ### Channels
 
@@ -726,18 +819,20 @@ Purpose:
 
 The filters are combined in one engine SQL query. This is the right design.
 
-The screen currently exposes raw data-quality problems very clearly. In a live
-high-average-views view, examples included:
+Current presentation:
 
-- Nirvana labeled `Other`;
-- Chris Brown labeled `Tech & AI`;
-- Ricky Martin labeled `Tech & AI`;
-- MrBeast labeled `Nature & Wildlife`;
-- Like Nastya labeled `Space & Physics`; and
-- Akon labeled `Business & Companies`.
+- the faceless + replicable eligibility gate is visible beside the controls;
+- niche, topic, sort, filters, targeted scraping, and presets remain combinable;
+- a selected niche shows its curated workspace size, unread alerts, upkeep
+  state, and reversible pause/resume control before the channel grid;
+- cards use a flat divided metric band rather than nested metric tiles;
+- every card explains why it qualifies using sample size, view leverage,
+  channel recency, evidence strength, and a plain-language rationale; and
+- controls wrap and evidence cards remain legible at the minimum window size.
 
-This is not primarily a card-rendering problem. It is classifier and corpus
-quality leaking into the UI.
+Classifier and corpus quality remain ranking concerns rather than UI concerns.
+The interface now makes the evidence easier to inspect instead of hiding those
+quality signals.
 
 ### Real Time
 
@@ -753,12 +848,15 @@ Important distinction:
 - `first_seen_at` means when this system found the channel;
 - `channel_published_at` means when the YouTube channel was created.
 
-Verified live defect:
+Current behavior:
 
-The screen showed zero channels and explained that the active topic was
-`All topics`, even though `All topics` should mean no topic filter. The direct
-Finder call returned recent channels normally. The display label has leaked into
-state as a literal topic value.
+- the `All topics` sentinel is normalized and no longer becomes a literal
+  filter;
+- discovery time is explicitly explained as different from channel age;
+- loading, empty, and populated windows have distinct plain-language states;
+  and
+- recent cards reuse the same qualification evidence as Channels while adding
+  discovery recency.
 
 ### Find
 
@@ -770,11 +868,15 @@ Purpose:
 The current deep sweep:
 
 - writes discoveries into the shared index;
-- does not auto-track a workspace because Signal passes no `niche_id`;
+- does not auto-track a workspace because Beacon passes no `niche_id`;
 - has no progress stream in the UI;
 - has no cancellation control;
 - uses the Finder client’s 600-second HTTP timeout; and
 - can be started again while another background operation is already running.
+
+The redesigned surface clearly separates launching a new sweep from loading the
+current replicable-opportunity shortlist and explains that both use Beacon's one
+live index.
 
 ### Agent
 
@@ -786,12 +888,17 @@ Purpose:
 
 The agent is intentionally separate from Production Lab chat code.
 
-The current Agent screen places the large Autopilot card before the chat input.
-With activity present, the input is below the visible fold even though the code
-comment says the input should be pinned first.
+Current presentation:
 
-Autopilot summaries are rendered as plain text, so Markdown headings and tables
-appear as raw `##` and `|` characters.
+- the investigation input is the first primary surface;
+- the Autonomous work ledger distinguishes discovery/organization, niche
+  upkeep, the latest Hermes brief, and local Autopilot;
+- the empty state offers plain-language example prompts;
+- writes are visibly described as reversible;
+- Agent and Autopilot Markdown renders as structured content;
+- tool calls are progressive-disclosure technical details; and
+- Autopilot history is summarized in compact, timestamped, expandable audit
+  entries.
 
 ---
 
@@ -854,9 +961,9 @@ incorrect and can reward old channels with one historical viral upload.
 
 ## 7. Local file map
 
-### `signal_app.py`
+### `beacon_app.py`
 
-The 1,802-line desktop application:
+The ~5,250-line desktop application:
 
 - service resolution;
 - navigation;
@@ -869,7 +976,7 @@ The 1,802-line desktop application:
 - Real Time; and
 - Find.
 
-### `signal_agent.py`
+### `beacon_agent.py`
 
 The Bedrock tool-use loop:
 
@@ -880,7 +987,7 @@ The Bedrock tool-use loop:
 - up to 18 tool rounds; and
 - optional restricted mode for Autopilot.
 
-### `signal_autopilot.py`
+### `beacon_autopilot.py`
 
 Optional in-process maintenance:
 
@@ -892,7 +999,7 @@ Optional in-process maintenance:
 
 ### `sweep_control.py`
 
-Signal-side radar control:
+Beacon-side radar control:
 
 - read status;
 - inspect the pidfile;
@@ -906,8 +1013,14 @@ The bridge to the shared engine and database.
 
 ### `finder_service.py`
 
-A standalone Finder launcher. Signal currently also supports in-process
+A standalone Finder launcher. Beacon currently also supports in-process
 self-hosting.
+
+It never holds a console window, however it is started. `start_finder_hidden.vbs` runs
+it under `pythonw.exe` directly; starting it with plain `python.exe` makes it hand
+itself off to `pythonw.exe` and exit, which closes the console. Output goes to
+`storage/finder_service.log`. Launching twice is safe: the second one sees a healthy
+`/health` and steps aside. Set `FINDER_CONSOLE=1` to watch it in the foreground.
 
 ### `check_engine.py`
 
@@ -917,7 +1030,7 @@ Read-only database connectivity proof.
 
 DPI-aware native UI verification:
 
-- find and focus the Signal window;
+- find and focus the Beacon window;
 - click fractional coordinates;
 - type;
 - scroll; and
@@ -932,7 +1045,7 @@ context.
 
 ---
 
-## 8. Shared engine paths Signal relies on
+## 8. Shared engine paths Beacon relies on
 
 - `scripter/intelligence/finder_client.py`
 - `scripter/intelligence/local_api.py`
@@ -1025,8 +1138,8 @@ The service boundary and read/write split are working.
 
 ### Source validation
 
-- All seven Signal Python files parsed successfully with Python AST.
-- Every Signal source file was inspected.
+- All seven Beacon Python files parsed successfully with Python AST.
+- Every Beacon source file was inspected.
 - The relevant shared engine implementations were traced.
 
 ### Database validation
@@ -1043,7 +1156,7 @@ Current shared test suite:
 - **113 passed**
 - **0 failed**
 
-Current Signal suite:
+Current Beacon suite:
 
 - **25 passed**
 - **13 parameterized subtests passed**
@@ -1055,7 +1168,7 @@ The run also warned that Python 3.10.11 support in `google.api_core` ends on
 
 ### Live desktop validation
 
-The existing real Signal window was focused and the following screens were
+The existing real Beacon window was focused and the following screens were
 opened and visually inspected:
 
 - Overview
@@ -1071,7 +1184,7 @@ No scraper, database, or agent write action was triggered during UI inspection.
 ## 12. What is working well
 
 1. **Separation of concerns**
-   - Signal is a client/control layer.
+   - Beacon is a client/control layer.
    - Shared engine logic remains centralized.
 
 2. **Single shared index**
@@ -1109,32 +1222,13 @@ No scraper, database, or agent write action was triggered during UI inspection.
 
 ## 13. Important findings and risks
 
-### Foundation: there is no Git repository
+### Resolved 2026-08-17: Git baselines exist
 
-Neither `D:\Youtube\Signal` nor `D:\Youtube\Scripter` is currently a Git
-repository.
-
-That means:
-
-- no reliable diff;
-- no safe rollback;
-- no commit checkpoints;
-- no branch for risky engine work; and
-- no clear record of which chat changed what.
-
-Before meaningful code work, initialize version control for code and
-documentation while explicitly excluding:
-
-- `.env`;
-- `storage/`;
-- databases and WAL files;
-- model artifacts;
-- logs;
-- sessions;
-- screenshots; and
-- `__pycache__`.
-
-The shared database must not be added to Git.
+Both `D:\Youtube\Beacon` and `D:\Youtube\Quill` are Git worktrees with existing
+commit history. Continue to keep secrets and generated state outside version
+control, especially `.env`, `storage/`, databases and WAL files, model
+artifacts, logs, sessions, screenshots, and `__pycache__`. The shared live
+database must never be added to Git.
 
 ### Resolved 2026-07-11: global busy state
 
@@ -1207,7 +1301,7 @@ Required repair:
 
 Resolution:
 
-- Signal cache entries now have per-data TTLs;
+- Beacon cache entries now have per-data TTLs;
 - stale entries remain visible while refreshing;
 - Overview refreshes silently every 60 seconds and shows its update time;
 - manual Refresh invalidates topic counts; and
@@ -1245,7 +1339,7 @@ Implemented first pass:
 - 8–500 uploads, minimum average views, maximum age, and positive subscribers;
 - stabilized subscriber denominator;
 - evidence and age factors; and
-- `opportunity_score` as Signal’s default ranking.
+- `opportunity_score` as Beacon’s default ranking.
 
 Still required:
 
@@ -1329,13 +1423,13 @@ Resolution:
 - Overview shows exact remaining counts and never rounds an incomplete pass to
   100%; and
 - after full coverage, the durable radar may perform the bounded,
-  evidence-backed query top-up described above even while Signal is closed.
+  evidence-backed query top-up described above even while Beacon is closed.
 
 ### Resolved 2026-07-11: basic Agent/engine schema disagreement
 
 Concrete mismatch:
 
-- Signal’s `add_channel_to_niche` schema permits `competitor` or `member`.
+- Beacon’s `add_channel_to_niche` schema permits `competitor` or `member`.
 - The workspace engine accepts `competitor`, `inspiration`, or `owned`.
 - `member` will fail at runtime.
 
@@ -1358,7 +1452,7 @@ Resolution:
 - niche roles are `competitor`, `inspiration`, or `owned`;
 - find/count/recent filter schemas match their Finder method signatures;
 - Revenue sorting is available; and
-- contract tests compare Signal properties with real shared method signatures.
+- contract tests compare Beacon properties with real shared method signatures.
 
 ### High: agent write transparency is prompt-only
 
@@ -1368,7 +1462,7 @@ deterministic audit summary.
 Risks:
 
 - a model can omit or misstate its final change report;
-- the full agent chat is only in memory and disappears when Signal closes;
+- the full agent chat is only in memory and disappears when Beacon closes;
 - successful dispatch status can still contain an `{error: ...}` payload;
 - exclusion/topic update counts return requested IDs, not necessarily rows that
   actually existed or changed; and
@@ -1386,7 +1480,7 @@ Required repair:
 
 ### Partially resolved 2026-07-11: dependency reproducibility
 
-Signal has no dependency manifest of its own and relies on the Scripter venv.
+Beacon has no dependency manifest of its own and relies on the Scripter venv.
 
 The shared `requirements.txt` does not list:
 
@@ -1414,9 +1508,9 @@ Still required:
 
 - a full lock/constraints strategy and Python 3.11+ migration.
 
-### Resolved 2026-07-11: Signal had no automated tests
+### Resolved 2026-07-11: Beacon had no automated tests
 
-Shared engine tests exist, but Signal-specific behavior is largely verified by
+Shared engine tests exist, but Beacon-specific behavior is largely verified by
 manual screenshots.
 
 Missing regression coverage includes:
@@ -1485,10 +1579,10 @@ short. Users can receive inconsistent results between screens/tools.
 
 Goal: make future changes reversible and measurable.
 
-1. Initialize Git for Signal.
+1. Initialize Git for Beacon.
 2. Decide whether Scripter should be:
    - a second repository; or
-   - one parent repository with Signal included.
+   - one parent repository with Beacon included.
 3. Add strict ignore rules before the first commit.
 4. Record current environment/package versions.
 5. Save a sanitized configuration snapshot containing keys and values that are
@@ -1509,13 +1603,13 @@ Goal: make the existing product dependable before adding features.
 2. Fix the `All topics` sentinel bug on both browse screens.
 3. Add cache TTLs and write-triggered invalidation.
 4. Fix the niche-role enum mismatch.
-5. Align all Signal agent tool schemas with engine contracts.
+5. Align all Beacon agent tool schemas with engine contracts.
 6. Add deterministic write auditing and actual row-change counts.
 7. Put a cap/cooldown/deduper around Autopilot watchlist changes.
 8. Fix Autopilot rapid toggle behavior.
 9. Add missing dependencies and environment checks.
 10. Update the stale `_slim` test.
-11. Add focused Signal unit tests for these defects.
+11. Add focused Beacon unit tests for these defects.
 12. Verify every fix in the real Flet window with screenshots.
 
 Exit condition:
@@ -1530,7 +1624,7 @@ Exit condition:
 ### Phase 1B — off-laptop edge deployment
 
 Goal: keep lightweight discovery running while the laptop is off without
-turning Oracle into a second Signal installation.
+turning Oracle into a second Beacon installation.
 
 Completed foundation:
 
@@ -1539,7 +1633,7 @@ Completed foundation:
 3. Durable query cursor, retry, retirement, and reprobe scheduler.
 4. Atomic/idempotent local import plus signed acknowledgements.
 5. Lightweight `requirements-edge.txt` without Flet, OpenCV, ML, or Bedrock.
-6. Finder-gated cloud status and bounded manual inbox import in Signal, with
+6. Finder-gated cloud status and bounded manual inbox import in Beacon, with
    rejected bundles quarantined and accepted/duplicate bundles archived.
 7. Immutable release builder, Python 3.11+ bootstrap, hardened unprivileged
    systemd service, health check, and rollback procedure for Oracle ARM.
@@ -1598,14 +1692,23 @@ Exit condition:
 
 Goal: make the app comfortable for daily non-technical use.
 
+Completed:
+
 1. Place the chat input above the Autopilot activity area.
-2. Render agent/Autopilot Markdown properly.
-3. Add deep-sweep progress, duplicate-start protection, and cancellation.
-4. Show data freshness timestamps.
-5. Add exact match counts separately from displayed-page counts.
-6. Add saved filter views.
-7. Add a channel detail drawer with top videos and evidence.
-8. Add a visible audit/history page.
+2. Render Agent and Autopilot Markdown properly.
+3. Redesign all five screens around one light, evidence-first control-room
+   system with minimum-width responsive behavior.
+4. Add opportunity-card qualification factors and plain-language rationale.
+5. Make Autopilot history compact, readable, and expandable.
+
+Remaining:
+
+1. Add deep-sweep progress, duplicate-start protection, and cancellation.
+2. Show data freshness timestamps.
+3. Add exact match counts separately from displayed-page counts.
+4. Add saved filter views.
+5. Add a channel detail drawer with top videos and evidence.
+6. Add a dedicated visible audit/history page.
 
 ### Phase 4 — expand product capability
 
@@ -1623,10 +1726,10 @@ Only after the earlier phases:
 
 ## 15. Working rules
 
-1. Treat Signal and Production Lab as separate products.
+1. Treat Beacon and Production Lab as separate products.
 2. Treat the shared engine and database as shared infrastructure.
 3. Flag every shared-engine edit before making it.
-4. Import `engine_link` before any `scripter.*` import in Signal entry points.
+4. Import `engine_link` before any `scripter.*` import in Beacon entry points.
 5. Keep normal UI data access behind `FinderClient`.
 6. Never expose `.env` values or tokens in logs, screenshots, docs, or commits.
 7. Never copy or relocate the live SQLite index as a casual development step.
@@ -1636,7 +1739,7 @@ Only after the earlier phases:
 10. Run automated checks and real-window click/screenshot verification for every
     user-visible change.
 11. Treat verification as a blocking gate after every atomic code change:
-    launch an isolated real Signal instance, test the changed workflow, smoke
+    launch an isolated real Beacon instance, test the changed workflow, smoke
     all five screens, inspect screenshots and process errors, and fix any
     regression before beginning the next change. Do not batch unverified code
     changes.
@@ -1649,7 +1752,7 @@ Only after the earlier phases:
 
 Confirmed by the user on **2026-07-10**:
 
-1. Signal should surface **faceless and replicable formats only**. It is an
+1. Beacon should surface **faceless and replicable formats only**. It is an
    opportunity finder, not a general browser of every successful YouTube
    channel.
 2. Autopilot may add scraper queries autonomously, but the behavior must be
@@ -1658,13 +1761,13 @@ Confirmed by the user on **2026-07-10**:
    - normalized and similarity-deduplicated;
    - bounded by size, cooldown, and per-topic budgets; and
    - prevented from adding near-duplicate filler every maintenance pass.
-3. Signal work may modify the shared Scripter engine and database logic when
+3. Beacon work may modify the shared Scripter engine and database logic when
    needed. Those changes must improve the shared scraper/index and be verified
    for Production Lab compatibility.
 4. “Replicable” means a repeatable faceless content format with enough uploads
    and performance evidence. Music artists, celebrities, children’s channels,
    major brands/networks, one-off viral accidents, malformed data, and unstable
-   tiny-subscriber ratios should not dominate Signal’s opportunity views.
+   tiny-subscriber ratios should not dominate Beacon’s opportunity views.
 5. Implementation order remains:
    - reliability and safety;
    - opportunity/ranking quality;
@@ -1678,7 +1781,7 @@ Confirmed by the user on **2026-07-10**:
    outside source control and make the implementation match it.
 7. The cloud/off-laptop collector must use the signed inbox architecture and
    must never copy, mount, or remotely share the live SQLite file. Its foundation
-   and Signal-side manual sync controls now exist; transport, provisioning, and
+   and Beacon-side manual sync controls now exist; transport, provisioning, and
    shadow validation remain pending.
 
 Initial conservative eligibility rule for implementation and evaluation:

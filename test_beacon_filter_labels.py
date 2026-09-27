@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from signal_app import SignalApp
+from beacon_app import BeaconApp
 
 
 class FilterLabelTests(unittest.TestCase):
@@ -16,7 +16,7 @@ class FilterLabelTests(unittest.TestCase):
     """
 
     def setUp(self) -> None:
-        self.app = SignalApp.__new__(SignalApp)
+        self.app = BeaconApp.__new__(BeaconApp)
 
     def test_string_category_value_does_not_crash(self) -> None:
         for value in ("history", "documentary", "deep sea exploration"):

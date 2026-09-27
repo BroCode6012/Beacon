@@ -1,7 +1,7 @@
 import flet as ft
 import pytest
 
-from signal_app import SignalApp
+from beacon_app import BeaconApp
 
 
 class FakePage:
@@ -26,7 +26,7 @@ def _walk(control):
 
 
 def _dialog_app():
-    app = SignalApp.__new__(SignalApp)
+    app = BeaconApp.__new__(BeaconApp)
     app.page = FakePage()
     app.ch_filters = {
         "sort": "opportunity_score",

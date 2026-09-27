@@ -1,21 +1,25 @@
-"""Signal's OWN control agent — a self-contained AWS Bedrock (Claude) assistant that
-drives the finder + background scraper to search, organize, and control the index.
+"""Beacon's OWN control agent — a self-contained assistant that drives the finder +
+background scraper to search, organize, and control the index.
 
 DELIBERATELY SEPARATE from the Production Lab: this imports NOTHING from
 scripter.chat / scripter.agent_tools / scripter.llm. Its only engine links are the
-exact bridges the rest of Signal already uses — the FinderClient (read+write finder)
-and sweep_control (start/stop the shared scraper). The LLM is a fresh boto3 Bedrock
-client; AWS creds + the model id live in Signal's OWN .env (never in code).
+exact bridges the rest of Beacon already uses — the FinderClient (read+write finder)
+and sweep_control (start/stop the shared scraper).
 
-Config (Signal/.env, all NEVER in code):
-    AWS_ACCESS_KEY_ID=...
-    AWS_SECRET_ACCESS_KEY=...
-    AWS_REGION=us-east-1              # a region where your Bedrock model is enabled
-    SIGNAL_BEDROCK_MODEL=...          # the exact Bedrock model id (Claude Opus)
+WHICH MODEL ANSWERS IS A SETTING, NOT CODE
+Every model goes through beacon_ai: Azure/OpenAI-compatible services, Claude by API key,
+AWS Bedrock, or Claude Code on a subscription. The Agent tab's "AI provider" picker
+chooses; ai_providers.json lists what exists; keys live in Beacon/.env. See beacon_ai.py.
+
+This file owns what does NOT change between providers: the system prompt, the tool
+definitions (TOOLS, one list for every provider), the dispatcher, and the loop that
+alternates model turns with tool calls — written once, so a rule like "roll back a turn
+that cannot finish" holds for every provider at the same time.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 from pathlib import Path
@@ -23,16 +27,18 @@ from typing import Callable
 
 from dotenv import load_dotenv
 
-# Signal's own .env (AWS creds + model id). Loaded here so the agent is self-contained.
+import beacon_ai
+
+# Beacon's own .env (keys + model ids). Loaded here so the agent is self-contained.
 load_dotenv(Path(__file__).with_name(".env"))
 
-REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-1"
 MAX_TOOL_ROUNDS = 18          # safety cap on tool-use loops per user turn
 Event = Callable[[dict], None]
 
-SYSTEM_PROMPT = """You are Signal's control agent — the assistant inside "Signal", a \
+
+SYSTEM_PROMPT = """You are Beacon's control agent — the assistant inside "Beacon", a \
 YouTube niche-finder desktop app. You help the user SEARCH, ORGANIZE, and CONTROL a \
-shared index of YouTube channels and videos. Signal surfaces FACELESS, REPLICABLE \
+shared index of YouTube channels and videos. Beacon surfaces FACELESS, REPLICABLE \
 content opportunities — not general celebrity, music, brand, or one-off viral channels.
 
 You work AUTONOMOUSLY: to accomplish the user's goal, take as many tool steps as you \
@@ -44,6 +50,13 @@ You have full WRITE power to edit + clean + organize the index and guide the scr
 run_junk_filter (auto music/meme/brand). Bring back with unexclude_channels.
 - Categorize: reclassify_topics, set_channel_topic (fix a channel's topic).
 - Organize: create_niche, add_channel_to_niche.
+- The SAVED SHELF (channels the user found on YouTube themselves): save_channel takes a \
+channel link, an @handle, a bare UC… id, or a link to any of that channel's VIDEOS, adds it \
+to the index if it is new, and scores it. list_saved_channels reads the shelf; \
+remove_saved_channel takes one off it (the channel stays in the index — only the shelf entry \
+goes, so it can be saved again). When the user pastes a YouTube link, save_channel is almost \
+always what they want. Note the shelf deliberately does NOT apply the faceless/replicable \
+gate: the user chose these, so report a weak one honestly rather than hiding it.
 - Guide the scraper: crawl_niche, start/stop_scraper, add/remove_watchlist_queries, \
 set_scraper_config, scraper_status.
 - Control the APP'S VIEWS: show_channels applies filters to the Channels tab AND \
@@ -72,7 +85,7 @@ and there are curated NICHE workspaces (call list_niches). Topics ≠ niches.
 - find_channels filters COMBINE in one query (min_subs, max_subs, \
 min_avg_views, max_avg_views, min/max age, min/max uploads, min_views_per_sub, \
 min_outlier_score, category, topic, niche_id, video_format long|short, sort, limit). \
-Signal automatically applies replicable_only=true + faceless_only=true to channel searches. \
+Beacon automatically applies replicable_only=true + faceless_only=true to channel searches. \
 opportunity_score is the preferred sort because it stabilizes tiny subscriber ratios and \
 requires repeatable evidence.
 - WRITE / CONTROL actions (start_scraper, stop_scraper, add_watchlist_queries, \
@@ -166,7 +179,7 @@ TOOLS = [
           ["channel_ids", "topic"]),
     _spec("reclassify_topics", "Re-run the topic classifier (only_missing=false re-labels ALL).",
           {"only_missing": _BOOL}),
-    # -- control the scraper (write / Signal-local) --
+    # -- control the scraper (write / Beacon-local) --
     _spec("crawl_niche", "Scrape a search query NOW: find seeds, crawl top channels, store.",
           {"query": _STR}, ["query"]),
     _spec("scraper_status", "Is the background scraper running, and its latest state."),
@@ -184,7 +197,7 @@ TOOLS = [
     _spec("set_scraper_config", "Tune scraper settings (take effect next cycle).",
           {"min_subs_to_process": _INT, "score_outliers_every_n_cycles": _INT,
            "categorize_per_cycle": _INT, "harvest_per_cycle": _INT}),
-    # -- control the APP's views (drive the Signal UI so the user SEES it) --
+    # -- control the APP's views (drive the Beacon UI so the user SEES it) --
     _spec("show_channels",
           "Apply filters to the Channels tab AND switch to it so the USER SEES the "
           "results. Use for 'show me ...' / 'filter the channels' / 'edit the view'. "
@@ -198,14 +211,33 @@ TOOLS = [
                              "views_per_sub", "days_since_start", "uploads", "revenue"]}}),
     _spec("open_view", "Switch the app to a view.",
           {"view": {"type": "string",
-                    "enum": ["Overview", "Channels", "Real Time", "Find", "Agent"]}}, ["view"]),
+                    "enum": ["Overview", "Channels", "Real Time", "Find", "Saved",
+                             "Agent"]}}, ["view"]),
     _spec("clear_channel_filters", "Reset the Channels view (show the whole index)."),
+    # -- the Saved shelf: channels the USER found on YouTube themselves --
+    _spec("save_channel",
+          "Save a YouTube channel the user found themselves onto the Saved shelf, and "
+          "analyse it. Accepts a channel link, an @handle, a bare UC… id, OR a link to any "
+          "of its VIDEOS (the channel is looked up from it). Adds it to the index if the "
+          "crawler has never seen it. Returns the analysed channel and whether it was new.",
+          {"link": _STR}, ["link"]),
+    _spec("list_saved_channels",
+          "The user's own saved finds, newest first, with their metrics. Beacon's "
+          "faceless/replicable gate is deliberately NOT applied here.",
+          {"limit": _INT}),
+    _spec("remove_saved_channel",
+          "Take a channel off the Saved shelf. Removes the shelf entry only — the channel, "
+          "its videos and its history stay in the index, so it can be saved again later.",
+          {"channel_id": _STR}, ["channel_id"]),
 ]
 
 # tools handled locally via sweep_control (everything else forwards to the finder)
 _LOCAL = {"scraper_status", "start_scraper", "stop_scraper", "get_watchlist",
           "add_watchlist_queries", "remove_watchlist_queries", "set_scraper_config"}
-# tools that drive the Signal app UI (need a `ui` reference = the app)
+# Saved-shelf tools: orchestrated by beacon_save (resolve link → seed → file → read back),
+# which is several finder calls in a required order, not one passthrough.
+_SAVED = {"save_channel", "list_saved_channels", "remove_saved_channel"}
+# tools that drive the Beacon app UI (need a `ui` reference = the app)
 _UI = {"show_channels", "open_view", "clear_channel_filters"}
 _SCRAPER_CFG_KEYS = {"min_subs_to_process", "score_outliers_every_n_cycles",
                      "categorize_per_cycle", "harvest_per_cycle"}
@@ -213,41 +245,87 @@ _DATA_MUTATING_TOOLS = {
     "add_channel_to_niche", "create_niche", "exclude_channels",
     "unexclude_channels", "exclude_by_filter", "run_junk_filter",
     "set_channel_topic", "reclassify_topics", "crawl_niche",
+    "save_channel", "remove_saved_channel", "seed_channels",
 }
 
 
-class SignalAgent:
+class BeaconAgent:
     def __init__(self, finder, sweep, *, ui=None, model: str | None = None,
                  region: str | None = None, allowed_tools: set | None = None,
-                 autonomous: bool = False):
-        self.finder = finder            # Signal's FinderClient (full read+write key)
+                 autonomous: bool = False, provider=None, role: str = "agent"):
+        self.finder = finder            # Beacon's FinderClient (full read+write key)
         self.sweep = sweep              # the sweep_control module
-        self.ui = ui                    # the SignalApp (drives views); None if headless
-        self.model = model or os.getenv("SIGNAL_BEDROCK_MODEL") or ""
-        self.region = region or REGION
+        self.ui = ui                    # the BeaconApp (drives views); None if headless
+        # Which settings slot picks the model: "agent" (the chat) or "autopilot".
+        self.role = role
+        # A provider name or a beacon_ai.Provider pins this agent to it; None follows the
+        # operator's choice in the Agent tab, re-read on every turn.
+        self._provider_choice = provider
+        self._model_override = model
+        self._region_override = region
         # Restricted mode: if set, ONLY these tool names are exposed + callable (used by
         # Autopilot to keep unattended runs to safe/reversible maintenance tools).
         self.allowed_tools = allowed_tools
         self.autonomous = bool(autonomous)
-        self.messages: list[dict] = []  # conversation history (Bedrock converse format)
-        self._client = None
+        # Neutral history (see beacon_ai): any provider can continue it, so switching the
+        # model mid-conversation keeps the thread instead of wiping it.
+        self.messages: list[dict] = []
+        self._client = None             # an injected Bedrock client (tests)
+        self._chat = None
+        self._chat_fingerprint = ""
+        self._claude_code: dict[str, beacon_ai.ClaudeCodeRunner] = {}
 
-    # -- Bedrock client (lazy so import never fails without creds) -------------------
-    def _bedrock(self):
-        if self._client is None:
-            import boto3
-            self._client = boto3.client("bedrock-runtime", region_name=self.region)
-        return self._client
+    # -- which provider -----------------------------------------------------------------
+    def provider_config(self) -> beacon_ai.Provider:
+        choice = self._provider_choice
+        if isinstance(choice, beacon_ai.Provider):
+            p = choice
+        else:
+            providers, use = beacon_ai.load()
+            name = choice or beacon_ai.choose(self.role, providers=providers, use=use)
+            p = beacon_ai.get_provider(str(name), providers)
+        if self._model_override or self._region_override:
+            p = beacon_ai.dataclasses.replace(
+                p, model=self._model_override or p.model,
+                region=self._region_override or p.region)
+        return p
+
+    @property
+    def provider(self) -> str:
+        return self.provider_config().name
+
+    @provider.setter
+    def provider(self, value) -> None:
+        self._provider_choice = value
+
+    @property
+    def model(self) -> str:
+        return self.provider_config().model
+
+    @model.setter
+    def model(self, value: str) -> None:
+        self._model_override = value
 
     def ready(self) -> tuple[bool, str]:
         """(ok, message) — is the agent configured to run?"""
-        if not self.model:
-            return False, "SIGNAL_BEDROCK_MODEL is not set in Signal/.env"
-        if not (os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY")):
-            return False, "AWS credentials are not set in Signal/.env"
-        return True, "ready"
+        return beacon_ai.check(self.provider_config(),
+                               injected_client=self._client is not None)
+
+    def describe(self) -> str:
+        """Short human label for the active model — shown in the UI so the operator
+        always knows which model answered."""
+        p = self.provider_config()
+        return f"{p.title} · {p.model}" if p.model else p.title
 
     # -- tool execution --------------------------------------------------------------
+    def execute(self, name: str, args: dict) -> tuple[object, bool]:
+        """Run one tool the way every provider does: (output, is_error), never raising."""
+        try:
+            out = self._dispatch(name, args or {})
+        except Exception as exc:  # noqa: BLE001 — reported to the model as a tool result
+            return {"error": f"{type(exc).__name__}: {exc}"}, True
+        return out, bool(isinstance(out, dict) and out.get("error"))
+
     def _dispatch(self, name: str, args: dict) -> object:
         result = self._dispatch_raw(name, args)
         if (name in _DATA_MUTATING_TOOLS and self.ui is not None
@@ -276,6 +354,28 @@ class SignalAgent:
             if name == "clear_channel_filters":
                 return self.ui.agent_clear_channels()
             return self.ui.agent_show_channels(**args)      # show_channels
+        if name in _SAVED:
+            import beacon_save
+            try:
+                nid = beacon_save.ensure_saved_niche(self.finder)
+                if name == "save_channel":
+                    out = beacon_save.save_channel(
+                        self.finder, str(args.get("link") or ""), niche_id=nid)
+                    if self.ui is not None:
+                        # The shelf on screen is now stale; the operator should see what the
+                        # agent just added without hunting for a Refresh button.
+                        try:
+                            self.ui.agent_data_changed(name)
+                        except Exception:  # noqa: BLE001
+                            pass
+                    return out
+                if name == "list_saved_channels":
+                    return beacon_save.saved_channels(
+                        self.finder, nid, limit=int(args.get("limit") or 60))
+                return beacon_save.remove_saved(
+                    self.finder, nid, str(args.get("channel_id") or ""))
+            except beacon_save.SaveError as exc:
+                return {"error": str(exc)}
         if name == "scraper_status":
             st = self.sweep.read_status() or {}
             st.pop("watchlist", None)          # too big for the model
@@ -325,7 +425,7 @@ class SignalAgent:
             # any concurrent edits, instead of overwriting the whole file from a stale read).
             self.sweep.update_config(_apply_cfg)
             return {"applied": applied, "note": "takes effect on the next scraper cycle"}
-        # Signal channel searches are always constrained to faceless, repeatable
+        # Beacon channel searches are always constrained to faceless, repeatable
         # opportunities. The engine flag is optional for Production Lab callers,
         # but mandatory inside this product.
         if name in {"find_channels", "count_channels", "recent_channels"}:
@@ -338,64 +438,48 @@ class SignalAgent:
 
     # -- the agent loop --------------------------------------------------------------
     def run(self, user_text: str, on_event: Event = lambda _e: None) -> str:
-        ok, why = self.ready()
+        """Answer one user turn, taking as many tool rounds as the task needs."""
+        p = self.provider_config()
+        ok, why = beacon_ai.check(p, injected_client=self._client is not None)
         if not ok:
             return f"⚠️ Agent not configured: {why}."
-        client = self._bedrock()
-        tools = (TOOLS if self.allowed_tools is None
-                 else [t for t in TOOLS if t["toolSpec"]["name"] in self.allowed_tools])
-        # Roll-back point: if this turn can't complete cleanly (Bedrock error, or rounds
-        # exhausted mid tool-loop), we DROP everything appended this turn. Otherwise the
-        # history would end on a user/tool-result message; the next turn appends another
-        # user message → two consecutive user turns, which the Converse API rejects,
-        # permanently bricking every later turn until Clear.
+        if p.kind == "claude_code":
+            return self._run_claude_code(p, user_text, on_event)
+        chat = self._chat_for(p)
+        tools = self._neutral_tools()
+        # Roll-back point: a turn that cannot finish cleanly (provider error, or rounds
+        # exhausted mid tool-loop) is dropped WHOLE. Otherwise the history would end on a
+        # user or tool-result message, the next turn would add another user message, and
+        # APIs that demand alternating turns would reject every later turn until Clear.
         base = len(self.messages)
-        self.messages.append({"role": "user", "content": [{"text": user_text}]})
+        self.messages.append({"role": "user", "text": user_text})
         final = ""
         for _ in range(MAX_TOOL_ROUNDS):
             try:
-                resp = client.converse(
-                    modelId=self.model,
-                    system=[{"text": SYSTEM_PROMPT}],
-                    messages=self.messages,
-                    toolConfig={"tools": tools},
-                    inferenceConfig={"maxTokens": 2000, "temperature": 0.0},
-                )
-            except Exception as exc:  # noqa: BLE001 — surface Bedrock errors to the UI
+                reply = chat.chat(SYSTEM_PROMPT, self.messages, tools)
+            except Exception as exc:  # noqa: BLE001 — surface provider errors to the UI
                 del self.messages[base:]
-                return f"⚠️ Bedrock error: {type(exc).__name__}: {exc}"
-            msg = resp.get("output", {}).get("message", {})
-            self.messages.append(msg)
-            blocks = msg.get("content", []) or []
-            for b in blocks:
-                if b.get("text", "").strip():
-                    final = b["text"].strip()
-                    on_event({"type": "text", "text": final})
-            tool_uses = [b["toolUse"] for b in blocks if "toolUse" in b]
-            if resp.get("stopReason") != "tool_use" or not tool_uses:
+                return f"⚠️ {p.title} error: {type(exc).__name__}: {exc}"
+            turn = {"role": "assistant", "text": reply.get("text") or "",
+                    "tool_calls": reply.get("tool_calls") or []}
+            if reply.get("wire"):
+                turn["wire"] = reply["wire"]
+            self.messages.append(turn)
+            if turn["text"]:
+                final = turn["text"]
+                on_event({"type": "text", "text": final})
+            if not turn["tool_calls"]:
                 return final
             results = []
-            for tu in tool_uses:
-                on_event({"type": "tool", "name": tu["name"], "input": tu.get("input") or {}})
-                try:
-                    out = self._dispatch(tu["name"], tu.get("input") or {})
-                    status = ("error" if isinstance(out, dict) and out.get("error")
-                              else "success")
-                except Exception as exc:  # noqa: BLE001
-                    out = {"error": f"{type(exc).__name__}: {exc}"}
-                    status = "error"
-                on_event({
-                    "type": "tool_result", "name": tu["name"],
-                    "status": status, "output": out,
-                })
-                results.append({"toolResult": {
-                    "toolUseId": tu["toolUseId"],
-                    "content": [{"text": json.dumps(out, default=str)[:6000]}],
-                    "status": status,
-                }})
-            self.messages.append({"role": "user", "content": results})
-        # Rounds exhausted without a final assistant text → history ends on tool-results
-        # (user role). Roll the whole turn back so the next message isn't rejected.
+            for call in turn["tool_calls"]:
+                name, args = call["name"], call.get("input") or {}
+                on_event({"type": "tool", "name": name, "input": args})
+                out, is_error = self.execute(name, args)
+                on_event({"type": "tool_result", "name": name,
+                          "status": "error" if is_error else "success", "output": out})
+                results.append({"id": call["id"], "name": name, "is_error": is_error,
+                                "content": json.dumps(out, default=str)[:6000]})
+            self.messages.append({"role": "tool", "results": results})
         del self.messages[base:]
         detail = f" Last partial response: {final}" if final else ""
         return (
@@ -403,5 +487,84 @@ class SignalAgent:
             f"{detail}"
         )
 
+    def _active_tools(self) -> list[dict]:
+        """The tools this agent may use — all of them, or only the restricted set."""
+        return (TOOLS if self.allowed_tools is None
+                else [t for t in TOOLS if t["toolSpec"]["name"] in self.allowed_tools])
+
+    def _neutral_tools(self) -> list[dict]:
+        return [{"name": t["toolSpec"]["name"], "description": t["toolSpec"]["description"],
+                 "schema": t["toolSpec"]["inputSchema"]["json"]}
+                for t in self._active_tools()]
+
+    def _http_post(self, body: dict, *, urls: list[str], headers: dict, timeout: int) -> dict:
+        """The single network seam for HTTP providers (tests replace it)."""
+        return beacon_ai.post_json(body, urls=urls, headers=headers, timeout=timeout)
+
+    def _chat_for(self, p: beacon_ai.Provider):
+        """The adapter for this provider, rebuilt only when its settings change."""
+        fp = beacon_ai.fingerprint(p)
+        if self._chat is None or fp != self._chat_fingerprint:
+            self._chat = beacon_ai.make_chat(
+                p, post=lambda body, **kw: self._http_post(body, **kw),
+                bedrock_client=lambda: self._client)
+            self._chat_fingerprint = fp
+        return self._chat
+
+    # -- Claude Code: the CLI runs its own loop; tools come back through the bridge ------
+    def _run_claude_code(self, p: beacon_ai.Provider, user_text: str,
+                         on_event: Event) -> str:
+        runner = self._claude_code.setdefault(p.name, beacon_ai.ClaudeCodeRunner(p))
+        runner.p = p
+
+        def list_tools() -> list[dict]:
+            return [{"name": t["name"], "description": t["description"],
+                     "inputSchema": t["schema"]}
+                    for t in self._neutral_tools()
+                    if self.ui is not None or t["name"] not in _UI]
+
+        def call_tool(name: str, args: dict) -> tuple[object, bool]:
+            on_event({"type": "tool", "name": name, "input": args})
+            out, is_error = self.execute(name, args)
+            on_event({"type": "tool_result", "name": name,
+                      "status": "error" if is_error else "success", "output": out})
+            return out, is_error
+
+        try:
+            text = runner.run_turn(system=SYSTEM_PROMPT, user_text=user_text,
+                                   history=self.messages, list_tools=list_tools,
+                                   call_tool=call_tool)
+        except Exception as exc:  # noqa: BLE001 — surface provider errors to the UI
+            return f"⚠️ {p.title} error: {type(exc).__name__}: {exc}"
+        self.messages += [{"role": "user", "text": user_text},
+                          {"role": "assistant", "text": text, "tool_calls": []}]
+        if text:
+            on_event({"type": "text", "text": text})
+        return text
+
+    def describe_vision(self, prompt: str, image_bytes: bytes,
+                        *, media_type: str = "image/jpeg") -> str:
+        """Ask the VISION provider about one image.
+
+        Separate from the agent loop on purpose: the strongest writer is not always able
+        to read images, so images go to their own provider (the "vision" slot). Beacon's
+        tools are all data tools today, so nothing calls this yet — it exists so
+        thumbnail work has a ready, correct path.
+        """
+        providers, use = beacon_ai.load()
+        p = beacon_ai.get_provider(beacon_ai.choose("vision", providers=providers, use=use),
+                                   providers)
+        ok, why = beacon_ai.check(p)
+        if not ok:
+            return f"⚠️ No vision model configured: {why}."
+        if p.kind == "claude_code":
+            return "⚠️ The vision slot needs an API provider, not Claude Code."
+        try:
+            return beacon_ai.make_chat(p).describe_image(prompt, image_bytes, media_type)
+        except Exception as exc:  # noqa: BLE001
+            return f"⚠️ Vision error: {type(exc).__name__}: {exc}"
+
     def reset(self) -> None:
         self.messages = []
+        for runner in self._claude_code.values():
+            runner.session_id = None

@@ -1,7 +1,7 @@
-"""Headless proof that the standalone Signal app can reach the SHARED engine + database.
+"""Headless proof that the standalone Beacon app can reach the SHARED engine + database.
 
 Run from the Lab's venv so the dependencies are available:
-    D:\\Youtube\\Scripter\\.venv\\Scripts\\python.exe D:\\Youtube\\Signal\\check_engine.py
+    D:\\Youtube\\Quill\\.venv\\Scripts\\python.exe D:\\Youtube\\Beacon\\check_engine.py
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ def main() -> None:
         vid = conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0]
     print(f"Channels in index: {ch:,}")
     print(f"Videos in index  : {vid:,}")
-    print("OK — Signal (separate folder) reads the shared engine + database in place.")
+    print("OK — Beacon (separate folder) reads the shared engine + database in place.")
 
 
 if __name__ == "__main__":

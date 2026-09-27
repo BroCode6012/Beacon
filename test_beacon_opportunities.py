@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import unittest
 
-from signal_agent import SignalAgent
-from signal_app import SignalApp
+from beacon_agent import BeaconAgent
+from beacon_app import BeaconApp
 
 
-class SignalOpportunityQueryTests(unittest.TestCase):
+class BeaconOpportunityQueryTests(unittest.TestCase):
     def test_channels_query_always_enforces_replicable_faceless_gate(self) -> None:
-        app = SignalApp.__new__(SignalApp)
+        app = BeaconApp.__new__(BeaconApp)
         app.ch_filters = {"sort": "opportunity_score"}
         app.ch_niche = None
         app.ch_view = "index"
@@ -22,7 +22,7 @@ class SignalOpportunityQueryTests(unittest.TestCase):
         self.assertEqual(args["sort"], "opportunity_score")
 
     def test_realtime_query_always_enforces_replicable_faceless_gate(self) -> None:
-        app = SignalApp.__new__(SignalApp)
+        app = BeaconApp.__new__(BeaconApp)
         app.rt_filters = {}
         app.rt_topic = None
         app.rt_window = 1
@@ -44,10 +44,10 @@ class _Finder:
         return []
 
 
-class SignalAgentOpportunityTests(unittest.TestCase):
+class BeaconAgentOpportunityTests(unittest.TestCase):
     def test_agent_channel_reads_are_always_replicable_and_faceless(self) -> None:
         finder = _Finder()
-        agent = SignalAgent(finder, sweep=object())
+        agent = BeaconAgent(finder, sweep=object())
 
         agent._dispatch("find_channels", {"faceless_only": False, "limit": 5})
 

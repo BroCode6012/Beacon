@@ -8,10 +8,10 @@ from unittest.mock import patch
 
 import engine_link  # noqa: F401
 import sweep_control
-from signal_agent import SignalAgent
+from beacon_agent import BeaconAgent
 
 
-class SignalQueryPolicyTests(unittest.TestCase):
+class BeaconQueryPolicyTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)
@@ -138,10 +138,10 @@ class _Sweep:
         return {"accepted": [], "rejected": [], "added": 0, "total": 10}
 
 
-class SignalAgentQueryPolicyTests(unittest.TestCase):
+class BeaconAgentQueryPolicyTests(unittest.TestCase):
     def test_autonomous_agent_passes_policy_mode_to_sweep_control(self) -> None:
         sweep = _Sweep()
-        agent = SignalAgent(
+        agent = BeaconAgent(
             finder=object(), sweep=sweep, allowed_tools={"add_watchlist_queries"},
             autonomous=True)
 

@@ -1,5 +1,5 @@
 <#
-  Installs (or removes) the "SignalRadarAutostart" scheduled task — a keep-alive that keeps the
+  Installs (or removes) the "BeaconRadarAutostart" scheduled task — a keep-alive that keeps the
   local background scraper running whenever you're logged in:
     - runs every 5 minutes (interactive/current-user), and
     - calls scraper_autostart.py -> sweep_control.start_worker(), which is idempotent (a no-op
@@ -7,7 +7,7 @@
       restarts it within ~5 min if it ever dies, and can NEVER stack up two workers.
 
   Uses schtasks.exe /SC MINUTE /IT so it installs WITHOUT elevation — the same mechanism the
-  SignalEdgeSync task uses. (/SC ONLOGON would require admin; a 5-min keep-alive doesn't, and is
+  BeaconEdgeSync task uses. (/SC ONLOGON would require admin; a 5-min keep-alive doesn't, and is
   more robust because it also recovers from crashes.)
 
   Usage:
@@ -22,10 +22,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$TaskName  = "SignalRadarAutostart"
-$SignalDir = $PSScriptRoot
-$Script    = Join-Path $SignalDir "scraper_autostart.py"
-$Pyw       = "D:\Youtube\Scripter\.venv\Scripts\pythonw.exe"
+$TaskName  = "BeaconRadarAutostart"
+$BeaconDir = $PSScriptRoot
+$Script    = Join-Path $BeaconDir "scraper_autostart.py"
+$Pyw       = "D:\Youtube\Quill\.venv\Scripts\pythonw.exe"
 if (-not (Test-Path -LiteralPath $Pyw)) { $Pyw = "pythonw.exe" }
 
 if ($Status) {

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import unittest
 
-from signal_app import _pipeline_progress_state
+from beacon_app import _pipeline_progress_state
 
 
-class SignalPipelineStatusTests(unittest.TestCase):
+class BeaconPipelineStatusTests(unittest.TestCase):
     def test_split_pipeline_reports_both_lanes_and_durable_backlog(self) -> None:
         state = _pipeline_progress_state({
             "pipeline_mode": "split",

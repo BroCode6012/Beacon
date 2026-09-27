@@ -1,6 +1,6 @@
-"""Signal-side control for the shared background scraper.
+"""Beacon-side control for the shared background scraper.
 
-Signal REUSES the engine's existing "radar" worker (a durable background scraper
+Beacon REUSES the engine's existing "radar" worker (a durable background scraper
 that keeps filling the shared index by cycling the editable watchlist) rather than
 running its own. This module just:
   * starts it   -> launches `python -m scripter.cli radar-worker` detached + hidden
@@ -9,11 +9,11 @@ running its own. This module just:
   * edits targets -> updates the `watchlist` in scraper_watchlist.json
 
 Operational paths are ABSOLUTE and stay in Scripter's storage folder even though
-the large shared index lives in Signal's storage folder. The worker is launched
+the large shared index lives in Beacon's storage folder. The worker is launched
 with cwd = the Scripter root so its relative config/status paths remain stable.
 
 Shared query-policy helpers come from the engine; this module remains the
-Signal-side control adapter for that worker.
+Beacon-side control adapter for that worker.
 """
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ STORAGE = SCRIPTER_ROOT / "storage"
 
 STATUS_PATH = STORAGE / "radar_status.json"
 STOP_PATH = STORAGE / "radar_stop.flag"
-# Signal-owned "the user deliberately paused the scraper" marker. Distinct from the engine's
+# Beacon-owned "the user deliberately paused the scraper" marker. Distinct from the engine's
 # transient STOP_PATH (which the worker consumes/deletes on exit): PAUSE_PATH persists until an
 # explicit Start, so the auto-start keep-alive can tell "user stopped it" from "it crashed".
 PAUSE_PATH = STORAGE / "signal_scraper_paused.flag"
@@ -146,7 +146,7 @@ def _win_process_cmdline(pid: int):
 
 def _pid_is_worker(pid: int) -> bool:
     """Confirm a pid is ACTUALLY our radar worker, so a REUSED pid (after an unclean death, when
-    Windows hands that number to another process — INCLUDING the Signal app itself, which also
+    Windows hands that number to another process — INCLUDING the Beacon app itself, which also
     runs under python.exe) is not mistaken for a live worker. Checks the command line for
     'radar-worker'. If the command line can't be read, falls back to the weaker exe-name signal —
     the worker's own pid-file singleton is the real backstop against ever running two."""
@@ -210,7 +210,7 @@ def start_worker(clear_stop: bool = True) -> bool:
         return False
     creationflags = 0
     if os.name == "nt":
-        # DETACHED_PROCESS: survives Signal closing; pythonw = no console window.
+        # DETACHED_PROCESS: survives Beacon closing; pythonw = no console window.
         creationflags = getattr(subprocess, "DETACHED_PROCESS", 0)
     subprocess.Popen(
         [_python(), "-m", "scripter.cli", "radar-worker"],
@@ -236,7 +236,7 @@ AUTOSTART_SCRIPT = Path(__file__).with_name("install_radar_autostart.ps1")
 
 
 def autostart_installed() -> bool:
-    """True if the 'SignalRadarAutostart' scheduled task exists (keeps the scraper running
+    """True if the 'BeaconRadarAutostart' scheduled task exists (keeps the scraper running
     on login + as a keep-alive). Shells to PowerShell — call OFF the UI thread."""
     try:
         out = subprocess.run(

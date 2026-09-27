@@ -1,0 +1,528 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-31T22:37:16+01:00",
+  "title": "Design System: Signal",
+  "extensions": {
+    "colorMeta": {
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Cool Paper",
+        "canonical": "#F3F6FA",
+        "tonalRamp": [
+          "oklch(15% 0.006 255.5)",
+          "oklch(27% 0.006 255.5)",
+          "oklch(39% 0.006 255.5)",
+          "oklch(51% 0.006 255.5)",
+          "oklch(63% 0.006 255.5)",
+          "oklch(75% 0.006 255.5)",
+          "oklch(87% 0.006 255.5)",
+          "oklch(95% 0.006 255.5)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "White Evidence Surface",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "oklch(15% 0.000 0.0)",
+          "oklch(27% 0.000 0.0)",
+          "oklch(39% 0.000 0.0)",
+          "oklch(51% 0.000 0.0)",
+          "oklch(63% 0.000 0.0)",
+          "oklch(75% 0.000 0.0)",
+          "oklch(87% 0.000 0.0)",
+          "oklch(95% 0.000 0.0)"
+        ]
+      },
+      "surface-alt": {
+        "role": "neutral",
+        "displayName": "Quiet Surface",
+        "canonical": "#F7F9FC",
+        "tonalRamp": [
+          "oklch(15% 0.005 258.3)",
+          "oklch(27% 0.005 258.3)",
+          "oklch(39% 0.005 258.3)",
+          "oklch(51% 0.005 258.3)",
+          "oklch(63% 0.005 258.3)",
+          "oklch(75% 0.005 258.3)",
+          "oklch(87% 0.005 258.3)",
+          "oklch(95% 0.005 258.3)"
+        ]
+      },
+      "surface-strong": {
+        "role": "neutral",
+        "displayName": "Strong Quiet Surface",
+        "canonical": "#EEF3F8",
+        "tonalRamp": [
+          "oklch(15% 0.009 247.9)",
+          "oklch(27% 0.009 247.9)",
+          "oklch(39% 0.009 247.9)",
+          "oklch(51% 0.009 247.9)",
+          "oklch(63% 0.009 247.9)",
+          "oklch(75% 0.009 247.9)",
+          "oklch(87% 0.009 247.9)",
+          "oklch(95% 0.009 247.9)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Hairline Blue-Gray",
+        "canonical": "#D9E1EA",
+        "tonalRamp": [
+          "oklch(15% 0.015 251.2)",
+          "oklch(27% 0.015 251.2)",
+          "oklch(39% 0.015 251.2)",
+          "oklch(51% 0.015 251.2)",
+          "oklch(63% 0.015 251.2)",
+          "oklch(75% 0.015 251.2)",
+          "oklch(87% 0.015 251.2)",
+          "oklch(95% 0.015 251.2)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Deep Text",
+        "canonical": "#14233B",
+        "tonalRamp": [
+          "oklch(15% 0.050 259.4)",
+          "oklch(27% 0.050 259.4)",
+          "oklch(39% 0.050 259.4)",
+          "oklch(51% 0.050 259.4)",
+          "oklch(63% 0.050 259.4)",
+          "oklch(75% 0.050 259.4)",
+          "oklch(87% 0.050 259.4)",
+          "oklch(95% 0.050 259.4)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Steel",
+        "canonical": "#66758A",
+        "tonalRamp": [
+          "oklch(15% 0.037 256.8)",
+          "oklch(27% 0.037 256.8)",
+          "oklch(39% 0.037 256.8)",
+          "oklch(51% 0.037 256.8)",
+          "oklch(63% 0.037 256.8)",
+          "oklch(75% 0.037 256.8)",
+          "oklch(87% 0.037 256.8)",
+          "oklch(95% 0.037 256.8)"
+        ]
+      },
+      "signal-green": {
+        "role": "primary",
+        "displayName": "Signal Green",
+        "canonical": "#17B978",
+        "tonalRamp": [
+          "oklch(15% 0.156 158.8)",
+          "oklch(27% 0.156 158.8)",
+          "oklch(39% 0.156 158.8)",
+          "oklch(51% 0.156 158.8)",
+          "oklch(63% 0.156 158.8)",
+          "oklch(75% 0.156 158.8)",
+          "oklch(87% 0.156 158.8)",
+          "oklch(95% 0.156 158.8)"
+        ]
+      },
+      "signal-green-dark": {
+        "role": "primary",
+        "displayName": "Deep Signal Green",
+        "canonical": "#0C8C59",
+        "tonalRamp": [
+          "oklch(15% 0.128 158.6)",
+          "oklch(27% 0.128 158.6)",
+          "oklch(39% 0.128 158.6)",
+          "oklch(51% 0.128 158.6)",
+          "oklch(63% 0.128 158.6)",
+          "oklch(75% 0.128 158.6)",
+          "oklch(87% 0.128 158.6)",
+          "oklch(95% 0.128 158.6)"
+        ]
+      },
+      "signal-green-soft": {
+        "role": "primary",
+        "displayName": "Signal Green Wash",
+        "canonical": "#E6F7F0",
+        "tonalRamp": [
+          "oklch(15% 0.020 169.3)",
+          "oklch(27% 0.020 169.3)",
+          "oklch(39% 0.020 169.3)",
+          "oklch(51% 0.020 169.3)",
+          "oklch(63% 0.020 169.3)",
+          "oklch(75% 0.020 169.3)",
+          "oklch(87% 0.020 169.3)",
+          "oklch(95% 0.020 169.3)"
+        ]
+      },
+      "analysis-cobalt": {
+        "role": "secondary",
+        "displayName": "Analysis Cobalt",
+        "canonical": "#4E67E8",
+        "tonalRamp": [
+          "oklch(15% 0.196 270.6)",
+          "oklch(27% 0.196 270.6)",
+          "oklch(39% 0.196 270.6)",
+          "oklch(51% 0.196 270.6)",
+          "oklch(63% 0.196 270.6)",
+          "oklch(75% 0.196 270.6)",
+          "oklch(87% 0.196 270.6)",
+          "oklch(95% 0.196 270.6)"
+        ]
+      },
+      "analysis-cobalt-soft": {
+        "role": "secondary",
+        "displayName": "Cobalt Wash",
+        "canonical": "#EEF1FF",
+        "tonalRamp": [
+          "oklch(15% 0.019 276.3)",
+          "oklch(27% 0.019 276.3)",
+          "oklch(39% 0.019 276.3)",
+          "oklch(51% 0.019 276.3)",
+          "oklch(63% 0.019 276.3)",
+          "oklch(75% 0.019 276.3)",
+          "oklch(87% 0.019 276.3)",
+          "oklch(95% 0.019 276.3)"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Danger Red",
+        "canonical": "#D94F5C",
+        "tonalRamp": [
+          "oklch(15% 0.173 18.3)",
+          "oklch(27% 0.173 18.3)",
+          "oklch(39% 0.173 18.3)",
+          "oklch(51% 0.173 18.3)",
+          "oklch(63% 0.173 18.3)",
+          "oklch(75% 0.173 18.3)",
+          "oklch(87% 0.173 18.3)",
+          "oklch(95% 0.173 18.3)"
+        ]
+      },
+      "danger-soft": {
+        "role": "tertiary",
+        "displayName": "Danger Wash",
+        "canonical": "#FDECEF",
+        "tonalRamp": [
+          "oklch(15% 0.019 5.3)",
+          "oklch(27% 0.019 5.3)",
+          "oklch(39% 0.019 5.3)",
+          "oklch(51% 0.019 5.3)",
+          "oklch(63% 0.019 5.3)",
+          "oklch(75% 0.019 5.3)",
+          "oklch(87% 0.019 5.3)",
+          "oklch(95% 0.019 5.3)"
+        ]
+      },
+      "amber": {
+        "role": "tertiary",
+        "displayName": "Operational Amber",
+        "canonical": "#C98213",
+        "tonalRamp": [
+          "oklch(15% 0.139 70.1)",
+          "oklch(27% 0.139 70.1)",
+          "oklch(39% 0.139 70.1)",
+          "oklch(51% 0.139 70.1)",
+          "oklch(63% 0.139 70.1)",
+          "oklch(75% 0.139 70.1)",
+          "oklch(87% 0.139 70.1)",
+          "oklch(95% 0.139 70.1)"
+        ]
+      },
+      "amber-soft": {
+        "role": "tertiary",
+        "displayName": "Amber Wash",
+        "canonical": "#FFF4DE",
+        "tonalRamp": [
+          "oklch(15% 0.031 84.6)",
+          "oklch(27% 0.031 84.6)",
+          "oklch(39% 0.031 84.6)",
+          "oklch(51% 0.031 84.6)",
+          "oklch(63% 0.031 84.6)",
+          "oklch(75% 0.031 84.6)",
+          "oklch(87% 0.031 84.6)",
+          "oklch(95% 0.031 84.6)"
+        ]
+      },
+      "ink-blue": {
+        "role": "neutral",
+        "displayName": "Ink Blue",
+        "canonical": "#10243E",
+        "tonalRamp": [
+          "oklch(15% 0.056 255.8)",
+          "oklch(27% 0.056 255.8)",
+          "oklch(39% 0.056 255.8)",
+          "oklch(51% 0.056 255.8)",
+          "oklch(63% 0.056 255.8)",
+          "oklch(75% 0.056 255.8)",
+          "oklch(87% 0.056 255.8)",
+          "oklch(95% 0.056 255.8)"
+        ]
+      },
+      "ink-blue-active": {
+        "role": "neutral",
+        "displayName": "Active Ink Blue",
+        "canonical": "#1B385B",
+        "tonalRamp": [
+          "oklch(15% 0.071 254.4)",
+          "oklch(27% 0.071 254.4)",
+          "oklch(39% 0.071 254.4)",
+          "oklch(51% 0.071 254.4)",
+          "oklch(63% 0.071 254.4)",
+          "oklch(75% 0.071 254.4)",
+          "oklch(87% 0.071 254.4)",
+          "oklch(95% 0.071 254.4)"
+        ]
+      },
+      "rail-text": {
+        "role": "neutral",
+        "displayName": "Rail White",
+        "canonical": "#F7FAFD",
+        "tonalRamp": [
+          "oklch(15% 0.005 247.9)",
+          "oklch(27% 0.005 247.9)",
+          "oklch(39% 0.005 247.9)",
+          "oklch(51% 0.005 247.9)",
+          "oklch(63% 0.005 247.9)",
+          "oklch(75% 0.005 247.9)",
+          "oklch(87% 0.005 247.9)",
+          "oklch(95% 0.005 247.9)"
+        ]
+      },
+      "rail-muted": {
+        "role": "neutral",
+        "displayName": "Rail Muted",
+        "canonical": "#AFC0D2",
+        "tonalRamp": [
+          "oklch(15% 0.032 249.7)",
+          "oklch(27% 0.032 249.7)",
+          "oklch(39% 0.032 249.7)",
+          "oklch(51% 0.032 249.7)",
+          "oklch(63% 0.032 249.7)",
+          "oklch(75% 0.032 249.7)",
+          "oklch(87% 0.032 249.7)",
+          "oklch(95% 0.032 249.7)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Page Display",
+        "purpose": "One Bahnschrift page title per screen."
+      },
+      "headline": {
+        "displayName": "Operational Headline",
+        "purpose": "Section headings and primary card leads."
+      },
+      "title": {
+        "displayName": "Evidence Title",
+        "purpose": "Channel identity and compact audit titles."
+      },
+      "body": {
+        "displayName": "Working Body",
+        "purpose": "Plain-language explanations, system state, and Markdown responses."
+      },
+      "label": {
+        "displayName": "Compact Label",
+        "purpose": "Pills, controls, metadata, timestamps, and evidence annotations."
+      }
+    },
+    "shadows": [
+      {
+        "name": "ambient-card-lift",
+        "value": "0 7px 22px -8px rgba(16, 36, 62, 0.16)",
+        "purpose": "One restrained cool shadow beneath outer cards and clickable result shells."
+      }
+    ],
+    "motion": [
+      {
+        "name": "material-ink-feedback",
+        "value": "Flet Material 3 platform default",
+        "purpose": "Immediate pressed and hover feedback on navigation, buttons, chips, and clickable cards."
+      },
+      {
+        "name": "indeterminate-work",
+        "value": "3px progress bar plus 15px/2px progress ring",
+        "purpose": "Communicate concurrent background work without moving the layout."
+      },
+      {
+        "name": "quiet-live-refresh",
+        "value": "60s refresh; rerender only when the leading record changes",
+        "purpose": "Keep Real Time current without repeatedly resetting the operator's scroll position."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "desktop-min-width",
+        "value": "1040px"
+      },
+      {
+        "name": "desktop-min-height",
+        "value": "700px"
+      },
+      {
+        "name": "default-window-width",
+        "value": "1320px"
+      },
+      {
+        "name": "default-window-height",
+        "value": "860px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single forward action in a task group, using Signal Green and Ink Blue.",
+      "html": "<button class='ds-btn-primary'><svg viewBox='0 0 24 24' aria-hidden='true'><path d='M3 20v-6l8-2-8-2V4l19 8-19 8Z'/></svg><span>Ask Signal</span></button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:8px;background:#17B978;color:#10243E;border:0;border-radius:11px;padding:12px 18px;font:700 13px 'Segoe UI Variable Text','Segoe UI',sans-serif;cursor:pointer;transition:filter .12s ease,transform .12s ease}.ds-btn-primary svg{width:16px;height:16px;fill:currentColor}.ds-btn-primary:hover{filter:brightness(.97)}.ds-btn-primary:active{transform:translateY(1px)}.ds-btn-primary:focus-visible{outline:3px solid rgba(78,103,232,.28);outline-offset:2px}"
+    },
+    {
+      "name": "Outlined Button",
+      "kind": "button",
+      "refersTo": "button-outlined",
+      "description": "Compact secondary action with a quiet stroke; the stroke becomes semantic only when needed.",
+      "html": "<button class='ds-btn-outlined'><svg viewBox='0 0 24 24' aria-hidden='true'><path d='M12 5v14m-7-7h14'/></svg><span>Add target</span></button>",
+      "css": ".ds-btn-outlined{display:inline-flex;align-items:center;gap:8px;background:#FFFFFF;color:#66758A;border:1px solid #D9E1EA;border-radius:11px;padding:10px 14px;font:600 13px 'Segoe UI Variable Text','Segoe UI',sans-serif;cursor:pointer;transition:background-color .12s ease,border-color .12s ease,color .12s ease}.ds-btn-outlined svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}.ds-btn-outlined:hover{background:#F7F9FC;border-color:#17B978;color:#14233B}.ds-btn-outlined:active{background:#EEF3F8}.ds-btn-outlined:focus-visible{outline:3px solid rgba(78,103,232,.24);outline-offset:2px}"
+    },
+    {
+      "name": "Outlined Input",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Dense desktop field with a quiet tonal fill and explicit outline.",
+      "html": "<label class='ds-field'><span class='ds-field-label'>Niche / topic</span><input type='text' placeholder='e.g. amish frugal living'/></label>",
+      "css": ".ds-field{display:grid;gap:6px;width:320px;color:#66758A;font:600 11px 'Segoe UI Variable Text','Segoe UI',sans-serif}.ds-field input{appearance:none;background:#F7F9FC;color:#14233B;border:1px solid #D9E1EA;border-radius:11px;padding:10px 12px;font:400 13px 'Segoe UI Variable Text','Segoe UI',sans-serif;outline:none;transition:border-color .12s ease,box-shadow .12s ease,background-color .12s ease}.ds-field input::placeholder{color:#66758A}.ds-field input:hover{border-color:#AFC0D2}.ds-field input:focus{background:#FFFFFF;border-color:#4E67E8;box-shadow:0 0 0 3px rgba(78,103,232,.14)}"
+    },
+    {
+      "name": "Active Navigation Item",
+      "kind": "nav",
+      "refersTo": "nav-active",
+      "description": "Selected destination in the fixed Ink Blue rail.",
+      "html": "<button class='ds-nav-active'><span class='ds-nav-icon'><svg viewBox='0 0 24 24' aria-hidden='true'><path d='M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z'/></svg></span><span>Channels</span></button>",
+      "css": ".ds-nav-active{display:flex;align-items:center;gap:11px;width:190px;background:#1B385B;color:#F7FAFD;border:0;border-radius:12px;padding:9px 11px;font:700 13px 'Segoe UI Variable Text','Segoe UI',sans-serif;text-align:left;cursor:pointer;transition:background-color .12s ease}.ds-nav-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:rgba(23,185,120,.14);color:#17B978}.ds-nav-icon svg{width:18px;height:18px;fill:currentColor}.ds-nav-active:hover{background:#22466F}.ds-nav-active:active{background:#17314F}.ds-nav-active:focus-visible{outline:3px solid rgba(23,185,120,.32);outline-offset:2px}"
+    },
+    {
+      "name": "Status Pill",
+      "kind": "chip",
+      "refersTo": "status-pill",
+      "description": "Short explicit state label; color is always paired with an icon or text.",
+      "html": "<span class='ds-status-pill'><svg viewBox='0 0 24 24' aria-hidden='true'><path d='m9.2 16.2-4.1-4.1 1.4-1.4 2.7 2.7 8.3-8.3 1.4 1.4-9.7 9.7Z'/></svg>Faceless + replicable</span>",
+      "css": ".ds-status-pill{display:inline-flex;align-items:center;gap:4px;width:max-content;background:rgba(23,185,120,.11);color:#17B978;border:1px solid rgba(23,185,120,.18);border-radius:20px;padding:3px 8px;font:700 11px 'Segoe UI Variable Text','Segoe UI',sans-serif}.ds-status-pill svg{width:13px;height:13px;fill:currentColor}"
+    },
+    {
+      "name": "Surface Card",
+      "kind": "card",
+      "refersTo": "surface-card",
+      "description": "The default white operational surface with one ambient lift.",
+      "html": "<section class='ds-surface-card'><div class='ds-card-heading'><span class='ds-card-icon'>◎</span><div><h3>Research progress</h3><p>How much of the expanded search backlog has been tested.</p></div></div><strong>4,206 of 4,206 searches tested</strong></section>",
+      "css": ".ds-surface-card{display:grid;gap:12px;max-width:520px;background:#FFFFFF;color:#14233B;border-radius:14px;padding:20px;box-shadow:0 7px 22px -8px rgba(16,36,62,.16);font-family:'Segoe UI Variable Text','Segoe UI',sans-serif}.ds-card-heading{display:flex;align-items:center;gap:10px}.ds-card-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#EEF1FF;color:#4E67E8}.ds-surface-card h3{margin:0;font:700 17px Bahnschrift,'Segoe UI',sans-serif}.ds-surface-card p{margin:2px 0 0;color:#66758A;font-size:11px}.ds-surface-card strong{font-size:19px}.ds-surface-card:hover{box-shadow:0 8px 24px -8px rgba(16,36,62,.18)}.ds-surface-card:focus-within{outline:3px solid rgba(78,103,232,.16);outline-offset:2px}"
+    },
+    {
+      "name": "Opportunity Brief Card",
+      "kind": "custom",
+      "refersTo": "opportunity-card",
+      "description": "Signal's signature evidence card: identity, eligibility, proof, confidence, and rationale in one sweep.",
+      "html": "<article class='ds-opportunity' tabindex='0'><header><span class='ds-avatar'>S</span><div class='ds-identity'><h3>Signal Stories</h3><p>History</p></div><div class='ds-score'><strong>4.8×</strong><span>opportunity</span></div></header><div class='ds-eligibility'><span class='ds-mini-pill'>✓ Faceless + replicable</span><span aria-hidden='true'>↗</span></div><div class='ds-metrics'><div><span>Avg views</span><strong>184K</strong></div><i></i><div><span>Subscribers</span><strong>38K</strong></div><i></i><div><span>Uploads</span><strong>42</strong></div><i></i><div><span>Age</span><strong>214d</strong></div></div><section class='ds-evidence'><div class='ds-evidence-head'><strong>Why it qualifies</strong><span class='ds-cobalt-pill'>Strong evidence</span></div><div class='ds-factors'><span>42 uploads</span><span>Strong view leverage</span><span>Recent channel</span></div><p>42 uploads provide the performance sample; strong view leverage and a recent channel support the opportunity score.</p></section></article>",
+      "css": ".ds-opportunity{display:grid;gap:12px;background:#FFFFFF;color:#14233B;border-radius:14px;padding:16px;box-shadow:0 7px 22px -8px rgba(16,36,62,.16);font-family:'Segoe UI Variable Text','Segoe UI',sans-serif;cursor:pointer;outline:none}.ds-opportunity header{display:flex;align-items:flex-start;gap:10px}.ds-avatar{display:grid;place-items:center;flex:0 0 46px;height:46px;border-radius:50%;background:#35C68B;color:#FFFFFF;font-weight:700}.ds-identity{min-width:0;flex:1}.ds-identity h3{margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px}.ds-identity p{margin:2px 0 0;color:#4E67E8;font-size:11px}.ds-score{display:grid;justify-items:end;background:rgba(23,185,120,.10);border-radius:11px;padding:7px 10px}.ds-score strong{color:#17B978;font:700 18px Bahnschrift,'Segoe UI',sans-serif}.ds-score span{color:#66758A;font-size:10px}.ds-eligibility{display:flex;align-items:center;justify-content:space-between;color:#66758A}.ds-mini-pill,.ds-cobalt-pill{display:inline-flex;border-radius:20px;padding:3px 8px;font-size:11px;font-weight:700}.ds-mini-pill{background:rgba(23,185,120,.11);border:1px solid rgba(23,185,120,.18);color:#17B978}.ds-cobalt-pill{background:rgba(78,103,232,.11);border:1px solid rgba(78,103,232,.18);color:#4E67E8}.ds-metrics{display:grid;grid-template-columns:1fr 1px 1fr 1px 1fr 1px 1fr;align-items:center;gap:2px;background:#F7F9FC;border-radius:10px;padding:5px 7px}.ds-metrics div{display:grid;gap:3px;padding:5px 7px}.ds-metrics span{color:#66758A;font-size:10px}.ds-metrics strong{font:700 17px Bahnschrift,'Segoe UI',sans-serif}.ds-metrics i{width:1px;height:42px;background:#D9E1EA}.ds-evidence{display:grid;gap:6px;background:#F7F9FC;border-radius:10px;padding:9px 10px}.ds-evidence-head{display:flex;align-items:center;justify-content:space-between;font-size:11px}.ds-factors{display:flex;flex-wrap:wrap;gap:4px}.ds-factors span{padding:5px 7px;color:#14233B;font-size:10px;font-weight:700}.ds-evidence p{margin:0;color:#66758A;font-size:11px;line-height:1.35}.ds-opportunity:hover{background:#FCFDFE}.ds-opportunity:focus-visible{outline:3px solid rgba(78,103,232,.22);outline-offset:2px}"
+    },
+    {
+      "name": "Agent Tool Audit Event",
+      "kind": "custom",
+      "refersTo": "agent-audit",
+      "description": "Progressive-disclosure record of a tool call and its concrete outcome.",
+      "html": "<details class='ds-agent-audit'><summary><span class='ds-audit-icon'><svg viewBox='0 0 24 24' aria-hidden='true'><path d='m14.7 6.3 3 3-8.4 8.4-3.6.6.6-3.6 8.4-8.4Zm2.1-2.1 3 3-1.4 1.4-3-3 1.4-1.4Z'/></svg></span><span><strong>Counted channels</strong><small>Tool used · expand for technical details</small></span></summary><pre>{\"topic\":\"History\",\"max_subs\":5000}</pre><div class='ds-audit-result'>✓ Counted channels — 2,290 channels</div></details>",
+      "css": ".ds-agent-audit{max-width:560px;background:#EEF1FF;color:#14233B;border-radius:10px;overflow:hidden;font-family:'Segoe UI Variable Text','Segoe UI',sans-serif}.ds-agent-audit summary{display:flex;align-items:center;gap:8px;padding:5px 9px;cursor:pointer;list-style:none}.ds-agent-audit summary::-webkit-details-marker{display:none}.ds-agent-audit summary>span:last-child{display:grid;gap:1px}.ds-agent-audit strong{font-size:11px}.ds-agent-audit small{color:#66758A;font-size:9px}.ds-audit-icon{color:#4E67E8}.ds-audit-icon svg{width:14px;height:14px;fill:currentColor}.ds-agent-audit summary:hover{background:rgba(78,103,232,.06)}.ds-agent-audit summary:focus-visible{outline:3px solid rgba(78,103,232,.22);outline-offset:-3px}.ds-agent-audit pre{margin:0;padding:6px 12px 8px 36px;color:#66758A;font:400 10px Consolas,monospace;white-space:pre-wrap}.ds-audit-result{display:flex;gap:6px;padding:0 12px 9px 36px;color:#17B978;font-size:11px;font-weight:600}"
+    },
+    {
+      "name": "Autopilot History Entry",
+      "kind": "custom",
+      "refersTo": "autopilot-audit",
+      "description": "Compact timestamped maintenance record with tools summarized before expandable detail.",
+      "html": "<details class='ds-autopilot-audit'><summary><span class='ds-pass-check'>✓</span><span><strong>Maintenance pass · 2026-07-31 22:10</strong><small>Reclassified topics · Cleaned junk · Read searches</small></span></summary><div class='ds-pass-detail'><p>Queries rejected: space documentary facts [near duplicate]</p><p><strong>What changed:</strong> Topic coverage was refreshed; no channel or video rows were deleted.</p></div></details>",
+      "css": ".ds-autopilot-audit{max-width:560px;background:#F7F9FC;color:#14233B;border-radius:10px;overflow:hidden;font-family:'Segoe UI Variable Text','Segoe UI',sans-serif}.ds-autopilot-audit summary{display:flex;align-items:center;gap:9px;padding:5px 9px;cursor:pointer;list-style:none}.ds-autopilot-audit summary::-webkit-details-marker{display:none}.ds-autopilot-audit summary>span:last-child{display:grid;gap:2px}.ds-autopilot-audit strong{font-size:11px}.ds-autopilot-audit small{color:#66758A;font-size:9px}.ds-pass-check{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#E6F7F0;color:#0C8C59;font-weight:700}.ds-autopilot-audit summary:hover{background:#EEF3F8}.ds-autopilot-audit summary:focus-visible{outline:3px solid rgba(78,103,232,.20);outline-offset:-3px}.ds-pass-detail{display:grid;gap:7px;padding:0 12px 10px 40px;color:#66758A;font-size:10px;line-height:1.35}.ds-pass-detail p{margin:0}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Daylight Flight Deck",
+    "overview": "Daylight Flight Deck turns Signal into a bright operational research desk rather than a generic analytics dashboard. A fixed ink-blue rail anchors a cool paper canvas, while white evidence surfaces, compact outlined controls, and restrained state color make a dense investigative app feel calm and legible.\n\nThe system is evidence-first: opportunity cards keep identity, eligibility, proof metrics, confidence, and the plain-language reason for qualification in one sweep. Signal Green marks live, approved, selected, or successful state; Analysis Cobalt identifies analytical context, provenance, and technical detail; Agent and Autopilot actions remain transparent through progressive-disclosure audit patterns.",
+    "keyCharacteristics": [
+      "Bright cool-paper workspace anchored by a fixed ink-blue rail.",
+      "Signal Green for live/approved state and Cobalt for analysis/provenance.",
+      "Compact desktop density with generous outer gutters and wrapped controls.",
+      "White cards over tonal inset surfaces, using one restrained ambient shadow.",
+      "Evidence-first opportunity cards and reversible, expandable Agent audits."
+    ],
+    "rules": [
+      {
+        "name": "The State Has a Job Rule",
+        "body": "Signal Green means live, allowed, selected, successful, or eligible; Amber means waiting or attention; Danger Red means failure or destructive intent.",
+        "section": "colors"
+      },
+      {
+        "name": "The Analysis Is Cobalt Rule",
+        "body": "Use Analysis Cobalt for interpretation, provenance, technical detail, and information—not for operational success.",
+        "section": "colors"
+      },
+      {
+        "name": "The Paper Before Chrome Rule",
+        "body": "Keep most of every screen in Cool Paper, White Evidence Surface, and quiet tonal insets; accent color should clarify state rather than decorate empty space.",
+        "section": "colors"
+      },
+      {
+        "name": "The Display Earns Its Weight Rule",
+        "body": "Reserve Bahnschrift for identity, hierarchy, and numbers that deserve instrument-like emphasis; do not set paragraphs or dense controls in it.",
+        "section": "typography"
+      },
+      {
+        "name": "The Minimum Is a Contract Rule",
+        "body": "Every primary workflow must remain complete, readable, and unclipped at 1040×700.",
+        "section": "layout"
+      },
+      {
+        "name": "The Evidence Stays in Reach Rule",
+        "body": "Wrap controls and collapse columns before separating identity, eligibility, metrics, rationale, or audit outcome from the surface where the operator makes the decision.",
+        "section": "layout"
+      },
+      {
+        "name": "The One Ambient Lift Rule",
+        "body": "Apply the ambient shadow to the outer decision surface only; nested evidence groups must remain flat.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Radius Follows Nesting Rule",
+        "body": "Outer cards use 14px corners; controls and icon tiles use 11–12px; inset evidence groups use 10px; only compact chips and identity circles become fully rounded.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Evidence Before Score Rule",
+        "body": "A score may lead the eye, but the card is incomplete without eligibility, sample size, leverage, recency, and a readable reason for qualification.",
+        "section": "components"
+      },
+      {
+        "name": "The Audit Before Assurance Rule",
+        "body": "Never rely on an AI summary alone to imply what changed; show the tool, outcome, status, count, reversibility, and expandable detail as separate evidence.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do keep the Cool Paper canvas and fixed Ink Blue rail as the stable frame across all five screens.",
+      "Do use Signal Green for live/approved state and Analysis Cobalt for interpretation, provenance, and technical detail.",
+      "Do keep identity, eligibility, metrics, and “Why it qualifies” evidence together on every opportunity card.",
+      "Do wrap controls and collapse responsive columns so every workflow remains usable at 1040×700.",
+      "Do pair semantic color with text, icons, counts, or status words.",
+      "Do present Agent and Autopilot actions as reversible, plain-language, expandable audit evidence.",
+      "Do design loading, empty, success, stalled, and error states as first-class operational surfaces."
+    ],
+    "donts": [
+      "Don't turn Signal into a generic dark analytics dashboard or copy another creator tool's branding.",
+      "Don't use Signal Green and Analysis Cobalt interchangeably; each has a distinct semantic job.",
+      "Don't surface an opportunity score without the sample, leverage, recency, and qualification rationale that support it.",
+      "Don't stack shadows, nested metric tiles, or decorative gradients inside evidence cards.",
+      "Don't hide tool outcomes, failures, or state changes inside prose-only Agent responses.",
+      "Don't rely on color alone or shrink essential labels below the established 10–11px support range.",
+      "Don't introduce mobile-only composition assumptions; preserve the enforced desktop minimum and wrapping behavior."
+    ]
+  }
+}

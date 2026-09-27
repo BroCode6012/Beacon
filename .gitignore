@@ -32,3 +32,10 @@ venv/
 .idea/
 Thumbs.db
 .DS_Store
+
+# flet desktop client with the Beacon icon (96MB, regenerable)
+build/
+_ai_choice.json
+
+# stray file created by a bad Windows redirect (not real content)
+nul

@@ -9,9 +9,9 @@ normal enrich → categorize → topic-classify → organize pipeline, so they l
 Topic/filters automatically.
 
 You can run several targets at once and toggle any of them off (pause) or remove them — full
-control. State lives in a Signal-side JSON (`_targets.json`); the actual scraping is driven
+control. State lives in a Beacon-side JSON (`_targets.json`); the actual scraping is driven
 purely by adding/removing the target's base ideas in the shared watchlist via `sweep_control`,
-which also flows to the Oracle plan on the next sync. This module is Signal-only and imports
+which also flows to the Oracle plan on the next sync. This module is Beacon-only and imports
 nothing from the shared engine except through `sweep_control`.
 """
 from __future__ import annotations

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import unittest
 
-from signal_app import ALL_TOPICS, SignalApp
+from beacon_app import ALL_TOPICS, CH_PAGE, BeaconApp
 
 
-class SignalTopicSentinelTests(unittest.TestCase):
+class BeaconTopicSentinelTests(unittest.TestCase):
     def test_dropdown_uses_nonempty_all_topics_sentinel(self) -> None:
-        app = SignalApp.__new__(SignalApp)
+        app = BeaconApp.__new__(BeaconApp)
         app._ensure = lambda *args, **kwargs: {  # type: ignore[method-assign]
             "data": [{"topic": "History", "count": 12}]
         }
@@ -22,7 +22,7 @@ class SignalTopicSentinelTests(unittest.TestCase):
     def test_channels_query_never_sends_all_topics_as_a_filter(self) -> None:
         for stored_value in (ALL_TOPICS, "All topics", "", None):
             with self.subTest(stored_value=stored_value):
-                app = SignalApp.__new__(SignalApp)
+                app = BeaconApp.__new__(BeaconApp)
                 app.ch_filters = {"sort": "opportunity_score"}
                 app.ch_niche = None
                 app.ch_view = "index"
@@ -34,7 +34,7 @@ class SignalTopicSentinelTests(unittest.TestCase):
     def test_realtime_query_never_sends_all_topics_as_a_filter(self) -> None:
         for stored_value in (ALL_TOPICS, "All topics", "", None):
             with self.subTest(stored_value=stored_value):
-                app = SignalApp.__new__(SignalApp)
+                app = BeaconApp.__new__(BeaconApp)
                 app.rt_filters = {}
                 app.rt_topic = stored_value
                 app.rt_window = 1
@@ -43,7 +43,7 @@ class SignalTopicSentinelTests(unittest.TestCase):
                 self.assertNotIn("topic", app._rt_query_args())
 
     def test_topic_setters_normalize_sentinel_and_legacy_label(self) -> None:
-        app = SignalApp.__new__(SignalApp)
+        app = BeaconApp.__new__(BeaconApp)
         app._render = lambda: None  # type: ignore[method-assign]
         app.rt_shown = 999
 
@@ -52,7 +52,7 @@ class SignalTopicSentinelTests(unittest.TestCase):
 
         self.assertIsNone(app.ch_topic)
         self.assertIsNone(app.rt_topic)
-        self.assertEqual(app.rt_shown, 120)
+        self.assertEqual(app.rt_shown, CH_PAGE)      # back to the first page
 
 
 if __name__ == "__main__":

@@ -1,10 +1,10 @@
-# Signal UI verification helper: focus the window, optionally click/scroll, screenshot.
+# Beacon UI verification helper: focus the window, optionally click/scroll, screenshot.
 # Usage:
 #   powershell -File _win.ps1 -Out shot.png                     # focus + capture
 #   powershell -File _win.ps1 -ClickX 0.5 -ClickY 0.3 -Out s.png  # click (fractional of window) then capture
 #   powershell -File _win.ps1 -Scroll -400 -Out s.png           # wheel scroll then capture
 param(
-  [string]$Title = "Signal*Niche Finder*",
+  [string]$Title = "Beacon*Niche Finder*",
   [int]$RootProcessId = 0,
   [string]$Out = "shot.png",
   [double]$ClickX = -1,

@@ -4,7 +4,7 @@ import threading
 import unittest
 from types import SimpleNamespace
 
-from signal_app import SignalApp
+from beacon_app import BeaconApp
 
 
 class _Page:
@@ -15,9 +15,9 @@ class _Page:
         self.updates += 1
 
 
-class SignalBusyStateTests(unittest.TestCase):
-    def _app(self) -> SignalApp:
-        app = SignalApp.__new__(SignalApp)
+class BeaconBusyStateTests(unittest.TestCase):
+    def _app(self) -> BeaconApp:
+        app = BeaconApp.__new__(BeaconApp)
         app.page = _Page()
         app.spinner = SimpleNamespace(visible=False)
         app.status = SimpleNamespace(value="")

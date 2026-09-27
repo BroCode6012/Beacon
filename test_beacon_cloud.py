@@ -1,4 +1,4 @@
-from signal_app import (
+from beacon_app import (
     CACHE_TTL_SECONDS,
     CLOUD_PROGRESS_REFRESH_SECONDS,
     _cloud_sync_view_state,

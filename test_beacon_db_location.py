@@ -7,8 +7,8 @@ import engine_link
 import sweep_control
 
 
-class SignalDatabaseLocationTests(unittest.TestCase):
-    def test_signal_database_target_is_inside_signal_storage(self) -> None:
+class BeaconDatabaseLocationTests(unittest.TestCase):
+    def test_beacon_database_target_is_inside_signal_storage(self) -> None:
         expected = (
             engine_link.SIGNAL_ROOT / "storage" / "youtube_index.sqlite3"
         ).resolve()

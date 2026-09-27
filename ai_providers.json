@@ -1,0 +1,117 @@
+{
+  "_readme": [
+    "Every AI Beacon can use. Choose the active one in Beacon > Agent > 'AI provider', then press Test.",
+    "NEVER put a key in this file. Write ${NAME} here and put NAME=the-key in D:\\Youtube\\Beacon\\.env.",
+    "${A|B} = use A, or B if A is empty.  ${A:-text} = use A, or the plain text if A is empty.",
+    "kind: openai = any OpenAI-compatible service | anthropic = Claude with an API key | bedrock = AWS | claude_code = Claude subscription via the claude CLI.",
+    "Built in, no entry needed: foundry, foundry-vision, bedrock, claude-code (they read the older .env names).",
+    "To add a provider: copy an entry below, give it a new name, fill in base_url / model / api_key.",
+    "'use' pins a slot without the Agent tab: agent = the chat, autopilot = background passes (empty = same as agent), vision = images.",
+    "autopilot: 'auto' keeps Beacon's Autopilot running while that provider is selected (prepaid credits); 'manual' (the default) leaves the Off/On switch to you."
+  ],
+  "use": {
+    "agent": "",
+    "autopilot": "",
+    "vision": ""
+  },
+  "providers": {
+    "foundry-thinking": {
+      "kind": "openai",
+      "label": "Foundry · thinking",
+      "notes": "The same Azure model as Foundry, asked to reason step by step before answering (reasoning_effort=high). Measured 2026-09-17 on DeepSeek V4 Flash: 4/4 on harder reasoning checks vs 3/4 normal, about twice as slow.",
+      "base_url": "${BEACON_FOUNDRY_ENDPOINT|AZURE_FOUNDRY_ENDPOINT}",
+      "trim_to_resource": true,
+      "paths": [
+        "/openai/v1/chat/completions",
+        "/managed-deployments/{model}/v1/chat/completions"
+      ],
+      "auth": "both",
+      "api_key": "${BEACON_FOUNDRY_API_KEY|AZURE_FOUNDRY_API_KEY}",
+      "model": "${BEACON_FOUNDRY_MODEL|FOUNDRY_DEPLOYMENT_NAME}",
+      "reasoning_effort": "${BEACON_FOUNDRY_THINKING_EFFORT:-high}",
+      "max_tokens": 8000,
+      "timeout": 300,
+      "autopilot": "${BEACON_FOUNDRY_AUTOPILOT:-auto}"
+    },
+    "azure-openai": {
+      "kind": "openai",
+      "label": "Azure OpenAI / Foundry (new account)",
+      "notes": "A new Azure account. Endpoint = the resource URL from the Azure portal, model = your deployment name.",
+      "base_url": "${BEACON_AZURE_ENDPOINT}",
+      "trim_to_resource": true,
+      "paths": [
+        "/openai/v1/chat/completions",
+        "/managed-deployments/{model}/v1/chat/completions"
+      ],
+      "auth": "both",
+      "api_key": "${BEACON_AZURE_API_KEY}",
+      "model": "${BEACON_AZURE_MODEL}",
+      "max_tokens": "${BEACON_AZURE_MAX_TOKENS:-4000}",
+      "autopilot": "${BEACON_AZURE_AUTOPILOT:-auto}"
+    },
+    "aws-bedrock": {
+      "kind": "bedrock",
+      "label": "AWS Bedrock (another account)",
+      "notes": "Uses an AWS CLI profile (run `aws configure --profile beacon`). Model = the Bedrock model or inference-profile id enabled in that account.",
+      "aws_profile": "${BEACON_AWS_PROFILE:-beacon}",
+      "region": "${BEACON_AWS_REGION:-us-east-1}",
+      "model": "${BEACON_BEDROCK_MODEL}",
+      "max_tokens": 4000
+    },
+    "gemini": {
+      "kind": "openai",
+      "label": "Google Gemini (AI Studio key)",
+      "notes": "Key from aistudio.google.com. Model = a Gemini model name from AI Studio.",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "api_key": "${BEACON_GEMINI_API_KEY}",
+      "model": "${BEACON_GEMINI_MODEL}",
+      "max_tokens": 8000
+    },
+    "vertex-ai": {
+      "kind": "openai",
+      "label": "Google Cloud Vertex AI",
+      "notes": "Google Cloud project with Vertex AI on. Needs the gcloud CLI signed in (gcloud auth login). Model looks like google/<model-name>. For location 'global' change the host to aiplatform.googleapis.com.",
+      "base_url": "https://${BEACON_VERTEX_LOCATION:-us-central1}-aiplatform.googleapis.com/v1/projects/${BEACON_VERTEX_PROJECT}/locations/${BEACON_VERTEX_LOCATION:-us-central1}/endpoints/openapi",
+      "api_key_command": "gcloud auth print-access-token",
+      "model": "${BEACON_VERTEX_MODEL}",
+      "max_tokens": 8000
+    },
+    "claude-api": {
+      "kind": "anthropic",
+      "label": "Claude API (Anthropic key)",
+      "notes": "Key from console.anthropic.com (pay per use, separate from a Claude subscription).",
+      "api_key": "${BEACON_ANTHROPIC_API_KEY}",
+      "model": "${BEACON_ANTHROPIC_MODEL:-claude-opus-5}",
+      "max_tokens": 4000
+    },
+    "openai": {
+      "kind": "openai",
+      "label": "OpenAI",
+      "base_url": "https://api.openai.com/v1",
+      "api_key": "${BEACON_OPENAI_API_KEY}",
+      "model": "${BEACON_OPENAI_MODEL}",
+      "max_tokens_field": "max_completion_tokens",
+      "temperature": null,
+      "max_tokens": 8000
+    },
+    "openrouter": {
+      "kind": "openai",
+      "label": "OpenRouter (many models, one key)",
+      "notes": "One key reaches Claude, GLM, Gemini, Qwen and more. Model = the id shown on openrouter.ai, e.g. z-ai/<model>.",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key": "${BEACON_OPENROUTER_API_KEY}",
+      "model": "${BEACON_OPENROUTER_MODEL}",
+      "max_tokens": 8000
+    },
+    "local-ollama": {
+      "kind": "openai",
+      "label": "Local model (Ollama)",
+      "notes": "Runs on this computer, no account. Install Ollama, pull a tool-calling model, set its name here.",
+      "base_url": "http://localhost:11434/v1",
+      "auth": "none",
+      "model": "${BEACON_OLLAMA_MODEL}",
+      "max_tokens": 4000,
+      "timeout": 600
+    }
+  }
+}

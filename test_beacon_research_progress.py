@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import unittest
 
-from signal_app import _research_progress_state
+from beacon_app import _research_progress_state
 
 
-class SignalResearchProgressTests(unittest.TestCase):
+class BeaconResearchProgressTests(unittest.TestCase):
     def test_backlog_tracker_shows_exact_tested_and_remaining_counts(self) -> None:
         state = _research_progress_state({
             "count": 422,
