@@ -1,5 +1,39 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: administrator migration and recovery tools verified
+
+`scripter.research.postgres_migration` provides explicit snapshot, initialize,
+migrate, backup and restore commands. Services never run these automatically.
+SQLite snapshots use the online backup API, finish as standalone rollback-mode
+files, pass integrity checks and receive a file-hash manifest. Migration requires
+that manifest, refuses populated targets/schema drift/broken relationships,
+copies columns by name and preserves every cell through typed hashes over ordered
+primary keys. IDs and SQLite sequence high-water marks are preserved. Unsupported
+text/numbers cause a transaction rollback, not silent rewriting.
+
+Native PostgreSQL backups use an exported repeatable-read snapshot, `pg_dump`
+custom format, exact per-table hashes and private credential environment variables.
+Recovery uses `pg_restore` in a single transaction into an empty database only,
+then compares every restored record with the backup manifest. Roles and deployment
+settings still require their separate recovery procedure. Incomplete output is
+never marked as a completed backup.
+
+All ten migration/snapshot/recovery tests passed on PostgreSQL 16.15, including a
+real native dump and restore, Unicode/newlines, legacy video column ordering,
+sequence positions, modified snapshots, source WAL isolation, rollback and overwrite
+refusal. Shared regression: 371 tests/137 subtests passed, 42 real-server skips;
+Beacon: 374 tests/36 subtests passed, eight skips. Changed Python compiled.
+
+A complete 30-table synthetic SQLite snapshot was migrated to the separate
+`beacon_migration_ui_20260930` schema. Real Flet browser clicks and inspected images
+under `C:/WINDOWS/TEMP/beacon-pg-store-ui/` showed Overview's one channel/four videos/
+one membership (`migration-01-overview.png`), the preserved Saved channel
+(`migration-02-saved.png`), its 16.7x ranking in Channels/Real Time
+(`migration-03-channels.png`, `migration-04-realtime.png`), and complete Find/Agent
+forms (`migration-05-find.png`, `migration-06-agent.png`). Output had no application
+exceptions. No live data has been copied or migrated yet. Full-size disk,
+performance, off-host recovery and coordinated cutover checks remain.
+
 ## Update: durable save screen verified
 
 Beacon detects durable-save support through Finder health. PostgreSQL saves

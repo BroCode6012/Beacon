@@ -27,7 +27,9 @@ retries and worker recovery. The operator's Disaster Breakdown link saved and
 analysed successfully in the test schema. UI progress and retry controls now
 read persisted requests, survive browser reconnection, and queue shelf refreshes
 without fetching YouTube data in the browser. Production worker deployment
-and migration/recovery gates remain before cutover. See
+and the full-size migration/recovery rehearsal remain before cutover. Administrator
+snapshot, transfer and native PostgreSQL recovery tools have passed synthetic
+verification, including exact-content checks for all 30 legacy tables. See
 `POSTGRESQL_PROGRESS.md`; no live index has been copied or migrated.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
