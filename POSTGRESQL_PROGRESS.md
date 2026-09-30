@@ -74,6 +74,38 @@ channels in `import-07-overview-updated.png`. All screenshots are under the same
 temporary evidence directory above. Web output contained no application
 exceptions. These checks do not constitute a production save or migration.
 
+## Update: runtime ownership and permissions verified
+
+Shared-index readers recognize the public PostgreSQL target without treating it
+as a missing local file. They can use a separate restricted read-role connection.
+Lab SQLite sessions remain separate. Radar queue/model files stay in the explicit
+operational state directory. PostgreSQL schemas have separate score caches.
+Competitor title aggregation and recent-yield telemetry now support PostgreSQL.
+Maintenance uses PostgreSQL catalog checks and native vacuum; SQLite backup and
+restore actions refuse PostgreSQL targets rather than opening a misleading file.
+Native PostgreSQL backup/recovery tooling is still a later migration requirement.
+
+There are 37 real-server connection/store/importer/runtime tests: the first 35
+passed together, and all eight runtime checks passed again after adding yield
+and cache-isolation cases. The checks include Finder full/read/unauthorized HTTP
+tokens and a native restricted database role that rejects writes even when the
+transaction itself is writable. Shared regression passed 364 tests and 119
+subtests, with 28 real-server skips; Beacon passed 366 tests and 36 subtests,
+with eight skips. Compilation and diff checks passed.
+
+The isolated real web app was restarted using the current source. Clicks through
+Overview, Channels, Real Time, Find, Saved and Agent were captured and visually
+inspected in `runtime-01-overview.png` through `runtime-06-agent.png` in the same
+temporary evidence directory. Overview showed two sample channels, both channel
+grids showed the correct cards, Find/Saved showed complete forms and empty Saved
+state, and Agent showed its controls/ledger. No web application exception was
+found. The connection-error/retry workflow was already checked in the store gate.
+
+A read-only inventory also compared all 30 live Oracle tables with the test
+schema. Column names match; legacy videos have one historical column at a
+different position. Migration must map columns by name, never use blind positional
+copies. No live records were changed or copied by this inventory.
+
 ## What this means in plain language
 
 Beacon now has the first tested building block for talking to PostgreSQL.
