@@ -13,6 +13,14 @@ the existing live SQLite index must be compared in an isolated rehearsal
 before production cutover. Shared-engine compatibility with Production Lab
 and full-token/read-token authorization remain mandatory.
 
+The first PostgreSQL foundation is now verified on the
+`codex/postgresql-foundation` branches: an explicit, optional connection layer
+with commit/rollback, read-only transactions, bounded lock/query waits and
+credential-safe connection errors. It is not connected to YouTubeStore or the
+live app yet. Real PostgreSQL tests used synthetic records in a private,
+temporary cluster, now stopped. See `POSTGRESQL_PROGRESS.md` for checks and the
+remaining store/schema work; no live index was copied or migrated.
+
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
 measurements below are historical. The live web/Finder/gateway/radar services
 run from a versioned release, and Oracle's application database is private to

@@ -1,0 +1,98 @@
+# PostgreSQL foundation — 2026-09-30
+
+## What this means in plain language
+
+Beacon now has the first tested building block for talking to PostgreSQL.
+Successful changes are committed; interrupted changes are rolled back.
+Connections close when the work finishes. A slow query or conflicting write
+has a time limit. Read-only transactions reject writes.
+
+The live app still uses SQLite. This milestone does not resolve its busy-index
+save error. The tables, research queries, Finder operations and importer still
+need a verified PostgreSQL port before switching the live app.
+
+## Scope and boundaries
+
+- Branch in both source repositories: `codex/postgresql-foundation`.
+- Shared engine: `scripter/research/postgres.py`, optional
+  `requirements-postgres.txt`, and `tests/test_postgres.py`.
+- The module requires explicit construction. No environment variable or existing
+  YouTubeStore constructor silently selects it, creates a second live index,
+  or changes Production Lab's SQLite session behavior.
+- SQL uses native Psycopg parameters; there is no blanket SQLite SQL rewrite.
+- Read-only transactions are a database safeguard, not a replacement for
+  restricted database roles or Finder full/read token authorization. Those
+  production integration checks remain necessary.
+- Connection strings are excluded from object representations. Connection
+  failures have generic messages rather than exposed driver diagnostics.
+
+## Real PostgreSQL verification
+
+Ubuntu PostgreSQL 16.15 binaries were extracted into
+`/var/tmp/beacon-pg-foundation` on Oracle, without installing a system service
+or altering the live release/virtual environment. A separate virtual environment
+contained Psycopg. The synthetic cluster used a private Unix socket, no TCP
+listener, 32 MiB shared buffers and a 12-connection ceiling. Its parent and
+socket directories were mode 0700. The cluster was stopped after testing.
+Only the new module and its tests were uploaded; no live database was copied.
+
+All **13 tests passed** against the real server:
+
+- successful writes commit and connections close;
+- a raised exception rolls back a pending write and closes the connection;
+- read-only connections reject writes;
+- an independent insert commits while another insert transaction remains open;
+- another reader sees the committed insert but not the uncommitted insert;
+- a conflicting insert expires under the configured 150 ms lock limit;
+- a three-second query is cancelled under the configured 200 ms query limit;
+- query, lock and idle-transaction limits are applied to each connection;
+- invalid connection diagnostics do not expose the test password;
+- configuration rejects missing strings, invalid flags and unbounded timeouts.
+
+These small synthetic checks prove connection behavior. They are not a
+whole-index performance benchmark or a successful migration rehearsal.
+
+## Existing application checks
+
+Changed Python compiled successfully on the shared local Python 3.10 runtime.
+The shared pytest suite passed **360 tests and 115 subtests**, with eight real
+PostgreSQL tests skipped locally because no local test DSN was supplied. Those
+eight tests passed separately against the real Oracle test cluster above.
+Beacon's pytest suite passed **366 tests and 36 subtests**, with eight skips.
+
+A separate real Flet desktop instance used a newly initialized empty scratch
+database, Finder port 8797 and a separate token-file path. Autopilot was disabled
+with `SIGNAL_DISABLE_AUTOPILOT=1`. The user's running app and cloud services were
+not stopped. `_win.ps1` performed the navigation and screenshot capture; every
+screenshot below was visually inspected. No application exception appeared in
+the instance's output (only the existing Python support warning).
+
+Screenshots are local generated evidence, not committed source:
+`C:/WINDOWS/TEMP/beacon-pg-foundation-ui/`.
+
+| Action | Screenshot | What was visible |
+|---|---|---|
+| Open the separate app on Overview | `01-overview.png` | Connected Finder, empty index counts and Niche Watch cards |
+| Click Channels | `02-channels.png` | Research controls and the initial loading state |
+| Wait for Channels to finish | `03-channels-empty.png` | Zero channels and the explicit empty-result message |
+| Click Real Time | `04-realtime.png` | Window/filter controls and the initial loading state |
+| Wait for Real Time to finish | `05-realtime-empty.png` | Zero newest channels and the empty-result message |
+| Click Find | `06-find.png` | Complete subject field, Start sweep button and browse action |
+| Click Saved | `07-saved.png` | Complete link field, Save & analyse button and Nothing saved yet |
+| Click Agent | `08-agent.png` | Question field, provider controls and the work ledger |
+
+No new PostgreSQL UI workflow exists yet, so this was a navigation/regression
+smoke test, not a claim that saving or sweeping uses PostgreSQL. The Agent ledger
+in this local instance reads the laptop's legacy operational status; it does not
+prove the Oracle worker is stuck. All four live Oracle services were separately
+confirmed active after the database tests.
+
+## Next implementation gate
+
+Port the research-index schema and store operations explicitly, retaining
+SQLite session compatibility. Compare results on synthetic fixtures and then
+representative data, including rankings, exclusions, Saved membership and
+history. Add durable save jobs with analysis outside the save transaction.
+Verify Finder permissions and importer savepoints/commit-before-ack behavior.
+Full-size migration, backup/recovery rehearsal and production cutover remain
+the later gates in `POSTGRESQL_PLAN.md`.
