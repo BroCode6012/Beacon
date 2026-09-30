@@ -46,6 +46,34 @@ Importer integration, full/read role checks, durable save jobs, representative
 performance, full migration and recovery remain required before live cutover.
 The historical first milestone below describes the earlier connection-only work.
 
+## Update: signed PostgreSQL importer verified
+
+The importer now selects the correct transaction mechanism for each backend.
+PostgreSQL serializes competing importer sessions through a transaction-scoped
+advisory lock while unrelated operator writes remain free to commit. Its normal
+import sessions run no SQLite PRAGMAs, WAL worker or schema-owner DDL. Version 2
+adds timestamp merge helpers preserving SQLite's string-order and NULL rules.
+SQLite batching and WAL maintenance retain their existing behavior.
+
+All 29 real PostgreSQL connection/store/importer tests passed. Importer tests
+proved signed discovery and organization imports, duplicate handling, wrong-key
+rejection, 64-bit counters, commit-before-ack visibility from a separate reader,
+and recovery from an actual database error in the middle of a three-bundle group.
+An operator insert committed while a different bundle transaction remained open.
+Shared regression: 363 tests and 119 subtests passed, 21 real-server skips run
+separately. Beacon: 366 tests and 36 subtests passed, eight skips.
+
+A signed synthetic bundle was then imported into the isolated web-test schema.
+After restarting only the owned test process tree, browser clicks through
+Channels (`import-02-channels.png`) and Real Time (`import-03-realtime.png`) showed
+both sample channels, including the newly imported card and its discovery time.
+Find, Saved and Agent clicks showed their complete forms in `import-04-find.png`,
+`import-05-saved.png` and `import-06-agent.png`. Overview's existing count cache
+was refreshed explicitly in the test setup; the reopened browser showed two
+channels in `import-07-overview-updated.png`. All screenshots are under the same
+temporary evidence directory above. Web output contained no application
+exceptions. These checks do not constitute a production save or migration.
+
 ## What this means in plain language
 
 Beacon now has the first tested building block for talking to PostgreSQL.
