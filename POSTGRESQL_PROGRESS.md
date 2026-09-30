@@ -1,5 +1,39 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: durable save screen verified
+
+Beacon detects durable-save support through Finder health. PostgreSQL saves
+record a request before returning, show persisted progress, retain the channel
+when analysis fails, and expose Retry. Shelf refresh queues a bounded background
+check rather than calling YouTube during the browser request. Legacy SQLite
+behavior remains unchanged. The link input control survives background redraws.
+Finder read tokens cannot enqueue, retry, or request refresh writes.
+
+Verification: changed Python compiled; 374 Beacon tests and 36 subtests passed
+(eight skips); 367 shared tests and 137 subtests passed (36 real-server skips).
+All 48 real PostgreSQL tests ran; a new refresh test initially omitted the worker's
+lease-release step, was corrected to exercise the actual worker, and the 19
+save/runtime tests then passed. The other 29 passed in the full real-server run.
+The Impeccable detector returned no findings for the changed UI/helper files.
+
+Real Flet web evidence under `C:/WINDOWS/TEMP/beacon-pg-store-ui/` was inspected:
+
+| Click/action | Screenshot | Proof |
+|---|---|---|
+| Save Disaster Breakdown | `save-ui-03-request-recorded.png`, `save-ui-04-queued.png` | Disabled while recording, then pending analysis and released input/button |
+| Deliberately fail the isolated worker, reload browser | `save-ui-05-reconnected.png` | Saved channel kept; persisted failure with Retry |
+| Click Retry, run worker against YouTube | `save-ui-06-retry.png`, `save-ui-07-ready.png` | Request accepted; analysis becomes Ready |
+| Click Refresh live | `save-ui-08-refresh-queued.png` | Brief recording state; background job recorded, no false freshness timestamp |
+| Save a foreign URL | `save-ui-12-simple-error.png` | Simple instruction, link retained, button usable |
+| Overview, Channels, Real Time, Find, Agent | `save-ui-11-final-overview.png`, `save-ui-13-channels.png`, `save-ui-14-realtime.png`, `save-ui-15-find.png`, `save-ui-16-agent.png` | All six screens render; opportunity filtering and forms remain intact |
+| Save a valid link again in the final build | `save-ui-17-final-ready.png` | Input clears after recording, persisted jobs finish Ready, one shelf membership |
+
+No application exceptions appeared in the isolated instance's output. Overview
+uses its earlier synthetic count snapshot; the local Agent operational ledger
+does not represent live Oracle service state. The earlier web fast path replaces
+the unreliable native desktop focus checks described below. These checks do
+not mean production has switched: the live database is still SQLite.
+
 ## Update: research store and schema verified
 
 The shared engine now has an explicitly selected PostgreSQL research store and

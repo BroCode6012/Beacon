@@ -41,6 +41,40 @@ class SaveError(RuntimeError):
     """A link we could not turn into a channel, with a message fit for the UI."""
 
 
+def queue_channel(finder, link: str) -> dict:
+    """Record a durable request; queueing is not a claim that analysis finished."""
+    try:
+        result = finder.call("enqueue_channel_save", link=link)
+    except Exception as exc:
+        # Finder transport diagnostics are useful in logs, not in a beginner's form.
+        known = (
+            "Use a YouTube channel or video link.",
+            "Paste a YouTube channel or video link.",
+            "That YouTube link does not point to a channel or video.",
+        )
+        message = next((text for text in known if text in str(exc)),
+                       "Could not record your request. Please try again.")
+        raise SaveError(message) from None
+    if not isinstance(result, dict) or result.get("error") or not result.get("id"):
+        reason = result.get("error") if isinstance(result, dict) else None
+        raise SaveError(str(reason or "Could not record your request. Please try again."))
+    return {"queued": True, "request_id": result["id"], "niche_id": result.get("niche_id")}
+
+
+def request_status(request: dict) -> tuple[str, str]:
+    """Plain language distinguishes a kept request from a saved channel."""
+    status, saved = request.get("status"), bool(request.get("saved_at"))
+    if status == "ready":
+        return "Ready", "Saved on your shelf. Its latest available numbers and uploads were checked."
+    if status == "failed":
+        return ("Saved — analysis needs a retry" if saved else "Save needs attention",
+                str(request.get("error") or "This step failed. Press Retry to try again."))
+    if saved:
+        return "Saved — analysis pending", "The channel is on your shelf. Its numbers and uploads are being checked."
+    return ("Finding the channel…" if status == "working" else "Queued",
+            "Your request is recorded. You can leave this page; processing continues in the background.")
+
+
 # The radar worker and the cloud importer write this database constantly, and SQLite lets
 # only one writer in at a time. Saving already waits its turn (seed_channels retries
 # 4 x 2.5s inside the engine); the shelf's other writes get the same patience here, on

@@ -517,6 +517,7 @@ CACHE_ERROR_TTL_SECONDS = 15
 # reload. These screens change slowly; the Refresh button always fetches immediately, and the
 # Real Time feed and cloud progress keep their own live tickers while they are on screen.
 CACHE_TTL_SECONDS = {
+    "save_requests": 3,
     "overview": OVERVIEW_REFRESH_SECONDS,
     "edge_sync": CLOUD_PROGRESS_REFRESH_SECONDS,
     "niche_signals": 300,
@@ -742,6 +743,8 @@ class BeaconApp:
         self._saved_draft = ""             # survives background re-renders while typing
         self._saved_result = None          # what the last save produced
         self._saving_link = False
+        self._durable_saves = False
+        self._save_watch_started = False
         self._ch_last_base = None          # detects a filter/sort/niche change → reset paging
         # NexLev-style Channels browser: the active filter set + which preset chip.
         # (keys with a leading _ are client-side only, stripped before the finder call)
@@ -822,6 +825,8 @@ class BeaconApp:
             pass
         try:
             self.client = self._resolve_service()
+            health = self.client.health() if hasattr(self.client, "health") else {}
+            self._durable_saves = isinstance(health, dict) and health.get("durable_channel_saves") is True
         except Exception as exc:  # noqa: BLE001 — shown to the operator, never a blank crash
             page.controls.remove(starting)
             page.add(self._boot_failure(exc))
@@ -883,6 +888,7 @@ class BeaconApp:
         self._overview_watch_started = False
         self._cloud_watch_started = False
         self._rt_watch_started = False
+        self._save_watch_started = False
         ap = getattr(self, "autopilot", None)
         if ap is not None:
             ap.shutdown()
@@ -6011,6 +6017,28 @@ class BeaconApp:
             return
         self._saved_refreshing = True
 
+        if getattr(self, "_durable_saves", False):
+            def queue_work():
+                try:
+                    result = self.client.call("queue_saved_channel_refresh", niche_id=nid)
+                    if not isinstance(result, dict) or result.get("error"):
+                        raise beacon_save.SaveError("Could not queue the refresh. Please try again.")
+                    return result
+                except Exception as exc:
+                    return {"refresh_error": str(exc)}
+
+            def queue_done(result):
+                self._saved_refreshing = False
+                self._saved_result = result
+                self._invalidate("save_requests")
+                if self.section == "Saved":
+                    self._render()
+
+            self.run_bg(queue_work, queue_done, "Recording the background check…", quiet=silent)
+            if not silent:
+                self._render()
+            return
+
         def work():
             try:
                 return beacon_save.refresh_saved(self.client, nid)
@@ -6102,6 +6130,8 @@ class BeaconApp:
 
         def work():
             try:
+                if getattr(self, "_durable_saves", False):
+                    return beacon_save.queue_channel(self.client, link)
                 return beacon_save.save_channel(self.client, link,
                                                 niche_id=self._saved_niche_id)
             except Exception as exc:  # noqa: BLE001
@@ -6122,13 +6152,19 @@ class BeaconApp:
                 # Keep the link in the box when it FAILED, so a fixable typo can be
                 # corrected instead of retyped from scratch.
                 self._saved_draft = ""
+                field = getattr(self, "_saved_link_field", None)
+                if field is not None:
+                    field.value = ""
                 self._saved_niche_id = res.get("niche_id") or self._saved_niche_id
                 self._invalidate(self._saved_key())
+                self._invalidate("save_requests")
             self.toast("")
             if self.section == "Saved":
                 self._render()
 
-        self.run_bg(work, done, "Looking up the channel and pulling its numbers…")
+        message = ("Recording your save request…" if getattr(self, "_durable_saves", False)
+                   else "Looking up the channel and pulling its numbers…")
+        self.run_bg(work, done, message)
         self._render()                  # show the disabled/working button immediately
 
     def _saved_result_card(self) -> ft.Control | None:
@@ -6136,6 +6172,13 @@ class BeaconApp:
         res = getattr(self, "_saved_result", None)
         if not res:
             return None
+        if res.get("queued") or "queued_refresh" in res:
+            message = ("Your request is recorded. Progress is shown below." if res.get("queued")
+                       else f"Background checks requested for {res['queued_refresh']} channels.")
+            return ft.Container(ft.Row([
+                ft.Icon(ft.Icons.CHECK_CIRCLE, size=17, color=ACCENT_DARK),
+                ft.Text(message, size=12, color=TEXT, expand=True),
+            ], spacing=9), padding=11, border_radius=11, bgcolor=ACCENT_SOFT)
         if res.get("refreshed"):
             return ft.Container(
                 ft.Row([
@@ -6197,8 +6240,106 @@ class BeaconApp:
             padding=11, border_radius=11, bgcolor=ACCENT_SOFT,
         )
 
+    def _load_save_requests(self):
+        rows = self.client.call("list_channel_save_requests", limit=50)
+        if not isinstance(rows, list):
+            raise beacon_save.SaveError("Could not read save progress. Your recorded requests are kept.")
+        return rows
+
+    def _save_requests_tick(self):
+        key = "save_requests"
+        if key in self._loading:
+            return
+        stop, generation = self._session_stop, self._epoch.get(key, 0)
+        self._loading.add(key)
+
+        def work():
+            try:
+                result = {"data": self._load_save_requests()}
+            except Exception:
+                result = {"error": "Could not read save progress. Your recorded requests are kept. Reconnecting…"}
+            finally:
+                self._loading.discard(key)
+            if stop.is_set() or self._epoch.get(key, 0) != generation:
+                return
+            previous = self.cache.get(key) or {}
+            self.cache[key] = self._cache_entry(result)
+            if previous.get("data") == result.get("data") and previous.get("error") == result.get("error"):
+                return
+            self._invalidate(self._saved_key())
+            self._invalidate("niches")
+            if self.section == "Saved":
+                self._render()
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _watch_save_requests(self):
+        if self._save_watch_started:
+            return
+        self._save_watch_started = True
+        stop = self._session_stop
+
+        def worker():
+            while not stop.wait(3):
+                if self.section == "Saved":
+                    self._save_requests_tick()
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _retry_save_request(self, request_id):
+        def work():
+            try:
+                result = self.client.call("retry_channel_save", request_id=request_id)
+                if not isinstance(result, dict) or result.get("error"):
+                    raise beacon_save.SaveError("Could not record the retry. Please try again.")
+                return {"queued": True}
+            except Exception as exc:
+                return {"error": str(exc)}
+
+        def done(result):
+            self._saved_result = result
+            self._invalidate("save_requests")
+            if self.section == "Saved":
+                self._render()
+
+        self.run_bg(work, done, "Recording your retry…")
+
+    def _save_requests_section(self):
+        self._watch_save_requests()
+        entry = self._ensure("save_requests", self._load_save_requests, "Reading save progress…")
+        if entry is None:
+            return self._loading_note("Reading save progress…")
+        if "error" in entry:
+            return self._error_card(entry["error"])
+        requests = entry.get("data") or []
+        if not requests:
+            return None
+        controls = [h("Latest save requests", 16)]
+        for request in requests[:8]:
+            title, detail = beacon_save.request_status(request)
+            failed = request.get("status") == "failed"
+            color = WARN if failed else ACCENT_DARK if request.get("status") == "ready" else ACCENT2
+            icon = ft.Icons.ERROR_OUTLINE if failed else ft.Icons.CHECK_CIRCLE if request.get("status") == "ready" else ft.Icons.SCHEDULE
+            row = [ft.Icon(icon, size=19, color=color), ft.Column([
+                ft.Text(title, size=14, weight=ft.FontWeight.W_700, color=color),
+                ft.Text(str((request.get("result") or {}).get("title") or request.get("input_link") or ""),
+                        size=12, color=TEXT, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                ft.Text(detail, size=12, color=MUTED),
+            ], spacing=3, expand=True)]
+            if failed:
+                row.append(ft.OutlinedButton("Retry", on_click=lambda _, rid=request["id"]: self._retry_save_request(rid)))
+            controls.append(ft.Row(row, spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER))
+        return self.card(*controls)
+
     def _render_saved(self) -> None:
-        field = ft.TextField(
+        field = getattr(self, "_saved_link_field", None)
+        if field is None:
+            field = self._new_saved_link_field()
+            self._saved_link_field = field
+        self._render_saved_with_field(field)
+
+    def _new_saved_link_field(self):
+        return ft.TextField(
             hint_text="Paste a YouTube link — the channel page or any of its videos",
             value=getattr(self, "_saved_draft", ""),
             expand=True,
@@ -6207,6 +6348,8 @@ class BeaconApp:
             on_change=lambda e: setattr(self, "_saved_draft", e.control.value),
             on_submit=lambda _: self._save_link(),
         )
+
+    def _render_saved_with_field(self, field) -> None:
         saving = getattr(self, "_saving_link", False)
 
         capture = self.card(
@@ -6218,7 +6361,9 @@ class BeaconApp:
                 ),
                 ft.Column([
                     h("Save a channel you found", 17),
-                    muted("Paste the link. Beacon adds it to your index and scores it "
+                    muted("Your request is recorded first; analysis runs in the background."
+                          if getattr(self, "_durable_saves", False) else
+                          "Paste the link. Beacon adds it to your index and scores it "
                           "on the same evidence as everything else.", 11),
                 ], spacing=1, tight=True, expand=True),
             ], spacing=10),
@@ -6249,6 +6394,11 @@ class BeaconApp:
         )
         self.content.controls.append(capture)
 
+        if getattr(self, "_durable_saves", False):
+            progress = self._save_requests_section()
+            if progress is not None:
+                self.content.controls.append(progress)
+
         entry = self._ensure(self._saved_key(), self._load_saved,
                              "Loading your saved channels…")
         if entry is None:
@@ -6258,7 +6408,7 @@ class BeaconApp:
             self.content.controls.append(self._error_card(entry["error"]))
             return
         rows = entry.get("data") or []
-        if rows:
+        if rows and not getattr(self, "_durable_saves", False):
             self._saved_autorefresh()
         if not rows:
             self.content.controls.append(self.card(
@@ -6280,6 +6430,8 @@ class BeaconApp:
             fresh = f"live numbers checked {self._ago_seconds(now - last)}"
         else:
             fresh = "live numbers not checked yet this session"
+        if getattr(self, "_durable_saves", False):
+            fresh = "Refresh live queues a background check"
         refreshing = getattr(self, "_saved_refreshing", False)
         self.content.controls.append(ft.Row([
             ft.Container(

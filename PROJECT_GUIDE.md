@@ -24,8 +24,10 @@ The private test cluster remains isolated from production. Importer integration
 and runtime ownership/permission checks have also passed. The durable save engine
 has verified queued requests, committed membership, background analysis, bounded
 retries and worker recovery. The operator's Disaster Breakdown link saved and
-analysed successfully in the test schema. UI progress controls, production worker
-deployment and migration/recovery gates remain before cutover. See
+analysed successfully in the test schema. UI progress and retry controls now
+read persisted requests, survive browser reconnection, and queue shelf refreshes
+without fetching YouTube data in the browser. Production worker deployment
+and migration/recovery gates remain before cutover. See
 `POSTGRESQL_PROGRESS.md`; no live index has been copied or migrated.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
