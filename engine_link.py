@@ -16,9 +16,14 @@ import os
 import sys
 from pathlib import Path
 
-# --- where the shared engine + database live (override with env if you relocate them) ------
+# --- where the shared engine + database live ---------------------------------------------
+# This machine's settings first (beacon_host.env — folders, ports, time zone). Moving Beacon
+# to another host means changing that file, not this code; see beacon_host.py.
+import beacon_host  # noqa: E402
+
+beacon_host.load()
 SIGNAL_ROOT = Path(__file__).resolve().parent
-LAB_REPO = Path(os.getenv("FACELESS_ENGINE_DIR") or r"D:\Youtube\Quill")
+LAB_REPO = Path(os.getenv("FACELESS_ENGINE_DIR") or beacon_host.default_engine_dir(SIGNAL_ROOT))
 SIGNAL_DB = SIGNAL_ROOT / "storage" / "youtube_index.sqlite3"
 
 

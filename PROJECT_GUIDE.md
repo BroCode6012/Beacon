@@ -3,6 +3,47 @@
 Investigation date: **2026-07-10**  
 Implementation status updated: **2026-08-17**
 
+### Current web-app review — 2026-09-30
+
+The next work is the reliable cloud foundation and PostgreSQL migration plan
+in `POSTGRESQL_PLAN.md`. The current code is being recorded on paired Beacon
+and shared-engine branches before migration development. The first product
+milestone is durable saving with analysis in the background; PostgreSQL and
+the existing live SQLite index must be compared in an isolated rehearsal
+before production cutover. Shared-engine compatibility with Production Lab
+and full-token/read-token authorization remain mandatory.
+
+Beacon now runs as a web app on Oracle. The older desktop descriptions and
+measurements below are historical. The live web/Finder/gateway/radar services
+run from a versioned release, and Oracle's application database is private to
+that host. The laptop index mentioned below is a separate legacy/local state;
+do not treat it as the web app's current database.
+
+The September review found a Find tab that showed only its heading while the
+server remained healthy. The UI now serializes redraws and displays a retry
+card if a screen cannot be drawn. Background screen refreshers stop when a
+browser session disconnects and start afresh on reconnect; its Autopilot
+scheduler pauses without changing the operator's saved On setting. The Find
+screen preserves the subject and reports a completed sweep's discovered leads,
+including clear empty and error states. Cloud status reflects the scheduled
+importer instead of implying that the web process needs its own signing key.
+
+Opportunity views now reject high-confidence music, children's, and major
+brand/channel names in the shared Finder's faceless/replicable query path;
+this shared-engine rule also affects Production Lab queries that request that
+path. Excluded records remain in the index. Agent writes have a durable
+started/finished audit pair written before and after execution, with pending
+changes shown for manual review and without an unsafe Undo button.
+
+These changes were checked with regression tests and separate real Flet web
+sessions using isolated Finder ports and a scratch database. The production
+browser showed the recovered Find form and other screens after deployment.
+The exact trigger of the original frozen tab was not captured in a stack trace,
+so the redraw and session-lifetime changes are resilience fixes rather than a
+claim that every possible freeze is eliminated. Off-host backup and migration
+of the laptop/shared venv from Python 3.10 remain open work; Oracle's web
+runtime is already Python 3.12.3.
+
 This document is the durable map of Beacon: what it is, why it exists, how it
 works, what is currently running, what was verified, where the important risks
 are, and the order in which the project should be improved.

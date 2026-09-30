@@ -1,0 +1,29 @@
+# Beacon on a server — pinned to the laptop's working versions (read from its venv 2026-09-29),
+# so every host behaves the same. The Oracle sandbox, left unpinned, picked OpenCV 5.0 and
+# numpy 2.5 — major versions the laptop has never run. Upgrade here deliberately, not by accident.
+# Server-only: no flet-desktop (no window on a server), no streamlit, no edge-tts.
+anthropic==0.105.2
+boto3==1.43.19
+flet==0.28.3
+# Flet's web mode needs flet-web, and INSTALLS IT ITSELF at first start when missing. That
+# silently worked in the writable sandbox; the real service's program folder is read-only, so
+# it crash-looped ("Read-only file system", 2026-09-29). Listed explicitly, with its server.
+flet-web==0.28.3
+fastapi==0.136.3
+uvicorn==0.48.0
+websockets==16.0
+google-api-python-client==2.197.0
+google-auth-oauthlib==1.4.0
+joblib==1.5.3
+numpy==2.2.6
+opencv-python-headless==4.13.0.92
+pydantic==2.13.4
+python-dotenv==1.2.2
+requests==2.34.2
+rich==15.0.0
+scikit-learn==1.7.2
+scipy==1.15.3
+scrapetube==2.6.0
+youtube-comment-downloader==0.1.78
+youtube-transcript-api==1.2.4
+yt-dlp==2026.6.9

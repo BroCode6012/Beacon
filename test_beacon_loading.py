@@ -22,6 +22,7 @@ class BeaconBusyStateTests(unittest.TestCase):
         app.spinner = SimpleNamespace(visible=False)
         app.status = SimpleNamespace(value="")
         app._busy = False
+        app._render_lock = threading.RLock()
         app._busy_lock = threading.Lock()
         app._busy_tasks = {}
         app._busy_seq = 0

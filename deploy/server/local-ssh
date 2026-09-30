@@ -1,0 +1,27 @@
+#!/bin/sh
+# local-ssh — a stand-in for `ssh` when Beacon runs ON the same machine as the cloud collector.
+#
+# The engine's edge transport (scripter/edge/ssh_transport.py) was written for the laptop: it runs
+# `ssh -i KEY -p PORT -o ... user@host 'sudo -n cat /var/lib/signal-edge/...'`. Once Beacon lives
+# on the collector's own server there is nobody to log in to, so SIGNAL_EDGE_SSH_BIN points here
+# and the very same commands run locally — the engine's code stays untouched.
+#
+# The service that uses this already runs as root (it must read the collector's private folders),
+# so `sudo -n X` simply becomes `X`: real sudo refuses to run under NoNewPrivileges, which the
+# service keeps on. Every command the transport sends uses sudo only at the start of a step.
+#
+# It refuses any host but this machine, so a mistyped setting can never aim it elsewhere.
+set -eu
+[ "$#" -ge 2 ] || { echo "local-ssh: expected ssh-style arguments" >&2; exit 255; }
+command=""
+target=""
+for arg in "$@"; do
+    target=$command
+    command=$arg
+done
+case "$target" in
+    *@127.0.0.1|*@localhost|127.0.0.1|localhost) ;;
+    *) echo "local-ssh: only runs commands on this machine, not on '$target'" >&2; exit 255 ;;
+esac
+exec /bin/sh -c 'sudo() { if [ "${1:-}" = "-n" ]; then shift; fi; "$@"; }
+'"$command"

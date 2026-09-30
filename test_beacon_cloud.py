@@ -19,6 +19,35 @@ def test_cloud_setup_pending_is_plain_and_disabled():
     assert "not connected yet" in state["message"]
 
 
+def test_scheduled_cloud_sync_is_not_called_unconfigured_from_the_web_process():
+    state = _cloud_sync_view_state(
+        {
+            "configured": False,
+            "transport_configured": False,
+            "remote": {"state": "running", "updated_at": "2026-09-30T10:00:00Z"},
+            "health": {"state": "ok", "ok": True,
+                       "summary": "Cloud discovery is delivering channels."},
+        }
+    )
+    assert state["badge"] == "delivering"
+    assert state["cloud_in_use"] is True
+    assert state["sync_enabled"] is False
+    assert "scheduled service" in state["message"]
+
+
+def test_scheduled_cloud_sync_reports_failures_without_a_setup_warning():
+    state = _cloud_sync_view_state(
+        {
+            "configured": False,
+            "health": {"state": "ok", "ok": True},
+            "last_sync": {"failed_bundles": 3},
+        }
+    )
+    assert state["badge"] == "attention"
+    assert "rejected 3 bundles" in state["message"]
+    assert "not connected" not in state["message"]
+
+
 def test_cloud_waiting_state_enables_sync():
     state = _cloud_sync_view_state(
         {

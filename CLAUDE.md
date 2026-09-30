@@ -668,6 +668,402 @@ Never copy, mount, expose, or remotely open the live SQLite file for this design
   no teardown, so reloading a test copy with Autopilot live leaves the old session's loop running
   (double passes). Size the pane BEFORE the first navigate and never reload such a copy.
 
+- `beacon_gateway.py` — MUSE LINK (2026-09-28): the one door an OUTSIDE agent may use.
+  The operator has no paid AI API; Meta's Muse (muse.ai, free consumer chat) is the agent
+  they have. Muse has NO MCP settings — its connector list is fixed — but it builds a
+  "custom connector" to any REST API, storing the key through its own secure page, and it
+  runs on Meta's cloud computer, so the API must be reachable from the internet.
+  WHY NOT expose the finder directly: its keys were the code DEFAULTS (`signal-full` /
+  `lab-read`, verified in storage/finder.tokens.json) — a public URL would be a lock whose
+  key is in the repo, and the full key can bulk-exclude channels and stop the scraper.
+  The gateway: own 43-char random key in `storage/muse_gateway.token.json` (never printed,
+  gitignored via storage/); allowlist of the finder's READ tools (27) plus a WRITE_TOOLS
+  deny-list; forwards over 127.0.0.1 with the finder's READ key (writes → 403 twice over);
+  60 calls/min cap; logs every call and refusal to `storage/muse_gateway.log`; binds
+  127.0.0.1:8770 only. Also speaks MCP at POST /mcp. `db_stats` is served from a
+  background count (refreshed every 6h, stamped "counted N minutes ago"): live it took
+  421s, and Cloudflare's quick tunnel drops answers slower than ~100s, so Muse's two live
+  tries failed; `CALL_TIMEOUT`=90 so slow calls say so instead of hanging.
+  Public road: `cloudflared tunnel --url http://127.0.0.1:8770` (binary in the session
+  scratchpad, not installed system-wide). The quick-tunnel URL CHANGES on every restart —
+  Muse must be told the new one. Needs the finder + gateway + tunnel all running.
+  VERIFIED LIVE: Muse connected (operator pasted the key; Claude must never type keys into
+  a third-party site), approved "always allow" for the domain, then answered with numbers
+  that match the DB exactly: 254,108 visible channels (sum of topics), top-5 faceless
+  opportunities identical to `find_channels(faceless_only, replicable_only, max_subs=100000,
+  min_views_per_sub=2, sort=opportunity_score)`, and after the cache fix 260,095 channels /
+  5,012,585 videos / 21,422 faceless_verified. Tests: test_beacon_gateway.py (16).
+  CARETAKER `muse_link.py` + scheduled task **BeaconMuseLink** (install_muse_link.ps1, every
+  2 min, /IT no admin, StartWhenAvailable so a run missed during sleep fires on wake,
+  IgnoreNew). Each run: finder up? (else start finder_service, wait ≤90s — the door is never
+  opened before its data) → door up? (else start beacon_gateway) → road checked FROM OUTSIDE
+  (`public_up` on the public URL, as Muse sees it). A live road that fails is given
+  `REPLACE_AFTER_FAILURES`=3 runs (~6 min) to reconnect by itself before being replaced, so a
+  just-woken laptop does not lose its address; a dead road process (reboot) is replaced at
+  once. A new working address is announced ONCE: Windows toast + `storage/muse_link.json`
+  `message_for_muse` (address only — Muse keeps the key, which never changes). State/logs:
+  storage/muse_link.json, muse_link.log, muse_tunnel.log. cloudflared lives in `tools/`
+  (gitignored). `python muse_link.py --status` = current address + ready message.
+  Verified live 2026-09-28: first run took over the hand-opened road (new address
+  strongly-planes-yesterday-cayman); killing the door → reopened, same address; killing the
+  finder → restarted in 5s, same address; then door killed and left alone → the SCHEDULED
+  task reopened it at 21:33:05 unattended, result 0. Toast call exits 0 with no errors.
+  Tests: test_muse_link.py (12 + inherited).
+  REAL SLEEP TEST (2026-09-28, slept 22:06:26 → woke 22:17:32, 11 min): my claim "a quick
+  tunnel keeps its address through sleep" was WRONG. Cloudflare deleted the quick tunnel while
+  the laptop was offline; the still-running cloudflared (same pid) logged `Unauthorized:
+  Tunnel not found` every ~30s forever. Also: Windows did NOT fire the missed repetition on
+  wake — the next round came at 22:21:00, ~3.5 min later. Fix: `tunnel_gone()` (that error
+  newer than the last "Registered tunnel connection") → replace at once instead of waiting 3
+  rounds. Consequence: on a sleeping laptop the address changes after nearly every sleep, and
+  each change costs a key re-paste in Muse — the Oracle step (always-on host) is ESSENTIAL.
+  ADDRESS CHANGE = KEY RE-ENTRY (verified 2026-09-28): Muse binds a saved key to the exact
+  domain. Told the new address, it replied "the connector needs to be re-saved… enter the same
+  Bearer token again", and raised a fresh "Allow Muse to share information with <new domain>?"
+  approval. Its first knock was 401, then 200 six seconds after the key was re-entered. So
+  every reboot costs the operator a key paste — the strongest argument for a permanent address.
+  NOTIFICATIONS: the toast call succeeds (exit 0) but the operator saw nothing — a full-screen
+  capture showed the taskbar bell with "zZ": Windows Do Not Disturb is on, so toasts go
+  silently to the notification list. That is the operator's setting; do not change it.
+  QUIET LOG: the caretaker sends User-Agent `beacon-muse-link` and the door skips logging its
+  /health checks (2 lines/run buried Muse's visits and fooled me once into reading my own
+  checks as Muse's) — any other visit, including the caretaker's other paths, is logged.
+  Chrome gotcha: typing into muse.ai before the chat finished loading silently dropped the
+  message; wait for the last assistant reply to be findable, and confirm the sent message
+  appears before assuming it was sent.
+  ORACLE ACCOUNT FACTS (checked 2026-09-28/29, console + SSH): Free Tier account (trial
+  ended, cannot be charged), region Morocco West (Casablanca) af-casablanca-1, ONE instance
+  `signal-edge-casablanca` (VM.Standard.A1.Flex, Ubuntu 24.04 aarch64, 51.170.132.206, up since
+  2026-07-12, ~25% load, only TCP/22 open — host iptables + OCI /32 rule). Its A1 service limit
+  is **2 OCPU / 12 GB** — NOT the advertised 4/24: raising to 4 OCPU was refused with
+  "service limits were exceeded: standard-a1-core-count, standard-a1-core-regional-count"
+  (nothing changed, no reboot); memory field says "restricted by account limits". More needs a
+  limit-increase request or a Pay-As-You-Go upgrade — the operator's call. Boot volume grown
+  47 → 150 GB (Always Free allows 200 GB total) and root grown online (growpart sda 1 +
+  resize2fs; sda1 is physically last) → 145 GB usable, 139 GB free, workers never stopped.
+  OS updates are pending a reboot (/var/run/reboot-required) — unrelated, not done.
+  PORTABILITY GOAL (operator, 2026-09-29): "let's test Oracle; when we find better options we
+  move, so make the app flexible" — the HOST must be a setting like the AI provider: one
+  settings file, a one-command Linux installer, a reusable move kit. Nothing Oracle-specific.
+  ORACLE SANDBOX TEST (2026-09-29, /home/ubuntu/beacon-sandbox, 686 MB, processes stopped):
+  code-only package (246 files, 1.1 MB, scanned: no .env/tokens/DB/key-shaped text) → venv on
+  Python 3.12 aarch64 → Quill requirements minus flet-desktop/streamlit/edge-tts + boto3 ALL
+  installed from prebuilt ARM wheels (EXIT=0) → finder_service answered /health → Beacon in
+  Flet web mode answered HTTP 200 → viewed through an SSH -L tunnel in the browser pane:
+  Overview ("Finder connected"), Channels, Agent all render and navigate. Findings to fix for
+  portability: (1) clock shows server UTC (11:30) — needs a per-host TZ; (2) the Agent setup
+  message hard-codes `D:\Youtube\Beacon\.env`; (3) Oracle resolved newer libs (OpenCV 5.0,
+  numpy 2.5) than the laptop — pin exact versions; (4) the Windows helpers (scraper
+  start/stop, caretaker, edge-sync task) need systemd equivalents; (5) Research progress was
+  0/0 because Quill/storage configs are not in the code package — the move kit must carry them.
+  Laptop upload measured 33.9 Mbit/s → ~1-2 h for the 31.6 GB DB. Oracle disk 72 MB/s vs laptop
+  NVMe/SATA SSDs; Oracle core 1.9s vs laptop 2.5s on the same Python loop (2 vs 6 cores).
+  THE HOST IS A SETTING (built 2026-09-29, tests: test_beacon_host 7, test_beacon_move 9):
+  `beacon_host.py` loads `beacon_host.env` (gitignored; template `beacon_host.example.env`)
+  FIRST in engine_link and beacon_gateway — env always wins, no file = the laptop's original
+  layout (verified: same engine dir + DB). It applies TZ (tzset) and `default_engine_dir()`
+  finds a Quill/ beside Beacon/ before falling back to D:\Youtube\Quill.
+  `deploy/server/install.sh` (sudo bash install.sh beacon_code.tar.gz) installs/upgrades on
+  ANY Linux box: releases under /opt/beacon/releases/<utc> + atomic `current` symlink (keeps 3),
+  shared venv /opt/beacon/venv rebuilt only when requirements-server.txt's hash changes, data
+  only under /var/lib/beacon (beacon_host.env 0640 written ONCE with random finder keys, data/,
+  storage/, engine-storage/, state/ — .env/_ai_choice/_autopilot/_targets are symlinked there),
+  systemd units beacon-finder + beacon-web (hardened: ProtectSystem=strict, ReadWritePaths=DATA)
+  started, beacon-radar installed but NOT enabled until the switch-over. It ends with a real
+  health check and exits 1 if either service does not answer.
+  CAUGHT BY THAT CHECK: Flet's web mode needs `flet-web` and silently pip-installs it at first
+  start — worked in the writable sandbox, crash-looped in the read-only service ("Read-only
+  file system", restart counter 28). Now pinned in requirements-server.txt with fastapi/uvicorn/
+  websockets at the laptop's versions; the re-run reported HEALTHY (release 20260929T114959Z).
+  `beacon_move.py` — the move kit (stdlib only): `code` (git ls-files of Beacon + engine,
+  refuses secret-looking names/contents), `pack` (SQLite online backup in ONE step, pages=-1,
+  so concurrent writers never restart it; gzip parts with sha256; the snapshot is deleted once
+  split), `send` (scp, skips parts the target already holds intact → resumable, retries 3x,
+  manifest last), `receive` (verifies every part, rebuilds, checks size+sha256, PRAGMA
+  quick_check, compares channel/video counts, then swaps — the old DB AND its -wal/-shm move to
+  .previous, since an old WAL beside a new DB would be replayed into it). First real run:
+  34.0 GB snapshot in 288s (261,153 channels / 5,029,785 videos) → 64 parts, 8.5 GB, packed in
+  ~10 min; upload 64 parts / 8.5 GB in 25.1 min, 0 retries.
+  FIRST REAL MOVE, laptop → Oracle (2026-09-29): parts verified (2 min), library rebuilt (9.5
+  min) and its sha256 MATCHED the snapshot — then `PRAGMA quick_check` with the DEFAULT page
+  cache read 99.5 GB for a 34 GB file and was still running after an hour (it re-reads pages).
+  I stopped it and finished by hand (finish: counts via `immutable=1` + 1 GB cache took 6 s:
+  261,153 / 5,029,785 = snapshot; old DB + -wal/-shm → .previous; chown beacon). FIXED IN THE
+  KIT: `health_check()` always sets cache_size=-1000000; `pack` checks the snapshot on the
+  SOURCE's fast disk (`--check quick` default, deletes a failed snapshot); `receive` defaults to
+  `--check none` because sha256 equality already proves byte identity. Tests: 18.
+  VERIFIED LIVE ON ORACLE: the finder answered find_channels(faceless+replicable, ≤100K subs,
+  ≥2 views/sub, by opportunity) with the SAME top 5 as the laptop/Muse (Wild Secrets 1,620 /
+  313,617 …) — 39 s cold, 3 s warm; list_topics sum 255,159; the web screens (via ssh -L
+  18571:127.0.0.1:8570) show "Finder connected" and real Channels cards (Wild Secrets 367.8×).
+  STATE NOW: /opt/beacon release 20260929T114959Z; beacon-finder + beacon-web active on
+  127.0.0.1 only; beacon-radar installed but INACTIVE; library /var/lib/beacon/data (a snapshot
+  from 11:46 — the laptop is still the live writer, so Oracle's copy ages until the switch-over);
+  parts kept in ~/beacon-incoming/lib-20260929 (8 GiB) and D:\Youtube\beacon_move\lib-20260929.
+  Oracle disk 47 G used / 98 G free. NEXT (switch-over): carry the engine's storage configs
+  (scraper_watchlist.json, harvest_yield.json, faceless model) + the needed keys (with the
+  operator's OK), stop the laptop radar, final delta copy, enable beacon-radar, point Muse and
+  the edge import at Oracle, add a login before any public web access.
+  SWITCH-OVER PREP (built + verified 2026-09-29, all installed on Oracle but OFF):
+  (1) `beacon_move.py settings` / `apply-settings` carry the scraper's memory: allowlisted
+  scraper_watchlist.json, harvest_yield/cursor, niche_cursor, the two face .onnx models, the
+  faceless .joblib (engine reads it BESIDE the DB), the work queue (sqlite backup), and when
+  present edge_sync/plan_sync_status.json + edge_health.json (so the target sees the collector's
+  plan as "unchanged" instead of re-sending it). Config `db_path` → the target's library,
+  `work_queue_path` → "" (= beside it); `--set name=value` sizes it for the host and refuses
+  misspelled names; fingerprints checked before anything is written; old files → .previous.
+  Real dry run: 8 files, 36.8 MB, 442 searches kept, no D:\ path left. Tests: test_beacon_move 31.
+  (2) Cloud import ON the collector's machine: `beacon-edge-sync.service` + `.timer` (every 2
+  min after the previous run ends) run the ENGINE's unchanged `python -m scripter.edge sync`
+  as root (the collector's outbox is 0600 signal-edge), with SIGNAL_EDGE_SSH_BIN pointing at
+  `deploy/server/local-ssh` — a stand-in that runs the transport's command locally, turns
+  `sudo -n X` into X (real sudo refuses under NoNewPrivileges) and refuses any non-local host.
+  Verified under the exact lock-down: real outbox listed + worker/organizer status read; against
+  a FAKE collector folder with a test key: batch + single download, batch + single ack, acks land
+  signal-edge 0600, outbox emptied; real folder untouched. SQLite hands -wal/-shm that ROOT
+  creates to the DB's owner (verified: owned by beacon), so a root import never locks beacon out.
+  ORDER RULE: disable the laptop's BeaconEdgeSync BEFORE enabling this timer — two importers
+  would split the collector's bundles between two libraries.
+  (3) `beacon-radar.service`: gets ONLY the YOUTUBE_API_KEYS lines of the key file (root copies
+  them to /run/beacon-radar; the collector's signing key stays out), `ExecCondition` skips it
+  while `signal_scraper_paused.flag` exists (a Stop survives reboot), `Restart=on-failure` (a
+  clean Stop stays stopped). Key file = installer var BEACON_KEYS_FILE, default
+  /etc/signal-edge/edge.env (holds SIGNAL_EDGE_NODE_ID, SIGNAL_EDGE_SIGNING_KEY,
+  YOUTUBE_API_KEYS — names checked, values never shown). Using it needs the operator's OK.
+  (4) `sweep_control` SERVER MODE: `BEACON_RADAR_UNIT=beacon-radar.service` (installer appends
+  missing settings to an existing beacon_host.env, never changes old ones) → Start =
+  `systemctl start --no-block` (polkit rule `50-beacon-radar.rules`: account beacon may
+  start/stop/restart THAT unit only — verified allowed for it, refused for
+  signal-edge-organizer), Stop = the same flag files, autostart = `is-enabled`. Laptop mode
+  unchanged. Tests: test_beacon_server_mode 18 (runs local-ssh for real under sh).
+  (5) Muse's door on Oracle: `beacon-gateway.service` + `beacon-tunnel.service` (cloudflared
+  quick tunnel to 127.0.0.1:${BEACON_GATEWAY_PORT}, log → storage/muse_tunnel.log). cloudflared
+  is NOT installed on Oracle yet (needs the operator's OK to download it). Carry
+  storage/muse_gateway.token.json at the switch-over so Muse keeps the same key.
+  OPERATOR OKs (2026-09-29): (a) Oracle's scraper may use the YouTube keys already in
+  /etc/signal-edge/edge.env; (b) cloudflared may be installed there. DONE: cloudflared 2026.9.3
+  arm64 from Cloudflare's GitHub release, sha256 matched BOTH the release asset digest and the
+  release notes before `dpkg -i`; the official .deb installs /usr/local/bin/cloudflared (not
+  /usr/bin), so the unit runs `/usr/bin/env cloudflared`. The door's key file was carried
+  (0600 beacon) so Muse keeps its key. END-TO-END TEST, then switched OFF again: road registered
+  in ~10 s; from the laptop over the internet: no key → 401, Muse's key → 200 (0.2 s), top-5
+  faceless opportunities from Oracle's library = the same list (Wild Secrets …, 54 s cold), a
+  write tool → 403. The laptop's Muse link stayed WORKING throughout. Switch-over TIME not yet
+  chosen by the operator.
+  THE SWITCH-OVER (operator: "just go", 2026-09-29 ~15:10). Laptop side, in this order:
+  `install_oracle_access.ps1` → task **BeaconOracleAccess** (every 5 min, runs the engine's
+  standalone oci_allowlist.py): BeaconEdgeSync used to refresh Oracle's SSH /32 before each sync,
+  so disabling it would otherwise lock the laptop out of its own server at the next IP change.
+  Then BeaconEdgeSync DISABLED (after its running round finished: inbox 0, backlog 0) →
+  BeaconRadarAutostart DISABLED → stop_worker; the organizer had been in ONE cycle since 11:59
+  (212 channels "running") and did not exit in 9 min, so both worker pids were force-killed and
+  the 9 half-done batches handed back to 'queued' with the queue's own expiry statement (else
+  Oracle would wait for the 6 h lease: ~18:00). Final pack: snapshot 264 s, 261,441 channels /
+  5,033,929 videos; source quick_check with the 1 GB cache took **30 min** on the laptop (read
+  ~81 GB total incl. the snapshot) and returned ok; 64 parts 8.5 GB; send 25.2 min, 0 skipped
+  (every 512 MB region had changed since the morning), 0 retries.
+  `open_beacon_cloud.py` + desktop shortcut **"Beacon (cloud)"** (pythonw, beacon icon): private
+  `ssh -N -L 8571:127.0.0.1:8570` (reused if the screens already answer), refreshes the SSH
+  allowlist once and retries on refused/timeout, opens a Chrome/Edge `--app` window, and shows a
+  message box instead of failing silently. Tunnel verified: up in 3.7 s, survives the launcher
+  exiting. The old "Beacon" shortcut (laptop app, frozen copy) was left untouched.
+  Server side: `receive` 11 min (parts verified 2 min), counts EXACT (261,441 / 5,033,929),
+  settings applied with `--set face_check_workers=2 --set catalog_workers=4`. First local cloud
+  import by hand: 35 waiting → 36 bundles imported, 0 failed, 226 s, plan "unchanged" (4,346),
+  acks flushed, 182 genuinely new channels by 16:59; then the timer (runs of 2, 2 … 0 errors).
+  receive's db_facts had left EMPTY root-owned `.incoming-wal/-shm` beside the renamed file
+  (removed; harmless, but the kit should open the incoming copy immutable=1). beacon-radar
+  enabled: fast discovery + organizer; the 15 handed-back batches (257 channels) arrived.
+  FOUND LIVE: "Channel enrich skipped: no YOUTUBE_API_KEY" — radar.py's enrich step reads the
+  SINGLE `YOUTUBE_API_KEY` (scripter.config), Oracle's key file lists only the pool →
+  `deploy/server/radar-keys` (run as root by ExecStartPre) copies only YOUTUBE lines and derives
+  the single key from the pool's first when missing; verified: scraper env = YOUTUBE_API_KEY +
+  YOUTUBE_API_KEYS, no signing key; log "Enriching channel stats". Tests: server_mode 22.
+  SAFE SCRAPER RESTART on a server = stop → requeue 'running' organize batches (the queue's own
+  expiry UPDATE) → start. `systemctl restart` alone parks them for the 6 h lease, so install.sh
+  NO LONGER restarts a running beacon-radar (says "Stop, then Start it in Overview").
+  Muse: beacon-gateway + beacon-tunnel enabled on Oracle; address
+  https://into-enlarge-sparc-deposit.trycloudflare.com (changes only if beacon-tunnel restarts —
+  install.sh never restarts it); outside check 401 / 200 / live newest channels. Laptop
+  BeaconMuseLink DISABLED, its gateway + cloudflared stopped. The operator re-pastes the SAME key.
+  Server wording: `ON_SERVER` in beacon_app ("This server", "Starts with the server" switch
+  disabled, "(this server + the cloud scout)", restart-not-laptop queue text) — verified in the
+  "Beacon (cloud)" window. Laptop tasks now: BeaconEdgeSync / BeaconRadarAutostart /
+  BeaconMuseLink DISABLED (reversible), BeaconOracleAccess Ready.
+  WATCH: Oracle WAL 1.43 GB after the catch-up import; the importer's truncate attempts report
+  busy (readers active); load ~5-8 on 2 cores (mostly disk wait), 9 GB RAM free, disk 65 GB free.
+  Keep for now, delete after a good day: Oracle youtube_index.sqlite3.previous (this morning's
+  copy, 34 GB) + ~/beacon-incoming/lib-20260929; laptop D:\Youtube\beacon_move\lib-20260929 and
+  lib-cutover (8.5 GB each).
+  PUBLIC WEB ADDRESS + MUSE AS THE AGENT (2026-09-29 evening; operator chose "free, no account"
+  and "same powers as Beacon's agent"; "the agent is Muse" = no separate AI on the server).
+  (a) `muse_powers.py`: with `BEACON_GATEWAY_ACCESS=agent` (set ONLY in Oracle's
+  beacon_host.env; default "read") the door runs every agent tool through
+  `BeaconAgent.execute` (headless, FinderClient with the FULL key from finder.tokens.json) —
+  same faceless gate, query policy, locked config edits. UI tools (show_channels/open_view/
+  clear_channel_filters) are not offered. Every change → `storage/muse_changes.jsonl` with the
+  exact undo: exclude_by_filter's reason is tagged `muse:<change_id>: …` and its channel ids read
+  back from channel_exclusions (the tool only returns a count); junk filter = before/after diff;
+  topics/config capture the old values; queries undo only the accepted ones. New tools
+  `recent_changes` / `undo_change` (undo recorded too, refused twice). `/guide` + MCP
+  `instructions` carry the agent's rules ("✓ What I did" with change ids). 48 tools live.
+  Verified over the internet: scraper_status (systemd worker) running; hid Lost History →
+  History <5K count 732→731 → undo → 732; double undo 422; no-filter bulk hide 422 with the
+  finder's message at the top level; open_view 403 "not available on this connection".
+  Tests: test_muse_powers 14, gateway 26. GOTCHA fixed: do_GET logged AFTER answering, so a
+  fast client could read the log before the line existed (flaky caretaker test) — now logs first.
+  (b) https://51.170.132.206 — Caddy 2.11.4 (GitHub .deb, sha256 = release digest AND sha512 =
+  checksums file) with a Let's Encrypt 6-DAY IP CERTIFICATE (`issuer acme { profile shortlived }`,
+  http-01 from 4 vantage points, auto-renewed). OCI security list: +TCP 80/443 from anywhere via
+  the updater's own client/ETag (scratch open_web_ports.py; SSH stays the laptop /32); host
+  iptables: 80/443 inserted before the REJECT, saved with netfilter-persistent. Template
+  `deploy/server/caddy/Caddyfile.template` + `render_caddyfile.py` (validates as the caddy user,
+  keeps Caddyfile.previous). `/muse/*` → door (own key, NO password prompt) = a PERMANENT Muse
+  address; everything else → basic_auth (user `beacon`) → Beacon's screens. Password: 16 chars
+  lowercase+digits in groups (phone-friendly), plaintext ONLY in laptop
+  storage/beacon_web_login.txt (gitignored), bcrypt fed to `caddy hash-password` on stdin.
+  THREE LIVE GOTCHAS: (1) `caddy validate` as root created the access log root-owned 0600 →
+  reload failed; (2) bare-IP visits send NO SNI → "TLS internal error" until `default_sni`;
+  (3) Windows Python `print` piped the password with CRLF, so the hash was of "pw\r" and the
+  right password got 401 — write bytes with a bare "\n". Verified from outside: trusted LE
+  cert, no/wrong password 401, right password 200 (Beacon page), websocket /ws 101 only with
+  the password, http→308 https, /muse/health 200 with Muse's key.
+  MUSE'S CONNECTOR REFUSES BOTH a bare IP ("only accepts a public domain name") AND wildcard-DNS
+  names (51-170-132-206.sslip.io / nip.io: "only a regular registered domain") — though Caddy
+  serves both with valid LE certs (`--name` in render_caddyfile.py; @SITES@ in the template).
+  It DOES accept *.trycloudflare.com, so Muse stays on Oracle's quick tunnel
+  https://into-enlarge-sparc-deposit.trycloudflare.com (beacon-tunnel — do NOT retire it; the
+  installer never restarts it). Operator pasted the key via Muse's Connect card + "Always
+  allow". Verified 2026-09-29 18:58-19:01: door log GET /guide 200 + /health 200 with the key;
+  Muse reported "access agent, 48 tools", then called recent_changes and described the test
+  trail exactly (1 exclude + undo, 2 refused no-filter bulk hides). A truly permanent Muse
+  address needs a registered domain (~$10/yr) → Caddy `--name`, A record to the IP.
+  FULL REVIEW (operator asked "review and test everything", 2026-09-29 19:03-19:15):
+  OK — 9 services active+enabled, 0 restarts; 416 new channels since 15:14 (99 in the last hour);
+  88 collector bundles imported, the 4 that hit "database is locked" (17:24-17:30, scraper and
+  importer writing at once) all imported on retry (archived, none quarantined); organizer not
+  stuck but slow on Oracle's disk (whole-index steps 15-35 min each, a cycle ≈ 2 h vs ≈ 30 min on
+  the laptop); 146 front-door 401s in 90 min were generic scanners (l9scan, libredtail) probing
+  /index.php, /console, /server-status — NONE sent a password; all six screens clicked through
+  in the "Beacon (cloud)" window; Muse used recent_changes correctly.
+  FIXED IN REVIEW: (1) only beacon-radar had YouTube keys — the finder, screens and door had none,
+  so Saved "Refresh live" silently refreshed nothing (while stamping "checked just now") and
+  saving a channel could not enrich; `radar-keys` → `deploy/server/youtube-keys`, used by all
+  four units; verified live: Dark Wild Archives 21→24 uploads, Bertha's House Hacks 81K→93.3K
+  subs after reload. (2) install.sh kept "the 3 newest releases" while NOT restarting the
+  scraper, so the next deploy would have deleted the release the scraper runs from (its later
+  lazy imports would fail mid-cycle); pruning now skips any release a running beacon service's
+  /proc/PID/cwd points into — verified "keeping 20260929T170152Z — a running service still uses
+  it". (3) stale "start only at the switch-over" installer message.
+  OPEN FINDINGS: the server Agent tab shows a red "Couldn't load this — Foundry needs …" (no AI
+  on the server by design: Muse is the agent) → should say so plainly; Overview "Index snapshot"
+  takes ~6 min on the server (db_stats; the door's background count took 364 s) → reuse a
+  background count; NO BACKUP of the live library (only copies: Oracle's live file, its
+  .previous from the morning on the same disk, the laptop's frozen 15:24 copy); Oracle wants a
+  reboot for OS updates, and any reboot changes Muse's quick-tunnel address (key re-paste) — a
+  registered domain removes that; today's work is not committed/pushed.
+  "NICER" FIXES (operator: "do your nicer fixes now", 2026-09-29 19:20-19:45):
+  (1) AGENT TAB WITH AN OUTSIDE AGENT: `BEACON_OUTSIDE_AGENT=Muse` + `BEACON_OUTSIDE_AGENT_URL=
+  https://muse.ai` (Oracle's beacon_host.env only; empty = laptop behaviour unchanged). The tab
+  then opens with "Your agent is Muse" (last visit from the door's log via
+  `muse_powers.last_outside_visit`, which skips REFUSED/start-up/db_stats lines), an Open Muse
+  button, and "Changes made by Muse" — `muse_powers.describe()` plain sentences ("Hid 1 channel",
+  "Tried to … — refused, nothing changed", "Undo: …") with an Undo button per undoable change
+  (runs `MusePowers.undo` in-app through the agent's own dispatcher; the undo is recorded in the
+  same muse_changes.jsonl, so the door sees it too) and an "Undone" pill afterwards. No red
+  "needs setup" card; the Ask box is replaced by "Set up an AI inside Beacon (optional)" (the
+  provider picker appears only after clicking it) — a usable-looking box that could not work
+  plus a red line read as broken. Verified live: hid "Nibble app" through Muse's door (Tech & AI
+  <3K subs 469→468), clicked Undo in the Agent tab → row "Undone" within ~1 s, count 469.
+  (2) INSTANT INDEX SNAPSHOT: `index_stats.py` — ONE shared count in storage/index_stats.json
+  used by the Overview (`_index_stats`, shows "counted N min ago") and the door's StatsCache
+  (adopts the shared count, so a restarted door answers at once). Stale after
+  `BEACON_INDEX_STATS_REFRESH` (3600 s) → quiet background recount; a lock file (O_EXCL, stale
+  after 1 h) guarantees one count at a time across processes; only the very first count ever
+  makes anyone wait. Tests: test_index_stats 7, gateway +2.
+  ALSO FIXED: beacon_host.example.env had become CRLF (a Python write_text of mine on Windows) —
+  a NEW server would have received "TZ=…\r"-style settings; now LF, covered by the line-ending
+  test, and install.sh also normalises *.env. Oracle's own settings file was verified clean.
+  WEB ICON + DESKTOP ICON (operator, 2026-09-29 20:00: "why does it open as a desktop app" and
+  "the Beacon icon disappeared, it's Flet's low-quality default"): the "Beacon (cloud)" window
+  was Chrome `--app` (no address bar) — the shortcut now runs chrome.exe https://51.170.132.206,
+  a normal tab (Chrome had the login saved, no prompt). Flet web serves index/manifest/icons
+  from the app's assets dir before its own web dir (FletStaticFiles.all_directories order;
+  assets resolved next to beacon_app.py), and Beacon had only beacon_icon.ico there → Flet's
+  logo. `tools_make_icons.py` redraws the lighthouse (measured from the 256 px .ico, 8x
+  supersampled; beams clipped to the tile, rings solid) → assets/favicon.png (32),
+  icons/icon-192/512, icon-maskable-192/512 (full-bleed, 78% safe zone),
+  apple-touch-icon-192, loading-animation (512, the splash), beacon_icon.ico (16-256, replaces
+  the old one — original in git history), beacon_icon_512.png; assets/manifest.json names the
+  web app "Beacon". GOTCHA: `.gitignore` ignores *.png (screenshots) → the icons would never
+  reach the server; `!assets/*.png` + `!assets/icons/*.png`. Verified from outside: favicon,
+  icon-512 and loading-animation served byte-identical to ours; manifest short_name Beacon.
+  Tests: WebIconTests (sizes, not git-ignored, name).
+  STILL FLET'S LOGO in the operator's Chrome after that — NOT the favicon cache: Flet's web
+  client installs flutter_service_worker.js, which answers every file in its RESOURCES list
+  (favicon.png, manifest.json, icons/*.png) CACHE-FIRST from its own old copies, forever (its
+  script never changes, so it never updates; "?v=" is stripped from keys). Files it does not
+  list go to the network, and "/" is online-first. Fix: tools_make_icons.py also writes
+  Beacon-only names (beacon-favicon.png, icons/beacon-*.png, beacon-manifest.json) and
+  assets/index.html = Flet's installed index.html with those names + title/description/
+  apple title "Beacon" (FletStaticFiles copies assets/index.html and still patches it).
+  `beacon_index_html()` asserts every replaced string exists, and a test compares the file
+  with a fresh render of the installed Flet page, so a Flet upgrade cannot drift silently.
+  Verified in the operator's Chrome: a newly opened tab shows the lighthouse; a tab opened
+  before the fix shows Flet's logo until it is reloaded once.
+  AI FACELESS REVIEWER (operator 2026-09-29: "make Muse or another AI we choose responsible for
+  this", after seeing "faceless verified 21,422"). That stat = channel_vlm_check verdict
+  'faceless' only — the paid Qwen2.5-VL step, frozen since 2026-07-09. Live coverage of 255,900
+  visible channels: AI vision 25,459; face check sure 45,332; face check UNSURE 55,919 (55,485
+  with 700+ subs); text judge only 129,125 (just 2,601 with 700+ subs); nothing 91. The engine
+  already ranks an AI verdict first (channel_metrics CASE: vlm > face check > text > keywords;
+  'unclear' falls through) and stores it with `store.save_vlm_verdicts` — so NO engine change.
+  `faceless_review.py`: review_queue = find_channels(faceless+replicable, opportunity order,
+  scanning 300→1000→3000, cached 10 min) filtered to weak labels (read-only look-up of vlm/face/
+  text), skipping AI-decided and reviewer-'unclear' (except review:undo), each with link + top
+  6 videos (title, thumbnail; NOTE the videos column is `views`, not view_count); save_verdicts
+  → engine store, model "review:<who>". Agent tools `faceless_review_queue` /
+  `set_faceless_verdict` (beacon_agent, so ANY AI in the Agent tab can do it too); Muse's door
+  forces reviewer = BEACON_OUTSIDE_AGENT ("muse"), records the change, undo restores the prior
+  AI verdict (none → 'unclear' via review:undo, which puts it back in the queue); describe()
+  "Checked faceless: 2 faceless, 1 unclear". Tests: test_faceless_review 12 (on an engine-built
+  scratch DB). Door: 50 tools. LIVE: queue answered in 4 s — Beacon's top 3 opportunities were
+  all "face check unsure"; Muse re-read /guide, called the queue, used inspect_channel_visuals +
+  get_channel_details, then change 1795bac99b: Wild Secrets faceless, Next Wonder Places
+  faceless (thumbnails: animal/AI footage, hands only), Mind Fragments UNCLEAR — Muse found the
+  channel apparently DELETED (videos "Not Found", RSS 404). Saved as review:muse, undoable.
+  DEDICATED MUSE REVIEWER (operator: "make Muse run always, a dedicated agent for only this"):
+  the queue never runs dry — after Beacon's ranked list (scans 300→1000→3000→5000, the finder's
+  cap) `_deep()` offers every other channel shown as faceless on shaky evidence, 700 to
+  2,000,000 subs (MEGA_SUBSCRIBERS: ranked by raw views the first picks were Rihanna and Kanye
+  West), ordered by views per subscriber; `remaining()` = the backlog (35,336 on 09-29), shown
+  as left_to_review_estimate. SQL GOTCHA fixed before it shipped: `NOT (v.verdict = 'unclear'
+  AND …)` is NULL for channels with no AI row, silently dropping every never-reviewed channel —
+  COALESCE both sides. Tests: test_faceless_review 18. Muse side chat "This side chat is your
+  dedicated job…" (thread 175f8ee8…) created two Muse scheduled tasks: "Beacon faceless review
+  (hourly)" — 10 channels/hour — and "Beacon faceless daily summary (21:00)". First run 21:08-
+  21:10: change a9001e0983, 9 faceless / 1 unclear ("Nibble app"), ~35.3k left; it flagged junk
+  (Roblox Legends, a music re-upload channel) without touching it, as told. At 10/hour ≈ 240/day
+  the backlog takes months; the queue max is 25/run if Muse's plan allows more.
+  FLAKY-TEST NOTE: 1-2 intermittent failures appeared twice in the full suite and never again
+  after test_faceless_review stopped popping YOUTUBE_INDEX_DB (mock.patch.dict now); a deploy
+  had gone out after a failing run — check the suite result BEFORE deploying.
+  NEXT: fail2ban for repeated 401s (bcrypt per guess on 2 cores); a phone layout (screens need
+  ≥1040 px); a server-side notice if the quick tunnel's address ever changes; detect deleted
+  channels (Mind Fragments) so they drop out of the opportunity lists.
+  STILL TO DO after the switch-over: the
+  Production Lab on the laptop reads the laptop's library, which freezes once Oracle is the writer.
+  Full suite after this: 292 passed + 36 subtests. Release on Oracle: 20260929T141011Z.
+  GOTCHA (Git Bash → ssh.exe): an argument that starts with `P=/var/...` is rewritten to a
+  Windows path (`C:/Program Files/Git/var/...`) — export MSYS_NO_PATHCONV=1 first.
+  GOTCHA: quoting Python f-strings with \" inside a heredoc inside ssh '…' fails to parse —
+  scp a script file instead (did this twice).
+  GOTCHA: `pkill -f` with a pattern that appears in its own ssh command line kills the session
+  — use the `[x]` bracket trick, and match what the cmdline really contains (relative paths).
+  NOT DONE: write access for Muse (operator chose read-only first); a permanent address
+  (named tunnel — needs a free account the operator creates); Muse's door on Oracle so it
+  can answer while the laptop sleeps (planned next — Oracle holds no library, by design).
+
 ## The finder tool (how Beacon talks to the engine)
 - The finder = `IntelligenceAnalystTools` (~35 commands) in `scripter/intelligence/analyst_tools.py`,
   served over localhost HTTP by `scripter/intelligence/local_api.py`.

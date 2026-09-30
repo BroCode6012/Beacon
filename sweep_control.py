@@ -55,6 +55,9 @@ PAUSE_PATH = STORAGE / "signal_scraper_paused.flag"
 PID_PATH = STORAGE / "radar_worker.pid"
 WATCHLIST_PATH = STORAGE / "scraper_watchlist.json"
 HARVEST_YIELD_PATH = STORAGE / "harvest_yield.json"
+# On a server the scraper is a system service (deploy/server/systemd/beacon-radar.service), not
+# a process Beacon launches: set in that machine's beacon_host.env. Empty = the laptop way.
+RADAR_UNIT = os.getenv("BEACON_RADAR_UNIT", "").strip()
 
 _WATCHLIST_LOCK = threading.Lock()
 
@@ -208,6 +211,8 @@ def start_worker(clear_stop: bool = True) -> bool:
         return False   # user deliberately paused it — the keep-alive must not relaunch it
     if is_running():
         return False
+    if RADAR_UNIT:
+        return _systemctl("start", "--no-block", RADAR_UNIT)
     creationflags = 0
     if os.name == "nt":
         # DETACHED_PROCESS: survives Beacon closing; pythonw = no console window.
@@ -235,9 +240,22 @@ def stop_worker() -> None:
 AUTOSTART_SCRIPT = Path(__file__).with_name("install_radar_autostart.ps1")
 
 
+def _systemctl(*args: str) -> bool:
+    """Server mode. Starting the scraper's service is the ONE system action Beacon's account
+    may take (a polkit rule installed by deploy/server/install.sh allows exactly that unit)."""
+    try:
+        return subprocess.run(["systemctl", *args], capture_output=True, text=True,
+                              timeout=30).returncode == 0
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def autostart_installed() -> bool:
     """True if the 'BeaconRadarAutostart' scheduled task exists (keeps the scraper running
-    on login + as a keep-alive). Shells to PowerShell — call OFF the UI thread."""
+    on login + as a keep-alive). Shells to PowerShell — call OFF the UI thread.
+    Server mode: the service itself starts at boot (unless paused), so this reads that."""
+    if RADAR_UNIT:
+        return _systemctl("is-enabled", "--quiet", RADAR_UNIT)
     try:
         out = subprocess.run(
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
@@ -252,7 +270,11 @@ def autostart_installed() -> bool:
 
 def set_autostart(on: bool) -> bool:
     """Install (on) or remove (off) the auto-start-on-login keep-alive task. Returns success.
-    No elevation needed (schtasks /SC MINUTE /IT). Call OFF the UI thread."""
+    No elevation needed (schtasks /SC MINUTE /IT). Call OFF the UI thread.
+    Server mode: boot-start belongs to the machine's owner, not to the app — Stop/Start still
+    work, and a Stop survives a reboot (the service skips itself while paused)."""
+    if RADAR_UNIT:
+        return False
     cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
            "-File", str(AUTOSTART_SCRIPT)]
     if not on:

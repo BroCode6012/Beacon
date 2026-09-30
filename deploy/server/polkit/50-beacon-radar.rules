@@ -1,0 +1,13 @@
+// Beacon's account may start and stop ITS scraper service — that one unit, nothing else.
+// This is what lets the Overview's Start/Stop buttons work on a server (sweep_control.py,
+// server mode). Installed by deploy/server/install.sh with the real account name.
+polkit.addRule(function (action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        subject.user == "@USER@" &&
+        action.lookup("unit") == "beacon-radar.service") {
+        var verb = action.lookup("verb");
+        if (verb == "start" || verb == "stop" || verb == "restart") {
+            return polkit.Result.YES;
+        }
+    }
+});

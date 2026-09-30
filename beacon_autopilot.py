@@ -294,6 +294,12 @@ class Autopilot:
             self._thread = threading.Thread(target=self._loop, daemon=True)
             self._thread.start()
 
+    def shutdown(self) -> None:
+        """Stop this page's scheduler without changing the saved On setting."""
+        with self._ctl_lock:
+            self._stop.set()
+            self.next_run_ts = None
+
     def run_now(self) -> None:
         """Trigger an immediate maintenance run (the 'Run now' button)."""
         if self.disabled_by_env:

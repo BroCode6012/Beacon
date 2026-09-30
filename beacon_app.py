@@ -34,6 +34,7 @@ import os
 import subprocess
 import sys
 import threading
+import logging
 import time
 from pathlib import Path
 
@@ -41,6 +42,16 @@ import engine_link  # noqa: F401 — wires shared engine onto sys.path + sets YO
 import flet as ft
 
 import sweep_control  # drives the shared background scraper (must import AFTER engine_link)
+import index_stats    # the one shared count of the library (instant; also used by Muse's door)
+# On a server the scraper is a system service (sweep_control server mode): the words on screen
+# must describe that machine, not a laptop that sleeps and has a login.
+ON_SERVER = bool(getattr(sweep_control, "RADAR_UNIT", ""))
+import muse_powers    # the outside agent's record of changes (listed + undoable on the Agent tab)
+# An agent that works on Beacon from OUTSIDE (the operator's Muse, 2026-09-29), named per machine
+# in beacon_host.env. The Agent tab then introduces it and lists what it changed, with Undo —
+# instead of a red error about an in-app AI this machine deliberately does not have.
+OUTSIDE_AGENT = os.getenv("BEACON_OUTSIDE_AGENT", "").strip()
+OUTSIDE_AGENT_URL = os.getenv("BEACON_OUTSIDE_AGENT_URL", "").strip()
 import beacon_agent   # Beacon's OWN control agent (any AI provider; separate from the Lab)
 import beacon_ai      # which AI answers: providers, settings, connection tests
 import beacon_save    # save + analyse a channel you found yourself on YouTube
@@ -239,6 +250,14 @@ def _cloud_sync_view_state(payload: dict) -> dict:
     # this card said "Oracle is connected" for 17 days with nothing arriving.
     health = payload.get("health")
     health = health if isinstance(health, dict) else {}
+    health_state = str(health.get("state") or "").lower()
+    # The web/Finder process intentionally does not hold the signing key on
+    # Oracle. Its scheduled importer does. A missing key here is not evidence
+    # that the cloud pipeline needs setup when it has reported live activity.
+    cloud_in_use = bool(
+        configured or transport_configured or remote.get("updated_at")
+        or health_state in {"ok", "error"}
+    )
     health_ok = bool(health.get("ok", True))
     health_problems = [str(item) for item in (health.get("problems") or [])][:3]
     health_summary = str(health.get("summary") or "")
@@ -323,7 +342,7 @@ def _cloud_sync_view_state(payload: dict) -> dict:
             "database transaction finishes."
         )
 
-    if not configured:
+    if not cloud_in_use:
         badge = "setup pending"
         tone = "muted"
         message = (
@@ -367,6 +386,13 @@ def _cloud_sync_view_state(payload: dict) -> dict:
             f"Last sync rejected {failed:,} bundle"
             f"{'s' if failed != 1 else ''}. "
             "They stayed quarantined; nothing unsafe was imported."
+        )
+    elif not configured and health_state == "ok":
+        badge = "delivering"
+        tone = "accent"
+        message = (
+            "Cloud discovery is delivering channels. A separate scheduled "
+            "service imports signed bundles automatically."
         )
     elif pending:
         badge = f"{pending:,} waiting"
@@ -422,6 +448,7 @@ def _cloud_sync_view_state(payload: dict) -> dict:
 
     return {
         "configured": configured,
+        "cloud_in_use": cloud_in_use,
         "transport_configured": transport_configured,
         "pending": pending,
         "remote_pending": remote_pending,
@@ -544,7 +571,8 @@ def _pipeline_progress_state(status: dict) -> dict | None:
             f"{running_channels:,} newly found channels are being organized now; "
             f"{queued_channels:,} more are waiting in {queued_batches:,} durable "
             f"{'batch' if queued_batches == 1 else 'batches'}. "
-            "Closing the laptop pauses and safely resumes the remaining work."
+            + ("If the scraper restarts, the remaining work resumes safely." if ON_SERVER
+               else "Closing the laptop pauses and safely resumes the remaining work.")
         )
     elif running_channels:
         queue_text = (
@@ -558,7 +586,8 @@ def _pipeline_progress_state(status: dict) -> dict | None:
             f"{queued_channels:,} newly found channels are waiting in "
             f"{queued_batches:,} durable organization "
             f"{'batch' if queued_batches == 1 else 'batches'}. "
-            "Closing the laptop pauses them safely; reopening resumes them."
+            + ("They survive restarts and are picked up automatically." if ON_SERVER
+               else "Closing the laptop pauses them safely; reopening resumes them.")
         )
     else:
         queue_text = (
@@ -662,6 +691,11 @@ class BeaconApp:
         # Without serialization two renders interleave and corrupt the control list (duplicated
         # / missing cards, page.update on a half-built tree). RLock: same-thread re-entrancy safe.
         self._render_lock = threading.RLock()
+        self._rendering = False
+        self._session_stop = threading.Event()
+        page.on_disconnect = self._session_disconnected
+        page.on_close = self._session_disconnected
+        page.on_connect = self._session_connected
         # in-memory data cache so switching tabs is instant (load once, reuse).
         # keys: "overview", "niches", f"niche:{id}", "find_channels".
         self.cache: dict[str, dict] = {}
@@ -675,6 +709,9 @@ class BeaconApp:
         self._scroll_offset = 0.0          # where the reader was, kept across re-renders
         self._scroll_section: str | None = None
         self._find_requested = False       # has the user asked to load faceless channels?
+        self._find_draft = ""
+        self._find_sweep_result: dict | None = None
+        self._find_sweep_error: str | None = None
         # optimistic scraper state so the Start/Stop buttons flip INSTANTLY on click
         # (the worker takes a few seconds to boot/exit); reconciled to reality each render.
         self._sweep_starting = False
@@ -839,6 +876,27 @@ class BeaconApp:
         ], expand=True, spacing=0))
 
         self._render()
+
+    def _session_disconnected(self, _=None) -> None:
+        """Release this browser session's recurring work when its tab goes away."""
+        self._session_stop.set()
+        self._overview_watch_started = False
+        self._cloud_watch_started = False
+        self._rt_watch_started = False
+        ap = getattr(self, "autopilot", None)
+        if ap is not None:
+            ap.shutdown()
+
+    def _session_connected(self, _=None) -> None:
+        """Resume a session that Flet reconnected to the same page."""
+        if not self._session_stop.is_set():
+            return
+        self._session_stop = threading.Event()
+        ap = getattr(self, "autopilot", None)
+        if ap is not None and ap.enabled:
+            ap.start()
+        if hasattr(self, "content"):
+            self._render()
 
     # -- service wiring -----------------------------------------------------
     # A cold engine import on a busy disk; past this Beacon falls back to hosting in-process.
@@ -1160,6 +1218,11 @@ class BeaconApp:
         except Exception:  # noqa: BLE001 — bar not built yet during very early boot
             pass
         self.status.color = ACCENT if shown else MUTED
+        # _ensure() can start a load while _render() is still assembling the
+        # control tree. Publishing that half-built tree can strand a web
+        # session with only its header visible.
+        if getattr(self, "_rendering", False):
+            return
         try:
             self.page.update()
         except Exception:  # noqa: BLE001
@@ -1182,7 +1245,7 @@ class BeaconApp:
         # Apply the visible state INSIDE the lock: otherwise two overlapping begin/end
         # pairs can apply out of order (a stale "not busy" landing after a "busy"), leaving
         # the spinner/bar stuck opposite to reality.
-        with self._busy_lock:
+        with self._render_lock, self._busy_lock:
             self._busy_seq += 1
             token = self._busy_seq
             self._busy_tasks[token] = (msg, screen)
@@ -1191,12 +1254,12 @@ class BeaconApp:
 
     def _end_busy(self, token: int) -> None:
         """Finish one operation without hiding other concurrent work."""
-        with self._busy_lock:
+        with self._render_lock, self._busy_lock:
             self._busy_tasks.pop(token, None)
             self._apply_busy_state(bool(self._busy_tasks), "")
 
     def _refresh_busy_state(self) -> None:
-        with self._busy_lock:
+        with self._render_lock, self._busy_lock:
             self._apply_busy_state(bool(self._busy_tasks), "")
 
     def run_bg(self, fn, on_done, start_msg: str, *, screen: str | None = None,
@@ -1236,6 +1299,108 @@ class BeaconApp:
         if self.agent is None:
             self.agent = beacon_agent.BeaconAgent(self.client, sweep_control, ui=self)
         return self.agent
+
+    def _ask_card_body(self, optional_only: bool, send) -> list:
+        """The question box + provider picker — or, where an outside agent does the job and no
+        in-app AI is set up, just a quiet way in to set one up. A box you cannot use, next to a
+        red "needs setup" line, read as broken (operator review, 2026-09-29)."""
+        if not optional_only:
+            return [ft.Row([self._agent_input, send], spacing=10,
+                           vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    self._ai_provider_row()]
+        if getattr(self, "_show_ai_setup", False):
+            return [self._ai_provider_row()]
+
+        def show(_):
+            self._show_ai_setup = True
+            self._render()
+
+        return [ft.TextButton("Set up an AI inside Beacon (optional)",
+                              icon=ft.Icons.SETTINGS_OUTLINED, on_click=show)]
+
+    # -- the agent that works from OUTSIDE Beacon (Muse), and what it changed --------------
+    def _outside_agent_card(self) -> ft.Control:
+        """Who the agent is and the recent changes it recorded."""
+        name = OUTSIDE_AGENT
+        records = muse_powers.ChangeLog(muse_powers.CHANGES_FILE).all()
+        undone = {r.get("undo_of") for r in records if r.get("undo_of") and r.get("ok")}
+        busy = self.__dict__.setdefault("_outside_undoing", set())
+        visit = muse_powers.last_outside_visit()
+        if visit is None:
+            seen = "hasn't visited yet"
+        else:
+            import datetime as _dt
+            seen = "last visit " + self._ago_seconds((_dt.datetime.now() - visit).total_seconds())
+        rows = []
+        for r in list(reversed(records))[:8]:
+            cid = str(r.get("change_id") or "")
+            can_undo = (bool((r.get("undo") or {}).get("steps")) and r.get("ok")
+                        and not r.get("undo_of"))
+            if cid in undone:
+                right = self.pill("Undone", MUTED, ft.Icons.UNDO)
+            elif can_undo:
+                right = ft.OutlinedButton(
+                    "Undoing…" if cid in busy else "Undo", icon=ft.Icons.UNDO,
+                    disabled=cid in busy,
+                    tooltip="Reverse exactly this change (recorded, so it shows up here too)",
+                    on_click=lambda _, c=cid: self._outside_undo(c))
+            else:
+                right = ft.Container()
+            rows.append(ft.Row([
+                ft.Icon(ft.Icons.HELP_OUTLINE if r.get("pending") else
+                        (ft.Icons.CHECK_CIRCLE_OUTLINE if r.get("ok") else ft.Icons.BLOCK),
+                        size=16, color=ACCENT if r.get("ok") else MUTED),
+                ft.Column([ft.Text(muse_powers.describe(r), size=12, color=TEXT),
+                           muted(self._ago(r.get("at")), 10)], spacing=1, tight=True,
+                          expand=True),
+                right,
+            ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER))
+        header = [
+            ft.Container(ft.Icon(ft.Icons.SMART_TOY_OUTLINED, size=19, color=ACCENT_DARK),
+                         width=38, height=38, border_radius=12, bgcolor=ACCENT_SOFT,
+                         alignment=ft.alignment.center),
+            ft.Column([h(f"Your agent is {name}", 17),
+                       muted(f"It works on this Beacon from outside, through its own secure "
+                             f"connection, with the same powers as an agent here. Talk to it "
+                             f"in {name}. Its latest changes are listed below. Undo is "
+                             f"available when Beacon has enough information to reverse one.",
+                             11)], spacing=1, tight=True, expand=True),
+            self.pill(seen, ACCENT2, ft.Icons.SCHEDULE),
+        ]
+        if OUTSIDE_AGENT_URL:
+            header.append(ft.OutlinedButton(f"Open {name}", icon=ft.Icons.OPEN_IN_NEW,
+                                            on_click=self._open_url(OUTSIDE_AGENT_URL)))
+        return self.card(
+            ft.Row(header, spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            h(f"Changes made by {name}", 14),
+            muted(f"Showing the latest {min(8, len(records))} of {len(records)} recorded changes.", 10),
+            *(rows or [muted(f"{name} hasn't changed anything yet.", 12)]),
+        )
+
+    def _outside_undo(self, change_id: str) -> None:
+        busy = self.__dict__.setdefault("_outside_undoing", set())
+        if change_id in busy:
+            return
+        busy.add(change_id)
+        self._render()                       # the button shows "Undoing…" and stays disabled
+
+        def work():
+            try:
+                powers = muse_powers.MusePowers.for_beacon(
+                    self._get_agent(), db_path=os.environ["YOUTUBE_INDEX_DB"],
+                    changes_path=muse_powers.CHANGES_FILE,
+                    read_config=sweep_control._read_watchlist_config)
+                return powers.undo(change_id)
+            except Exception as exc:  # noqa: BLE001 — reported, and the button comes back
+                return False, {"error": f"{type(exc).__name__}: {exc}"}
+
+        def done(result):
+            busy.discard(change_id)
+            ok, out = result
+            self.toast("Undone." if ok else f"Couldn't undo: {out.get('error', '')[:140]}")
+            self._render()
+
+        self.run_bg(work, done, "Undoing that change…", screen="Agent")
 
     def _agent_backend_label(self) -> str:
         """Which model answers, in plain words. Building the agent is cheap (no network
@@ -1631,11 +1796,16 @@ class BeaconApp:
     def _render_agent(self) -> None:
         agent = self._get_agent()
         ok, why = agent.ready()
-        if not ok:
+        if OUTSIDE_AGENT:
+            self.content.controls.append(self._outside_agent_card())
+        elif not ok:
             self.content.controls.append(self._error_card(
                 f"Agent needs setup: {why}. Add it to Beacon's .env "
-                "(D:\\Youtube\\Beacon\\.env) and press Test — no restart needed — or "
+                f"({beacon_ai.ENV_PATH}) and press Test — no restart needed — or "
                 "pick another AI provider below."))
+        # With an outside agent and no in-app AI, asking here cannot work — say why calmly
+        # and keep the box disabled, rather than letting a question fail.
+        optional_only = bool(OUTSIDE_AGENT) and not ok
 
         # The draft survives re-renders. _render() rebuilds every control, and background
         # work re-renders on its own schedule (the cloud poller ticks every 3s during an
@@ -1647,11 +1817,13 @@ class BeaconApp:
             expand=True,
             border_color=BORDER,
             bgcolor=SURFACE_ALT,
+            disabled=optional_only,
             on_change=lambda e: setattr(self, "_agent_draft", e.control.value),
             on_submit=lambda e: self._agent_send(e.control.value))
         send = ft.FilledButton(
             "Ask Beacon",
             icon=ft.Icons.SEND,
+            disabled=optional_only,
             on_click=lambda _: self._agent_send(self._agent_input.value),
             style=ft.ButtonStyle(
                 bgcolor=ACCENT,
@@ -1673,6 +1845,9 @@ class BeaconApp:
                 ft.Column([
                     h("Ask Beacon", 17),
                     muted(
+                        (f"Optional: an AI inside Beacon. None is set up on this machine — "
+                         f"{OUTSIDE_AGENT} is your agent. Pick a provider below only if you "
+                         f"add one.") if optional_only else
                         "It can investigate, organize, and control approved workflows.",
                         11,
                     ),
@@ -1680,23 +1855,20 @@ class BeaconApp:
                 # Name the model that actually answers. Beacon can run on many providers,
                 # and "which one replied?" is the first question when an answer looks
                 # off — so it should never be a guess.
-                self.pill(
-                    self._agent_backend_label(),
-                    ACCENT,
-                    ft.Icons.MEMORY,
-                ),
-                self.pill(
-                    "Writes stay reversible",
-                    ACCENT2,
-                    ft.Icons.HISTORY,
-                ),
+                *([] if optional_only else [
+                    self.pill(
+                        self._agent_backend_label(),
+                        ACCENT,
+                        ft.Icons.MEMORY,
+                    ),
+                    self.pill(
+                        "Writes stay reversible",
+                        ACCENT2,
+                        ft.Icons.HISTORY,
+                    ),
+                ]),
             ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            ft.Row(
-                [self._agent_input, send],
-                spacing=10,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            ),
-            self._ai_provider_row(),
+            *self._ask_card_body(optional_only, send),
         ))
 
         self.content.controls.append(self.section_heading(
@@ -1853,8 +2025,8 @@ class BeaconApp:
         self._pass_ticker.start()
 
     def _tick_pass_line(self) -> None:
-        while True:
-            time.sleep(self.PASS_TICK_SECONDS)
+        stop = self._session_stop
+        while not stop.wait(self.PASS_TICK_SECONDS):
             ap = getattr(self, "autopilot", None)
             if ap is None or not ap.running_now:
                 return        # the finishing pass redraws the card itself
@@ -2432,8 +2604,13 @@ class BeaconApp:
         ]
         return strength, rationale, factors
 
-    def _opportunity_evidence_band(self, r: dict) -> ft.Control:
+    def _opportunity_evidence_band(self, r: dict, *, saved: bool = False) -> ft.Control:
         strength, rationale, factors = self._opportunity_evidence(r)
+        if saved:
+            rationale = (
+                "These numbers describe reach. This saved channel has not passed "
+                "the faceless and repeatable opportunity checks."
+            )
         factor_controls = []
         for title, detail, icon in factors:
             factor_controls.append(ft.Container(
@@ -2455,7 +2632,7 @@ class BeaconApp:
             ft.Column([
                 ft.Row([
                     ft.Text(
-                        "Why it qualifies",
+                        "Performance signals" if saved else "Why it qualifies",
                         size=11,
                         color=TEXT,
                         weight=ft.FontWeight.W_700,
@@ -2472,7 +2649,7 @@ class BeaconApp:
         )
 
     def channel_card(self, r: dict, niche_id=None, tracked=None,
-                     actions: list | None = None) -> ft.Container:
+                     actions: list | None = None, *, saved: bool = False) -> ft.Container:
         name = str(r.get("title") or r.get("channel") or r.get("channel_id") or "—")
         cid = str(r.get("channel_id") or "")
         channel_url = r.get("channel_url") or r.get("url") or (
@@ -2507,7 +2684,7 @@ class BeaconApp:
                     weight=ft.FontWeight.W_700,
                     font_family=DISPLAY_FONT,
                 ),
-                ft.Text("opportunity", size=10, color=MUTED),
+                ft.Text("ranking score" if saved else "opportunity", size=10, color=MUTED),
             ], spacing=0, tight=True,
                horizontal_alignment=ft.CrossAxisAlignment.END),
             padding=ft.padding.symmetric(7, 10),
@@ -2563,22 +2740,23 @@ class BeaconApp:
                 self.pill("new signal", ACCENT, ft.Icons.BOLT),
             ]))
         qualification = (
-            "Faceless + replicable" if faceless else "Replicable evidence"
+            "Saved · review fit" if saved else
+            ("Faceless + replicable" if faceless else "Replicable evidence")
         )
         col += [
             header,
             ft.Row([
                 self.pill(
                     qualification,
-                    ACCENT,
-                    ft.Icons.VERIFIED_OUTLINED,
+                    ACCENT2 if saved else ACCENT,
+                    ft.Icons.BOOKMARK_OUTLINE if saved else ft.Icons.VERIFIED_OUTLINED,
                 ),
                 ft.Container(expand=True),
                 ft.Icon(ft.Icons.OPEN_IN_NEW, size=14, color=MUTED),
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
             ft.Divider(color=BORDER, height=1),
             tiles,
-            self._opportunity_evidence_band(r),
+            self._opportunity_evidence_band(r, saved=saved),
         ]
 
         if actions:
@@ -2596,7 +2774,7 @@ class BeaconApp:
 
     def card_grid(self, rows: list[dict], kind: str = "video",
                   *, limit: int = 24, niche_id=None, tracked=None,
-                  tracked_ids=None, actions_for=None) -> ft.Control:
+                  tracked_ids=None, actions_for=None, saved: bool = False) -> ft.Control:
         if not rows:
             return muted("Nothing here yet.")
         if kind == "video":
@@ -2608,7 +2786,8 @@ class BeaconApp:
                     return r.get("channel_id") in tracked_ids
                 return tracked
             cards = [self.channel_card(r, niche_id=niche_id, tracked=_tracked(r),
-                                       actions=(actions_for(r) if actions_for else None))
+                                       actions=(actions_for(r) if actions_for else None),
+                                       saved=saved)
                      for r in rows[:limit]]
             for card in cards:
                 card.col = {"xs": 12, "sm": 12, "md": 6, "lg": 6, "xl": 6}
@@ -2832,11 +3011,9 @@ class BeaconApp:
         # Serialized: many daemon threads call _render(); without the lock two rebuilds
         # of self.content.controls interleave and produce duplicated/missing cards.
         with self._render_lock:
-            # refresh nav highlight on the MOUNTED nav column (not a throwaway copy)
-            try:
-                self._nav_col.controls = self._nav_tiles()
-            except Exception:  # noqa: BLE001
-                pass
+            if getattr(self, "_session_stop", None) is not None and self._session_stop.is_set():
+                return
+            self._rendering = True
             self.content.controls = []
             self.content.controls.append(self._page_header())
             self._render_keys = set()
@@ -2853,13 +3030,23 @@ class BeaconApp:
                     self._render_saved()
                 elif self.section == "Agent":
                     self._render_agent()
+            except Exception:  # noqa: BLE001 - preserve navigation and show recovery
+                logging.exception("Beacon could not draw the %s screen", self.section)
+                self.content.controls = [
+                    self._page_header(),
+                    self._error_card("This screen hit a drawing error. Press Retry to reload it."),
+                ]
             finally:
                 self._section_keys[self.section] = self._render_keys
                 self._render_keys = None
+                # Publish the navigation and content together, only after the
+                # screen has finished building (or its recovery card is ready).
+                self._nav_col.controls = self._nav_tiles()
+                self._rendering = False
             try:
                 self.page.update()
             except Exception:  # noqa: BLE001
-                pass
+                logging.exception("Beacon could not publish the %s screen", self.section)
             self._restore_scroll()
 
     # -- scroll position across background re-renders ---------------------------------
@@ -3735,8 +3922,7 @@ class BeaconApp:
         research_card = self._research_progress_card()
         research_card.col = {"sm": 12, "md": 12, "lg": 7}
 
-        entry = self._ensure("overview", lambda: self.client.db_stats(),
-                             "Loading index stats…")
+        entry = self._ensure("overview", self._index_stats, "Loading index stats…")
         if entry is None:
             index_card = self.card(
                 h("Index snapshot", 16),
@@ -3745,8 +3931,12 @@ class BeaconApp:
         elif "error" in entry:
             index_card = self._error_card(entry["error"])
         else:
+            counted = entry["data"].get("_counted_at")
             index_card = self.card(
-                h("Index snapshot", 16),
+                ft.Row([h("Index snapshot", 16),
+                        muted(index_stats.counted_text({"counted_at": counted}), 11)
+                        if counted else ft.Container()],
+                       alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                 self.stat_grid(entry["data"],
                                ["channels", "videos", "niches", "niche_channels",
                                 "faceless_verified", "outlier_snapshots", "crawl_runs"],
@@ -3826,6 +4016,28 @@ class BeaconApp:
             ),
         )
 
+    def _index_stats(self) -> dict:
+        """The library's counts, instantly from the shared snapshot (index_stats.py).
+
+        Counting every row takes ~6 minutes on the server's disk, so the Overview used to sit
+        on "Loading index stats…". Now it shows the last count at once with its age, and an old
+        count is refreshed quietly in the background — one count at a time across every open
+        screen and Muse's door. Only the very first count ever makes anyone wait.
+        """
+        snapshot = index_stats.ensure(self.client.db_stats,
+                                      on_refreshed=self._index_stats_refreshed)
+        return {**snapshot["stats"], "_counted_at": snapshot["counted_at"]}
+
+    def _index_stats_refreshed(self, snapshot: dict) -> None:
+        """A background recount finished: swap the new numbers in without a loading flash."""
+        self.cache["overview"] = self._cache_entry(
+            {"data": {**snapshot["stats"], "_counted_at": snapshot["counted_at"]}})
+        if self.section == "Overview":
+            try:
+                self._render()
+            except Exception:  # noqa: BLE001
+                pass
+
     def _overview_tick(self) -> None:
         """Refresh Overview counts silently without blanking the existing stat card."""
         key = "overview"
@@ -3836,7 +4048,7 @@ class BeaconApp:
 
         def work():
             try:
-                result = {"data": self.client.db_stats()}
+                result = {"data": self._index_stats()}
             except Exception:  # noqa: BLE001 — keep the last good automatic snapshot
                 self._loading.discard(key)
                 return
@@ -3858,9 +4070,10 @@ class BeaconApp:
             return
         self._overview_watch_started = True
 
+        stop = self._session_stop
+
         def worker():
-            while True:
-                time.sleep(OVERVIEW_REFRESH_SECONDS)
+            while not stop.wait(OVERVIEW_REFRESH_SECONDS):
                 if self.section == "Overview":
                     self._overview_tick()
 
@@ -3900,9 +4113,10 @@ class BeaconApp:
             return
         self._cloud_watch_started = True
 
+        stop = self._session_stop
+
         def worker():
-            while True:
-                time.sleep(CLOUD_PROGRESS_REFRESH_SECONDS)
+            while not stop.wait(CLOUD_PROGRESS_REFRESH_SECONDS):
                 if self.section != "Overview":
                     continue
                 entry = self.cache.get("edge_sync") or {}
@@ -4015,6 +4229,11 @@ class BeaconApp:
             ),
             ft.Text(view["message"], size=12, color=color),
         ]
+        if view["cloud_in_use"] and not view["configured"]:
+            details.append(muted(
+                "Imports run on a schedule; manual sync is unavailable from this screen.",
+                10,
+            ))
         # A dead pipeline must LOOK dead. Before this, a cloud worker frozen mid-job
         # still rendered as "connected" because it never stopped claiming "running".
         if not view.get("health_ok", True):
@@ -4301,14 +4520,20 @@ class BeaconApp:
                         pass
 
             threading.Thread(target=_chk, daemon=True).start()
-        autostart_label = ("Auto-start on login  ·  checking…" if auto_on is None
-                           else ("Auto-start on login  ·  ON" if auto_on
-                                 else "Auto-start on login  ·  off"))
+        auto_name = "Starts with the server" if ON_SERVER else "Auto-start on login"
+        autostart_label = (f"{auto_name}  ·  checking…" if auto_on is None
+                           else (f"{auto_name}  ·  ON" if auto_on
+                                 else f"{auto_name}  ·  off"))
         autostart_row = ft.Row([
             ft.Switch(value=bool(auto_on), active_color=ACCENT, scale=0.8,
                       on_change=self._toggle_autostart,
-                      tooltip="Keep the scraper running automatically — starts within ~5 min of "
-                              "login and restarts it if it ever dies (no admin needed)"),
+                      # The server's own boot setting; Stop/Start above still work, and a Stop
+                      # survives a reboot. Changing boot-start is the machine owner's job.
+                      disabled=ON_SERVER,
+                      tooltip=("The server starts the scraper at boot and restarts it if it "
+                               "crashes — unless you pressed Stop" if ON_SERVER else
+                               "Keep the scraper running automatically — starts within ~5 min of "
+                               "login and restarts it if it ever dies (no admin needed)")),
             muted(autostart_label, 12),
         ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
@@ -4757,7 +4982,9 @@ class BeaconApp:
         body = [
             ft.Row([ft.Icon(ft.Icons.GPS_FIXED, color=ACCENT2, size=18),
                     h("Focus the scraper on a niche", 16)], spacing=8),
-            muted("Pick a topic or type a subject — the scraper (laptop + Oracle) hunts there, "
+            muted("Pick a topic or type a subject — the scraper "
+                  + ("(this server + the cloud scout)" if ON_SERVER else "(laptop + Oracle)")
+                  + " hunts there, "
                   "and new channels get auto-categorized into the matching Topic/filters. Counts "
                   "below come from your database, so they include BOTH engines. Pause or Remove "
                   "a target anytime.", 11),
@@ -5013,7 +5240,7 @@ class BeaconApp:
                 bgcolor=PANEL, border_radius=8, padding=10, expand=True,
                 border=ft.border.all(1, col if running else BORDER))
         laptop = (ds["local_msg"] or "running") if ds["local"] else "off — Start scraping above"
-        chips = ft.Row([engine("This laptop", ds["local"], laptop),
+        chips = ft.Row([engine("This server" if ON_SERVER else "This laptop", ds["local"], laptop),
                         engine("Oracle helper", ds["oracle_running"], ds["oracle_text"])],
                        spacing=10)
         if ds["any"]:
@@ -5460,9 +5687,10 @@ class BeaconApp:
             return
         self._rt_watch_started = True
 
+        stop = self._session_stop
+
         def worker():
-            while True:
-                time.sleep(60)
+            while not stop.wait(60):
                 if self.section == "Real Time":
                     self._rt_tick()
         threading.Thread(target=worker, daemon=True).start()
@@ -6080,7 +6308,7 @@ class BeaconApp:
         self.content.controls.append(
             self.card_grid(rows, kind="channel", limit=self.saved_shown,
                            niche_id=self._saved_niche_id,
-                           actions_for=self._saved_actions))
+                           actions_for=self._saved_actions, saved=True))
         if len(rows) >= self.saved_shown:
             self.content.controls.append(ft.OutlinedButton(
                 f"Show more (+{CH_PAGE})",
@@ -6097,13 +6325,54 @@ class BeaconApp:
         self.find_shown += CH_PAGE
         self._render()
 
+    def _find_sweep_summary(self) -> ft.Control | None:
+        result = getattr(self, "_find_sweep_result", None)
+        error = getattr(self, "_find_sweep_error", None)
+        if not result and not error:
+            return None
+        subject = (result or {}).get("subject") or getattr(self, "_find_draft", "")
+        if error:
+            return self.card(
+                h(f"Sweep for {subject} could not finish", 16),
+                muted(error, 11),
+                muted("Your earlier discoveries remain available. Try the sweep again.", 11),
+            )
+        queries = int(result.get("queries_run") or 0)
+        failures = int(result.get("errors") or 0)
+        leads = list(result.get("top_channels") or [])[:8]
+        body: list[ft.Control] = [
+            h(f"Sweep results for {subject}", 17),
+            muted(f"{queries} search angles checked · {result.get('videos_found', 0)} videos found "
+                  f"· {result.get('channels_discovered', 0)} channels seen", 11),
+        ]
+        if failures:
+            body.append(muted(f"{failures} search angles failed; you can retry this subject.", 11))
+        if leads:
+            body.append(muted(
+                "Research leads seen in several search angles. These have not yet passed "
+                "Beacon's faceless and repeatable opportunity checks.", 11))
+            for lead in leads:
+                channel_id = str(lead.get("channel_id") or "")
+                if not channel_id:
+                    continue
+                body.append(ft.TextButton(
+                    f"{lead.get('title') or channel_id} · {lead.get('niche_hits', 0)} matches",
+                    icon=ft.Icons.OPEN_IN_NEW,
+                    on_click=self._open_url(f"https://www.youtube.com/channel/{channel_id}"),
+                ))
+        else:
+            body.append(muted("No channel leads came back from this sweep. Try a clearer subject.", 11))
+        return self.card(*body)
+
     def _render_find(self) -> None:
         niche_field = ft.TextField(
             label="Niche / topic",
+            value=getattr(self, "_find_draft", ""),
             border_color=BORDER,
             dense=True,
             expand=True,
             hint_text="e.g. amish frugal living",
+            on_change=lambda e: setattr(self, "_find_draft", e.control.value or ""),
         )
         sweeping = getattr(self, "_deep_sweeping", False)
 
@@ -6115,10 +6384,16 @@ class BeaconApp:
             if getattr(self, "_deep_sweeping", False):
                 return                       # already running — don't queue a 2nd ~100-query sweep
             self._deep_sweeping = True
+            self._find_draft = q
+            self._find_sweep_result = None
+            self._find_sweep_error = None
 
             def work():
                 try:
                     return self.client.call("deep_sweep", niche=q, queries=100)
+                except Exception as ex:  # noqa: BLE001
+                    self._find_sweep_error = str(ex)[:240]
+                    raise
                 finally:
                     # reset + re-render on BOTH success and failure so the button never
                     # stays stuck disabled (run_bg's error path doesn't call on_done).
@@ -6130,7 +6405,7 @@ class BeaconApp:
                             pass
 
             def done(r):
-                self.toast(f"Deep sweep done: {json.dumps(r, default=str)[:180]}")
+                self._find_sweep_result = {**r, "subject": q}
                 self._invalidate_all()
                 self._render()
 
@@ -6231,6 +6506,9 @@ class BeaconApp:
             spacing=16,
             run_spacing=16,
         ))
+        summary = self._find_sweep_summary()
+        if summary is not None:
+            self.content.controls.append(summary)
 
         def load_channels():
             rows = self.client.call(
@@ -6254,7 +6532,7 @@ class BeaconApp:
         have_rows = bool(entry and "data" in entry)
         review_button = ft.OutlinedButton(
             ("Refresh results" if self._find_requested
-             else "Load opportunities"),
+             else "Browse all opportunities"),
             icon=ft.Icons.LIST,
             on_click=start_load,
             style=ft.ButtonStyle(
@@ -6275,10 +6553,10 @@ class BeaconApp:
                     alignment=ft.alignment.center,
                 ),
                 ft.Column([
-                    h("Review the strongest opportunities", 16),
+                    h("Browse opportunities across all subjects", 16),
                     muted(
-                        "Load the current faceless, replicable shortlist without "
-                        "starting a new sweep.",
+                        "This is Beacon's full faceless, repeatable shortlist. "
+                        "It is not limited to the sweep above.",
                         11,
                     ),
                 ], spacing=1, tight=True, expand=True),
