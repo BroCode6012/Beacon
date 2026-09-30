@@ -1,5 +1,51 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: research store and schema verified
+
+The shared engine now has an explicitly selected PostgreSQL research store and
+a versioned schema covering all 30 application tables found in the cloud index.
+Literal SQLite paths retain their existing behavior, including Lab session
+databases. No live records have been migrated and production still uses SQLite.
+
+The store preserves large counters, row access, generated IDs, duplicate-safe
+discovery writes, case-insensitive workspace names, Saved views and reversible
+exclusions. Query comparisons include channel scores and combined filters.
+PostgreSQL schema initialization is a separate explicit step; normal service
+starts do not run schema changes. SQL changes are explicit, with a lexical
+parameter adapter and server functions for existing date/JSON contracts.
+
+Verification: 25 tests passed against real PostgreSQL in the private Oracle
+test cluster; the shared suite passed 363 tests and 119 subtests (17 real-server
+tests skipped locally and run separately). Beacon passed 366 tests and 36
+subtests, with eight skips. Changed Python compiled and diff checks passed.
+
+A separate real Flet web instance used a synthetic PostgreSQL schema, Finder
+port 8798, separate token/log paths and disabled Autopilot. Browser clicks and
+visually inspected screenshots in `C:/WINDOWS/TEMP/beacon-pg-store-ui/` proved:
+
+| Action | Screenshot | Result |
+|---|---|---|
+| Open Overview | `web-01-overview.png` | One synthetic channel and empty niche/video counts |
+| Click Channels; wait | `web-02-channels.png`, `web-03-channels-result.png` | Loading, then the test channel and its 16.7x score |
+| Filters; maximum subscribers 500; Apply | `web-04-filter.png`, `web-05-filter-empty.png` | Loading, then clear empty-result state |
+| Click Real Time; wait | `web-06-realtime-loading.png`, `web-07-realtime-result.png` | Test channel with discovery freshness separate from channel age |
+| Click Find | `web-08-find.png` | Complete sweep controls |
+| Click Saved | `web-09-saved.png` | Link field and Nothing saved yet |
+| Click Agent; wait | `web-10-agent.png` | Question field, provider controls and ledger |
+| Disconnect only the private test tunnel; Refresh | `web-11-database-error.png` | Readable connection error and Retry; no blank screen or credentials |
+| Restore test tunnel; Retry | `web-12-retry-recovered.png` | Query succeeds again with the applied empty filter |
+| Clear all filters | `web-13-cleared-result.png` | The test channel returns |
+
+There were no application exceptions in the web instance's output. An initial
+desktop check used `_win.ps1`, but focus interference made later desktop clicks
+unreliable; those screenshots are not counted as workflow proof. The documented
+web fast path above completed the checks. The local Agent ledger still reads
+legacy operational state; this is not evidence about live Oracle worker health.
+
+Importer integration, full/read role checks, durable save jobs, representative
+performance, full migration and recovery remain required before live cutover.
+The historical first milestone below describes the earlier connection-only work.
+
 ## What this means in plain language
 
 Beacon now has the first tested building block for talking to PostgreSQL.

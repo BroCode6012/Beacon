@@ -16,10 +16,13 @@ and full-token/read-token authorization remain mandatory.
 The first PostgreSQL foundation is now verified on the
 `codex/postgresql-foundation` branches: an explicit, optional connection layer
 with commit/rollback, read-only transactions, bounded lock/query waits and
-credential-safe connection errors. It is not connected to YouTubeStore or the
-live app yet. Real PostgreSQL tests used synthetic records in a private,
-temporary cluster, now stopped. See `POSTGRESQL_PROGRESS.md` for checks and the
-remaining store/schema work; no live index was copied or migrated.
+credential-safe connection errors. The shared YouTubeStore now also supports
+an explicitly selected PostgreSQL backend and a versioned 30-table schema.
+Synthetic comparisons and a separate real web instance verified scores,
+filters, memberships, exclusions, all screens and connection-error recovery.
+The private test cluster remains isolated from production. Importer integration,
+durable save jobs and migration/recovery gates remain before cutover. See
+`POSTGRESQL_PROGRESS.md`; no live index has been copied or migrated.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
 measurements below are historical. The live web/Finder/gateway/radar services
