@@ -106,6 +106,40 @@ schema. Column names match; legacy videos have one historical column at a
 different position. Migration must map columns by name, never use blind positional
 copies. No live records were changed or copied by this inventory.
 
+## Update: durable save engine verified
+
+Schema version 3 adds persisted channel save requests. Finder accepts a request
+only after commit; a separate worker resolves it, commits Saved membership,
+then analyses up to 30 uploads outside write transactions. The request survives
+browser/process loss. Leases have owner fencing, bounded retry budgets and
+recovery after interruption. Duplicate active links reuse their request; channel
+membership is idempotent. Analysis failures preserve saved membership and expose
+readable errors without raw provider/driver diagnostics. Classification is scoped
+to the saved channel; it does not scan or relabel the whole index.
+
+The Saved workspace keeps its existing automatic upkeep default. Shared Finder
+reads invalidate their derived caches when the separate worker's persisted state
+changes. Full/read authorization also applies to enqueue/retry tools. The dedicated
+worker has bounded provider HTTP timeouts and is independent of browser sessions.
+Its production service and the new UI progress controls remain to be deployed.
+
+Verification passed 47 real PostgreSQL tests together, plus all ten save checks
+again after preserving the upkeep default. Shared regression passed 367 tests
+and 137 subtests (35 real-server skips run separately); Beacon passed 366 tests
+and 36 subtests, eight skips. Compilation and diff checks passed.
+
+The operator's actual `@DisasterBreakdown` link was tested against the isolated
+PostgreSQL schema with real YouTube reads. It committed a queued request in
+0.359 seconds, then committed membership and reached Ready with 30 uploads.
+This is one development measurement, not a full-load production guarantee.
+No live index rows were affected. A restarted real web instance displayed the
+Saved card (`jobs-02-saved-channel.png`); clicking Analysis showed its description
+and indexed upload evidence (`jobs-07-analysis-loading.png`,
+`jobs-08-analysis-ready.png`). Clicks through Overview, Channels, Real Time, Find
+and Agent also passed (`jobs-01-overview.png`, `jobs-03-channels.png` through
+`jobs-06-agent.png`). All screenshots were inspected; web output had no application
+exception. Screenshots remain in the temporary evidence directory above.
+
 ## What this means in plain language
 
 Beacon now has the first tested building block for talking to PostgreSQL.

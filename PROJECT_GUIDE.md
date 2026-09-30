@@ -20,9 +20,12 @@ credential-safe connection errors. The shared YouTubeStore now also supports
 an explicitly selected PostgreSQL backend and a versioned 30-table schema.
 Synthetic comparisons and a separate real web instance verified scores,
 filters, memberships, exclusions, all screens and connection-error recovery.
-The private test cluster remains isolated from production. Importer integration,
-and runtime ownership/permission checks have also passed. Durable save jobs and
-migration/recovery gates remain before cutover. See
+The private test cluster remains isolated from production. Importer integration
+and runtime ownership/permission checks have also passed. The durable save engine
+has verified queued requests, committed membership, background analysis, bounded
+retries and worker recovery. The operator's Disaster Breakdown link saved and
+analysed successfully in the test schema. UI progress controls, production worker
+deployment and migration/recovery gates remain before cutover. See
 `POSTGRESQL_PROGRESS.md`; no live index has been copied or migrated.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
