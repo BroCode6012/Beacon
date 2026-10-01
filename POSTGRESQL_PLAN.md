@@ -95,6 +95,13 @@ space and the approved recovery copy. Current free space alone does not prove
 that the full rehearsal fits. Measure PostgreSQL size with representative data
 before allocating the full migration environment.
 
+2026-10-01 decision: retain the canonical SQLite file on Oracle, provision an
+unused private native PostgreSQL cluster there, and build the consistent recovery
+snapshot under `D:/BeaconBackups/20261001/` on the laptop. Representative samples
+suggest 30–35 GB of PostgreSQL data; the full rehearsal must measure actual size.
+Do not allocate another full SQLite copy on Oracle's approximately 62 GB free
+space. Keep recovery artifacts private and outside Git.
+
 Use a consistent, planned database snapshot. Compare every table's counts,
 identifiers, relationships and representative records, not just channel/video
 totals. Compare metrics, filters, rankings, Saved membership, exclusions and
@@ -123,8 +130,7 @@ classification accuracy, data coverage or the usefulness of the interface.
 
 ## Open decisions
 
-- Off-host backup destination and recovery policy.
-- Where to run the isolated PostgreSQL environment and full-size rehearsal.
+- Recovery retention policy after successful cutover.
 - Disk and resource budget for parallel SQLite/PostgreSQL migration work.
 - The exact performance workload and acceptance measurements.
 - How existing collection/import progress is reconciled at cutover.

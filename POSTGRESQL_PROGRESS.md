@@ -1,5 +1,40 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: off-host snapshot path verified — 2026-10-01
+
+`sqlite_snapshot_stream` exports a pinned read transaction through authenticated
+SSH and constructs a new recovery file off-host. Framed compressed records have
+content hashes, table counts and sequence positions. Indexes, integrity and
+relationships are checked before publishing the success manifest. Interrupted
+or corrupted transfers leave an incomplete file with no success manifest;
+existing destinations are never overwritten. Concurrent writes remain consistent
+with the snapshot's original point in time. The online backup path now explicitly
+pins its read transaction too.
+
+Five streaming tests and eleven snapshot/migration/recovery tests passed against
+the private PostgreSQL test environment. Full shared regression: 376 tests and
+137 subtests passed, 43 skips. Beacon: 374 tests and 36 subtests passed, eight
+skips. Changed Python compiled and Git whitespace checks passed.
+
+A streamed complete 30-table fixture was migrated into `beacon_stream_ui_20261001`.
+Real Flet clicks covered Overview, Channels, Real Time, Find, Saved and Agent;
+`stream-01` through `stream-06` screenshots show the screens and preserved Saved
+membership. Clicking Saved's Analysis produced the loading state (`stream-07`)
+and four preserved video records (`stream-08`). Screenshots are outside Git under
+`C:/WINDOWS/TEMP/beacon-pg-store-ui/`. Overview used the earlier fixture count
+cache; the Agent ledger is local historical state, not Oracle status. After an
+internet address change, the existing OCI /32 updater restored SSH; the isolated
+app recovered after reconnecting its test tunnel. Output had no app exceptions.
+
+Oracle now has an unused native PostgreSQL 16 cluster with checksums, Unix-socket
+access only, restricted owner/writer/reader roles and private staged settings.
+Live services still use SQLite. A limited representative import suggests roughly
+30–35 GB for PostgreSQL; this is an estimate, not a full-size benchmark. With
+about 62 GB free on Oracle and a roughly 32 GB canonical SQLite file, a second
+full SQLite recovery copy belongs off-host. The planned destination is
+`D:/BeaconBackups/20261001/`; neither canonical database is replaced by this step.
+Full migration, recovery, performance and reconciliation are still outstanding.
+
 ## Update: administrator migration and recovery tools verified
 
 `scripter.research.postgres_migration` provides explicit snapshot, initialize,

@@ -30,7 +30,12 @@ without fetching YouTube data in the browser. Production worker deployment
 and the full-size migration/recovery rehearsal remain before cutover. Administrator
 snapshot, transfer and native PostgreSQL recovery tools have passed synthetic
 verification, including exact-content checks for all 30 legacy tables. See
-`POSTGRESQL_PROGRESS.md`; no live index has been copied or migrated.
+`POSTGRESQL_PROGRESS.md`. The off-host streaming snapshot path is now verified;
+the planned full recovery snapshot will be built under `D:/BeaconBackups/`,
+outside both repositories. It pins one consistent read while the live database
+continues accepting writes. Native PostgreSQL 16 is provisioned privately on
+Oracle with staged credentials, but no live service selects it yet. Full data
+comparison, recovery and final reconciliation remain required before cutover.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
 measurements below are historical. The live web/Finder/gateway/radar services
