@@ -98,7 +98,8 @@ before allocating the full migration environment.
 2026-10-01 decision: retain the canonical SQLite file on Oracle, provision an
 unused private native PostgreSQL cluster there, and build the consistent recovery
 snapshot under `D:/BeaconBackups/20261001/` on the laptop. Representative samples
-suggest 30–35 GB of PostgreSQL data; the full rehearsal must measure actual size.
+initially suggested 30–35 GB; expanded history samples now suggest about 45 GB
+before safety allowance. The full rehearsal must measure actual size.
 Do not allocate another full SQLite copy on Oracle's approximately 62 GB free
 space. Keep recovery artifacts private and outside Git.
 
@@ -107,6 +108,13 @@ identifiers, relationships and representative records, not just channel/video
 totals. Compare metrics, filters, rankings, Saved membership, exclusions and
 history. Track collector/importer changes made after the snapshot and define
 how they are reconciled during cutover.
+
+Verified final catch-up tooling compares the final checked snapshot with the
+inactive PostgreSQL target, applies differences and checks all 30 legacy tables
+before commit. It explicitly requires a writer pause. Until the full rehearsal
+measures the pause duration, do not promise an instant cutover. Preserve the
+SQLite source and recovery copy. Any application rollback after cutover must
+keep the current PostgreSQL data; switching to stale SQLite would lose new writes.
 
 Gate: full workflow, query-performance and recovery rehearsal passes. Any data
 or behavior mismatch is resolved before scheduling production cutover.

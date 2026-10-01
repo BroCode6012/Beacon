@@ -1,5 +1,43 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: final catch-up verified — 2026-10-01
+
+`postgres_reconcile` compares all 30 legacy tables by primary key and typed
+per-row SHA-256, applies differences in one transaction and verifies every
+table before commit. Native row hashes use the same byte framing as migration
+hashes, including Unicode, nulls, 64-bit integers and floating-point values.
+The operator must explicitly confirm that writers are paused; a populated
+saved-channel request queue refuses reconciliation. Sequence clocks never rewind.
+Unrepresentable late records roll back earlier valid changes.
+
+Tests reproduced and repaired a unique-name swap conflict. Changed rows with
+secondary uniqueness are staged before old labels are replaced; cascaded children
+are restored from the final snapshot. Lab NO ACTION relationships defer checks
+temporarily inside the transaction and regain their original constraint timing
+before commit. Seven real catch-up tests passed, including 5,500 batched updates/
+inserts, 2,000 removals, workspace/Lab swaps and retained notes/ideas. All 65 real
+PostgreSQL/store/importer/runtime/migration/worker tests passed together. Final
+shared regression: 376 tests/137 subtests passed, 50 skips. Beacon: 380 tests/42
+subtests passed, eight skips. Changed Python compiled and whitespace checks passed.
+
+A fresh 30-table fixture was migrated and caught up into
+`beacon_reconcile_ui2_20261001`. Real Flet clicks and inspected
+`reconcile-final-01` through `reconcile-final-06` screenshots showed all six
+screens, three retained workspace memberships and the updated Saved channel.
+Saved > Analysis showed loading (`07`) then four videos with the edited Unicode
+title (`08`). Screenshots remain outside Git in the temporary test directory.
+Overview's census cache and Agent's historical local collection ledger are not
+measurements of the production Oracle database. Output had no app exceptions.
+
+The full off-host recovery copy is running, with the canonical SQLite services
+active. Native PostgreSQL's empty 32-table schema (30 legacy tables plus schema
+metadata and save jobs) and restricted roles passed real permissions checks:
+writer DML allowed, reader DML denied, neither role allowed schema changes.
+Release `20261001T101400Z-postgres-stage` is staged only; the running release
+pointer is unchanged. Additional 100,000-row history samples supersede the first
+30–35 GB size estimate: about 45 GB is now a working estimate before safety
+allowance. Actual full-size disk, performance and recovery checks remain mandatory.
+
 ## Update: off-host snapshot path verified — 2026-10-01
 
 Server deployment templates now pass optional private PostgreSQL settings to

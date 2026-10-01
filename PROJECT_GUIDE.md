@@ -40,6 +40,10 @@ Server deployment templates now include a separately enabled save worker and
 optional private PostgreSQL settings for every index service. The installer
 refuses activation while any index process or the explicit radar configuration
 still selects SQLite; ordinary SQLite upgrades retain their existing behavior.
+Final catch-up tooling now compares every legacy row with a verified snapshot,
+applies changes and removals in dependency order, and verifies all 30 tables
+before commit. It requires an explicit writer pause and refuses a target with
+saved-channel jobs. Workspace/Lab name swaps preserve their linked records.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
 measurements below are historical. The live web/Finder/gateway/radar services
