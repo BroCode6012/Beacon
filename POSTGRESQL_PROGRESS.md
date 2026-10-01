@@ -1,5 +1,42 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: verified recovery and audited descriptions — 2026-10-01
+
+The off-host recovery snapshot completed its original full integrity and
+foreign-key checks, fsync and SHA-256 manifest at 12:30 UTC. It contains all
+30 legacy tables, 265,217 channels and 5,091,451 videos in 30,913,024,000 bytes.
+Its verified recovery files remain in protected `D:/BeaconBackups/20261001`,
+outside Git. The canonical Oracle SQLite file was not changed or paused.
+
+The first full PostgreSQL import rolled back safely because PostgreSQL rejects
+NUL characters in text. A full source-text scan found exactly two channel and
+two video descriptions affected; every other text column had zero NULs.
+Administrator migration/catch-up remains strict by default. Explicit
+`--normalize-provider-descriptions` allows only these two description columns,
+with bounded, private audits retaining original UTF-8 bytes and the source file
+hash. Every other cell remains subject to exact typed-content comparison.
+Provider and signed-import PostgreSQL writes retain the original description
+in raw metadata without mutating the provider object or signed bundle. SQLite
+behavior and the sealed snapshot remain unchanged.
+
+Changed Python compiled and whitespace checks passed. Focused real PostgreSQL
+verification passed 43 tests, followed by all 74 real PostgreSQL/store/importer/
+runtime/save-worker/migration tests together. Shared suite: 380 tests/137 subtests passed,
+55 skips; Beacon: 380 tests/42 subtests passed, eight skips. The regressions
+cover strict rejection, explicit normalization, recoverable original bytes,
+unchanged signed input, bounded audits and idempotent catch-up.
+
+A fresh migrated-and-reconciled `beacon_descriptions_ui_20261001` fixture passed
+real Flet clicks: Overview showed one workspace/channel and four videos;
+Channels and Real Time loaded the retained channel; Find showed its full form;
+Saved loaded its membership; Saved > Analysis showed loading then the readable
+description and four videos, retaining accented and Chinese text; Close and
+Agent opened its ledger. Inspected `description-01` through `description-08`
+screenshots remain in the temporary test directory outside Git. Output had no
+app exceptions. The Agent ledger describes historical laptop state, not Oracle
+health. Native PostgreSQL is still inactive; full import/recovery/query gates
+remain before coordinated production cutover.
+
 ## Update: bounded administrator scan memory — 2026-10-01
 
 SQLite administrator readers and recovery-file validators now use a bounded

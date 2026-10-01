@@ -49,7 +49,15 @@ Administrator migration now adds matching byte-order indexes for exact-content
 checks, avoiding large identifier sorts; normal service starts do not run DDL.
 The staged PostgreSQL state directory retains the existing cloud radar queue
 and classification model under `/var/lib/beacon/data`. The full off-host copy
-has received all tables; validation and its success manifest remain pending.
+has passed full integrity/relationship validation and published its success
+manifest: 265,217 channels, 5,091,451 videos and all 30 legacy tables, 30.9 GB.
+The first inactive PostgreSQL import rolled back safely after encountering four
+provider descriptions containing NUL characters. Explicit administrator
+normalization now removes only those unsupported characters, retains every
+original byte in a private audit, and compares all other cells exactly. Future
+PostgreSQL provider/importer writes preserve the originals in provider metadata;
+SQLite and the sealed recovery file are unchanged. Full-size import is being
+retried; production activation remains pending.
 Migration/recovery SQLite checks use a bounded 512 MiB connection-local cache
 to reduce repeated reads, retaining full integrity and relationship checks.
 

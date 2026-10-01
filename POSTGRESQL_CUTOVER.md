@@ -6,11 +6,14 @@ the rehearsal and cutover. Private settings and recovery files stay outside Git.
 
 ## Finish the rehearsal first
 
-1. Finish validating the off-host recovery file and publish its file-hash
-   manifest only after integrity and relationship checks pass.
+1. Preserve the verified off-host recovery file and its file-hash manifest.
+   The first full snapshot passed integrity and relationship checks on October 1.
 2. Import all 30 legacy tables into the inactive PostgreSQL target. Verify the
    typed content hashes, relationships and sequence high-water marks before
    commit. The metadata and durable-save tables bring the target to 32 tables.
+   Four legacy provider descriptions contain NUL characters. Use the explicit
+   description-normalization option with a new private report; preserve its
+   original-byte audit with the snapshot. All other cells compare exactly.
 3. Measure actual PostgreSQL disk use, temporary/WAL use and remaining disk.
    Preserve at least 8 GiB free throughout administrator operations. Estimates
    and small fixtures do not replace this full measurement.
@@ -47,6 +50,8 @@ off-host snapshot while writers remain paused. Reconcile it into PostgreSQL with
 `postgres_reconcile` and the explicit writer-pause assertion. Verify every legacy
 row before committing. The target's saved-channel job table must still be empty;
 do not use the full rehearsal target for test save jobs before final catch-up.
+If provider descriptions contain NULs, use the same explicit normalization option
+and preserve the catch-up report's original-byte audit in the recovery set.
 
 At this point, preserve a private recovery set for service definitions, host and
 database settings, watchlist configuration, the radar queue, and the classifier
