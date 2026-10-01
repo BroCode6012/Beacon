@@ -1,5 +1,40 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: guarded recurring native backups — 2026-10-01
+
+Beacon now has an administrator-only scheduled backup wrapper and daily systemd
+templates. They remain uninstalled/unenabled in production. Creation requires
+all three PostgreSQL aliases and a measured archive size, keeps at least 8 GiB
+reserve, serializes recovery operations, and monitors the backup's own named
+database sessions. Interrupted files never receive an approval manifest. The
+off-host acknowledgement must match the completed archive's name, size and hash;
+the server verifies its hash again. Retention preserves the latest two confirmed
+sets and every unmirrored set. Two unmirrored sets block another creation.
+Failures publish a credential-safe private status and fail the service.
+
+Python compiled; 14 focused backup/deployment checks passed with nine subtests.
+Beacon regression passed 388 tests and 45 subtests, eight real-server skips.
+An actual disposable PostgreSQL database passed scheduled native creation,
+acknowledgement and exact 32-table recovery, preserving one channel/four videos.
+The rendered service/timer passed systemd verification without installation.
+The private rehearsal connection label also exposed an open configuration
+transaction before snapshot selection; committing only that session setup fixed
+the administrator wrapper. Its real 32-table backup/restore check then passed.
+No shared-engine source or running application process changed for this fix.
+
+A fresh isolated real Flet instance passed all six screens. Clicks were Channels,
+Real Time, Find, Saved and Agent after Overview loaded. Inspected `schedule-01b`
+through `schedule-06b` screenshots show one channel/four videos/one workspace,
+the retained ranked card, a loaded Last 24h card, complete sweep form, saved
+membership and the Agent form/ledger. Loading captures were followed by loaded
+captures. Web/Finder output contained only the existing local Python warning;
+the historical laptop Agent ledger does not measure Oracle service health.
+
+The full bounded import remains in progress on Oracle, now copying video-history
+rows. Full-size comparison, native recovery, final pause and activation remain
+pending. Scheduled off-host transfer and actual size-based retention setup must
+also be verified before enabling the new timer.
+
 ## Update: compressed recovery for the final coordinated pause — 2026-10-01
 
 An explicit administrator helper can compress the original SQLite file after

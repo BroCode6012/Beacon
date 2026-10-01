@@ -1,0 +1,23 @@
+[Unit]
+Description=Beacon private PostgreSQL recovery archive
+After=postgresql.service
+ConditionPathExists=@DATA@/postgres.env
+ConditionPathExists=@DATA@/postgres-admin.env
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=@DATA@/postgres.env
+EnvironmentFile=@DATA@/postgres-admin.env
+EnvironmentFile=@DATA@/postgres-backup.env
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HOME=@DATA@
+WorkingDirectory=@HOME@/current/Beacon
+ExecStart=@HOME@/venv/bin/python @HOME@/current/Beacon/postgres_backup_schedule.py create --directory @DATA@/recovery/scheduled --keep 2
+TimeoutStartSec=7h
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=@DATA@/recovery

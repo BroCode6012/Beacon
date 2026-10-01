@@ -90,6 +90,13 @@ transaction or a second full SQLite file on Oracle. No live source is copied
 this way while writers are active. This operator path has passed synthetic
 recovery/migration/catch-up checks and all six real Flet screens; its full-size
 maintenance use remains pending.
+Beacon's administrator recurring-backup wrapper and daily systemd templates
+are verified on a disposable real PostgreSQL database, including exact 32-table
+restore. They require measured archive space, serialize operations, retain two
+off-host verified sets and preserve all unmirrored sets. Two unmirrored sets
+block another creation; failures publish private credential-safe status.
+The templates are not enabled in production. Full-size recovery, scheduled
+off-host transfer and measured retention setup remain before activation.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
 measurements below are historical. The live web/Finder/gateway/radar services

@@ -117,6 +117,18 @@ off-host pre-cutover recovery files; do not delete them as routine release clean
 Before closing the migration, establish a tested recurring native backup and
 off-host transfer procedure with visible failure reporting and enough disk reserve
 for a new archive. Choose retention from actual archive sizes. Never discard the
-last verified recovery set to make room for an unverified replacement. Record
+last verified recovery set to make room for an unverified replacement.
+`postgres_backup_schedule.py` and the daily `beacon-postgres-backup` templates
+are staged support, not an enabled schedule. Set the private
+`postgres-backup.env` measured `BEACON_BACKUP_EXPECTED_BYTES` only after the
+full native archive is measured, and preserve the private administrator settings
+as `postgres-admin.env`. The wrapper keeps two off-host verified sets, preserves
+all unmirrored sets and refuses another creation after two unmirrored archives.
+Transfer each completed archive and manifest, verify its exact bytes/hash
+off-host, then pass that proof on standard input to the `ack` action. The server
+hash is checked again before retention can remove an older acknowledged archive.
+Inspect `recovery/scheduled/schedule-status.json` and the service result for
+failure visibility. Verify the off-host scheduled transfer before enabling the
+timer; an installed template alone is not a complete backup system. Record
 the activated release, data checks, observed timings and recovery result in
 `POSTGRESQL_PROGRESS.md` and update `PROJECT_GUIDE.md`.
