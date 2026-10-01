@@ -6,7 +6,8 @@ Implementation status updated: **2026-08-17**
 ### Current web-app review — 2026-09-30
 
 The next work is the reliable cloud foundation and PostgreSQL migration plan
-in `POSTGRESQL_PLAN.md`. The current code is being recorded on paired Beacon
+in `POSTGRESQL_PLAN.md`, with the coordinated operator procedure in
+`POSTGRESQL_CUTOVER.md`. The current code is being recorded on paired Beacon
 and shared-engine branches before migration development. The first product
 milestone is durable saving with analysis in the background; PostgreSQL and
 the existing live SQLite index must be compared in an isolated rehearsal
