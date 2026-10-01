@@ -118,7 +118,14 @@ All ten full-size restricted-reader queries now pass under their ordinary
 comparison took 228.188 s). A recent-channel age crossed a day boundary between
 reads; the immediate recheck matched every field including age, with the first
 report preserved privately. Native full-size backup/off-host recovery is now
-running against the inactive copy. The live SQLite services remain available.
+running against the inactive copy. The 4,947,483,261-byte native archive now
+matches all 32 table fingerprints and is hash-verified in protected laptop
+storage, together with the private deployment recovery set. The complete
+restore is running only against the inactive PostgreSQL target. Restored
+content/role checks, cloud preview, final catch-up and activation remain pending.
+Permanent pinned laptop transfer scripts and the task configuration are
+prepared outside Git; the production schedule is not enabled.
+The live SQLite services remain available.
 The final coordinated pause may use the verified compressed quiescent recovery
 helper after all index processes drain and WAL is checkpointed. A continuous
 pause guard, unchanged source bytes, full integrity/relationship checks and

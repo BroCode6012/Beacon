@@ -1,5 +1,25 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: full native archive verified off-host — 2026-10-01
+
+The native schema-6 archive completed with all 32 table fingerprints matching
+the imported records. Its measured size is 4,947,483,261 bytes. The protected
+laptop copy passed the exact file-size/hash checks, together with the private
+deployment recovery set, before Oracle accepted the off-host acknowledgement.
+The recovery gate is now rebuilding only the inactive PostgreSQL target from
+that archive. Full restored-content/role checks and visibility-map preparation
+must finish before the separate cloud preview; activation remains pending.
+All six existing live SQLite services remain active.
+
+The permanent laptop transfer operator is prepared from the same pinned
+release under the protected `D:/BeaconBackups/PostgreSQL/` directory. Its
+four-hour/logon task and seven-archive laptop retention are prepared, not
+registered or enabled. Production scheduling still requires the post-cutover
+native backup and actual transfer verification. The existing Oracle SSH-access
+refresh task remains healthy. Final-pause recovery commands now consistently
+select the verified pinned release, with seven private-kit/transport checks and
+a disposable 30-table quiescent-alias migration/recovery check passing.
+
 ## Update: exact-statistics indexes — 2026-10-01
 
 All ten actual restricted-reader queries now pass with the normal 30-second
@@ -32,8 +52,8 @@ Filters, minimum subscribers 50,000, Apply, Real Time, Find, Saved and Agent.
 Inspected `indexes-04` through `indexes-12` screenshots show connection-error
 recovery, unchanged channel statistics, an explicit empty result, all six screens
 and the expected Agent setup message in the secret-free private clone. Logs
-contain no application exception. Full-data timings/comparisons, complete native
-recovery and production activation remain pending.
+contain no application exception. Complete native recovery, the full cloud
+preview, final catch-up and production activation remain pending.
 
 ## Update: bounded opportunity reads and stable ties — 2026-10-01
 
