@@ -90,6 +90,21 @@ app still selects SQLite. Private maintenance/activation plans now have tested
 proof, source, disk and process gates. Separate real Caddy/WebSocket and isolated
 network-namespace fixtures verified request draining and restored access without
 changing the production proxy, firewall or index services.
+The first full-data query gate stopped safely before advancing. Schema version 5
+corrects JSON/date helpers whose exception handlers cannot run during PostgreSQL
+parallel execution. An actual failing parallel query, explicit owner upgrade,
+94 PostgreSQL checks, both regression suites and all six real Flet screens
+verified the correction; the inactive full-size target now uses version 5.
+Overview, workspace and opportunity reads still need measured performance fixes.
+No full-size recovery or production activation has been claimed or performed.
+PostgreSQL opportunity reads now materialize the eligible classification stage
+before expensive score predicates and decode avatars only after page selection.
+Both backends order equal scores/discovery timestamps by channel ID; PostgreSQL
+preserves SQLite's NULL ordering. Five actual full-data comparisons passed for
+all returned fields/order, and bounded native reads passed. Focused real-server
+tests, both regression suites and isolated Flet workflows verified the change.
+Long-form/workspace statistics and Overview counts remain the next measured
+performance gate before full-size recovery and activation.
 The final coordinated pause may use the verified compressed quiescent recovery
 helper after all index processes drain and WAL is checkpointed. A continuous
 pause guard, unchanged source bytes, full integrity/relationship checks and

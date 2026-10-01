@@ -1,5 +1,57 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: bounded opportunity reads and stable ties — 2026-10-01
+
+The full-size PostgreSQL opportunity read no longer exceeds its 30-second
+statement limit. Its eligibility/classification stage now precedes expensive
+metric predicates, and provider avatars are decoded only for the selected page.
+Zero-upload rows remain excluded safely. SQLite keeps its existing query plan.
+Both backends now use channel IDs to order equal scores/discovery timestamps,
+and PostgreSQL explicitly preserves SQLite's missing-value sort placement.
+This resolves an actual full-data ordering mismatch without changing scores.
+
+Five full-data comparisons passed for opportunities, History, low-subscriber /
+high-view channels, recent discoveries and matching counts, including every
+returned field and order. Native measurements were 3.1–4.9 seconds in the first
+read trial, and 4.1–14.7 seconds while server verification was also running.
+Long-form, workspace and Overview reads still require separate performance work.
+Production continues selecting SQLite; migration activation remains pending.
+
+Changed Python compiled; 47 real PostgreSQL tests passed (one additional skip),
+387 shared tests passed with 137 subtests, and 393 Beacon tests passed with 45
+subtests. New checks cover stable page boundaries, missing dates, zero uploads,
+filter boundaries, deferred malformed payloads and classification-query plans.
+The forced-parallel regression now disables debug worker creation inside each
+trivial PL/pgSQL statement after upgrade; normal low-cost parallel thresholds
+still verify that corrected helpers cannot produce a parallel outer plan.
+An attempted simultaneous migration test run collided on its intentional
+database-wide administrator lock; the isolated serial server run passed.
+
+Real Flet verification clicked Channels, Long-form, Filters (minimum subscribers
+50,000), Apply, Real Time, Find, Saved and Agent. Inspected `metrics-01` through
+`metrics-10` captures prove retained statistics, loaded/empty states, explicit
+fixture-error handling and successful Retry recovery. A fresh final-query instance
+also verifies all six screens in `stable-01` through `stable-06`. Agent shows the
+expected setup message in this private clone, which excludes production secrets.
+No production process or canonical index was stopped or changed.
+
+## Update: full-data queries exposed a PostgreSQL parallel-execution defect — 2026-10-01
+
+The first real-data query gate stopped before backup, recovery or activation.
+Several JSON/date compatibility helpers used exception handling but incorrectly
+allowed parallel execution. PostgreSQL rejects their internal subtransactions.
+Schema version 5 explicitly marks those helpers unsafe for parallel execution;
+the inactive full-size copy has received this owner-only upgrade. Production
+continues using SQLite.
+
+A real regression reproduced the original error, then verified the upgrade,
+malformed-data recovery and unchanged results. Verification passed 94 real
+PostgreSQL checks, 387 shared tests and 393 Beacon tests. A separate real Flet
+instance passed all six screens, the long-form filter, an empty result, an
+explicit read-error card and successful Retry recovery. Private fixture records
+were retained. Full-data query timings also exposed slow Overview, workspace
+and opportunity reads; these still need measured fixes before proceeding.
+
 ## Update: full-size import committed and matched — 2026-10-01
 
 The bounded host-local import completed at 20:32:38 UTC after 12,023.8 seconds.
