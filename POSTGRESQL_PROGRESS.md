@@ -1,5 +1,33 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: full-size import committed and matched — 2026-10-01
+
+The bounded host-local import completed at 20:32:38 UTC after 12,023.8 seconds.
+All 30 legacy tables passed their complete typed-content comparisons before
+commit: 265,217 channels, 5,091,451 videos and 39,403,879 video-history rows.
+The four previously reviewed provider-description NUL normalizations remain
+explicitly recorded in the protected audit; every other cell compares exactly.
+The sealed SQLite recovery snapshot and the original live SQLite deployment
+remain unchanged. The explicit owner upgrade to schema version 4 also passed.
+Observed native database size is approximately 33.49 GB, separately from WAL,
+archive and disk-reserve measurements.
+
+The inactive target is now preparing its visibility maps and statistics before
+actual restricted-reader timings and the ten full-data SQLite comparisons.
+Native full-size backup, verified off-host transfer, complete recovery, real
+cloud preview, final reconciliation and production activation remain pending.
+Neither the save worker nor the production backup/transfer schedules is enabled.
+
+Private operator preparation passed eight maintenance-plan checks, six final
+activation checks and four transient-SSH readiness checks on the appropriate
+hosts. Actual isolated Caddy HTTP/WebSocket tests proved the maintenance message,
+existing stream closure and restored access. A separate Linux network namespace
+proved that SYN-only gating refuses new requests while an existing request can
+finish, then restores new connections after removing the exact owned rule.
+The public proxy, production firewall and running application services were not
+modified by those fixtures. Both operator plans refuse incomplete recovery proofs;
+neither coordinated pause nor activation has been executed.
+
 ## Update: resumable off-host native recovery transfers — 2026-10-01
 
 The Beacon transfer helper now downloads only completed native archives and

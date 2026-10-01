@@ -80,7 +80,16 @@ A blocked-server regression reproduced the original defect and verified the
 fix. All 90 real PostgreSQL checks, both regression suites and all six real
 Flet screens passed. The original recovery snapshot and live SQLite deployment
 remain unchanged. A new full-size bounded import is the next gate.
-That retry now runs independently on Oracle; full verification is pending.
+That retry completed and committed at 20:32:38 UTC on October 1, after all 30
+legacy tables passed their typed-content comparisons. It retained 265,217 channels,
+5,091,451 videos and 39,403,879 video-history records, with only the four explicitly
+audited provider-description NUL normalizations. The explicit schema version 4
+upgrade also passed. Actual native query comparisons, full-size backup/recovery,
+cloud preview, final catch-up and production activation remain pending; the live
+app still selects SQLite. Private maintenance/activation plans now have tested
+proof, source, disk and process gates. Separate real Caddy/WebSocket and isolated
+network-namespace fixtures verified request draining and restored access without
+changing the production proxy, firewall or index services.
 The final coordinated pause may use the verified compressed quiescent recovery
 helper after all index processes drain and WAL is checkpointed. A continuous
 pause guard, unchanged source bytes, full integrity/relationship checks and
