@@ -36,6 +36,10 @@ outside both repositories. It pins one consistent read while the live database
 continues accepting writes. Native PostgreSQL 16 is provisioned privately on
 Oracle with staged credentials, but no live service selects it yet. Full data
 comparison, recovery and final reconciliation remain required before cutover.
+Server deployment templates now include a separately enabled save worker and
+optional private PostgreSQL settings for every index service. The installer
+refuses activation while any index process or the explicit radar configuration
+still selects SQLite; ordinary SQLite upgrades retain their existing behavior.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
 measurements below are historical. The live web/Finder/gateway/radar services

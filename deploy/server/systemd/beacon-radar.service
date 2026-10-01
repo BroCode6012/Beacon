@@ -8,6 +8,7 @@ Type=simple
 User=@USER@
 Group=@USER@
 EnvironmentFile=@DATA@/beacon_host.env
+EnvironmentFile=-@DATA@/postgres.env
 Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HOME=@DATA@
 # The operator's Stop must survive a reboot: while Beacon's pause marker exists the service
 # skips itself (not a failure). Only the Overview's Start removes the marker.

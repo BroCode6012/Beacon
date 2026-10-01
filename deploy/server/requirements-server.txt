@@ -19,6 +19,7 @@ numpy==2.2.6
 opencv-python-headless==4.13.0.92
 pydantic==2.13.4
 python-dotenv==1.2.2
+psycopg[binary]==3.3.6
 requests==2.34.2
 rich==15.0.0
 scikit-learn==1.7.2

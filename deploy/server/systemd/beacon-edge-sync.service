@@ -12,6 +12,7 @@ User=root
 EnvironmentFile=@DATA@/beacon_host.env
 # The collector's signing key — bundles are verified with it, acknowledgements signed with it.
 EnvironmentFile=@KEYS@
+EnvironmentFile=-@DATA@/postgres.env
 Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HOME=@DATA@
 # The engine's transport, unchanged — local-ssh runs its commands on this machine instead of
 # logging in to it. No key is used; the setting only has to name an existing file.

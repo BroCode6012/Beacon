@@ -2,6 +2,26 @@
 
 ## Update: off-host snapshot path verified — 2026-10-01
 
+Server deployment templates now pass optional private PostgreSQL settings to
+all five index services and include a separately enabled save worker with only
+YouTube keys, cooperative termination and no collector signing key. The pinned
+server requirements include Psycopg. Before switching release pointers, the
+installer checks all running index processes and radar's explicit database path;
+mixed SQLite/PostgreSQL activation is refused. Without the private activation
+file, SQLite upgrades behave as before. Active importer/save-worker releases are
+also retained during upgrades; only an already active save worker is restarted.
+
+Deployment checks: changed Python compiled; focused tests passed 34 tests/six
+subtests, eight skips; full Beacon passed 380 tests/42 subtests, eight skips.
+Linux `bash -n` and rendered `systemd-analyze verify` passed (only pre-existing
+Oracle monitoring-unit permission warnings). Running the guard on Oracle reported
+“SQLite deployment retained.” No live unit was installed or restarted.
+A fresh isolated Flet instance was clicked through Overview, Channels, Real Time,
+Find, Saved and Agent. Inspected `deploy-01` through `deploy-06` images show the
+complete screens and retained test membership; no application exceptions. These
+are regression checks, not production worker activation. The full off-host
+recovery snapshot has started; verification and PostgreSQL migration are pending.
+
 `sqlite_snapshot_stream` exports a pinned read transaction through authenticated
 SSH and constructs a new recovery file off-host. Framed compressed records have
 content hashes, table counts and sequence positions. Indexes, integrity and

@@ -104,12 +104,15 @@ NEW_SETTINGS
 ln -sfn "$HOSTFILE" "$REL/Beacon/beacon_host.env"
 
 # 5. switch to the new release (atomic), keep the last three ---------------------------------
+# A PostgreSQL settings file is activated only after every old writer has drained.
+# Later PostgreSQL upgrades may keep the PostgreSQL radar running normally.
+"$VENV/bin/python" "$REL/Beacon/deploy/server/check_postgres_activation.py" "$DATA"
 ln -sfn "$REL" "$APP/current.new" && mv -Tf "$APP/current.new" "$APP/current"
 # ...but never one a running service still runs from: the scraper is NOT restarted on upgrade,
 # so its release must outlive newer installs — deleting it would make its next not-yet-loaded
 # import fail mid-cycle (caught in review, 2026-09-29, one deploy before it would have happened).
 in_use=""
-for s in beacon-radar beacon-finder beacon-web beacon-gateway; do
+for s in beacon-radar beacon-finder beacon-web beacon-gateway beacon-edge-sync beacon-save-worker; do
     pid=$(systemctl show -p MainPID --value "$s" 2>/dev/null || true)
     if [ -n "$pid" ] && [ "$pid" != 0 ]; then
         in_use="$in_use $(readlink -f "/proc/$pid/cwd" 2>/dev/null || true)"
@@ -152,8 +155,10 @@ fi
 # road (beacon-tunnel) is deliberately NOT restarted: a quick tunnel gets a new address on
 # every restart, and each new address costs the operator a key re-paste in Muse.
 if systemctl is-active --quiet beacon-gateway; then systemctl restart beacon-gateway; fi
+# Only restart an already active save worker. Initial activation is a cutover action.
+if systemctl is-active --quiet beacon-save-worker; then systemctl restart beacon-save-worker; fi
 running=""
-for s in beacon-radar beacon-edge-sync.timer beacon-gateway beacon-tunnel; do
+for s in beacon-radar beacon-edge-sync.timer beacon-gateway beacon-tunnel beacon-save-worker; do
     systemctl is-active --quiet "$s" && running="$running ${s%.timer}"
 done
 say "restarted: beacon-finder, beacon-web; also running:${running:- nothing else yet}"

@@ -8,6 +8,7 @@ Type=simple
 User=@USER@
 Group=@USER@
 EnvironmentFile=@DATA@/beacon_host.env
+EnvironmentFile=-@DATA@/postgres.env
 Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HOME=@DATA@
 # Only the YouTube keys from the machine's key file (see deploy/server/youtube-keys).
 RuntimeDirectory=beacon-gateway
