@@ -97,6 +97,12 @@ off-host verified sets and preserve all unmirrored sets. Two unmirrored sets
 block another creation; failures publish private credential-safe status.
 The templates are not enabled in production. Full-size recovery, scheduled
 off-host transfer and measured retention setup remain before activation.
+The matching off-host transfer helper now resumes interrupted SSH downloads,
+verifies exact archive bytes and manifests before acknowledgement, and protects
+existing mismatching files. A real 32-table native fixture transferred correctly
+from Oracle to the laptop. Separate hidden Windows task runs proved success
+result 0 and visible failure result 1; both owned fixture tasks were removed.
+Production scheduling still awaits full-size measurements and cutover.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
 measurements below are historical. The live web/Finder/gateway/radar services

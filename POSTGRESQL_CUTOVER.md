@@ -129,6 +129,16 @@ off-host, then pass that proof on standard input to the `ack` action. The server
 hash is checked again before retention can remove an older acknowledged archive.
 Inspect `recovery/scheduled/schedule-status.json` and the service result for
 failure visibility. Verify the off-host scheduled transfer before enabling the
-timer; an installed template alone is not a complete backup system. Record
-the activated release, data checks, observed timings and recovery result in
+timer; an installed template alone is not a complete backup system.
+
+The laptop `postgres_backup_pull.py --config <private-json>` accepts explicit
+SSH destination/key and remote Python/script/directory paths, a protected local
+recovery directory, and `keep_verified` (at least two). Use a hidden task under
+the existing user's interactive account, with network availability, missed-run
+recovery, bounded execution and failure retries. Preserve its true exit code.
+The transfer status records success/failure privately; the Windows task result
+must report a failure instead of silently treating it as success. The laptop
+must be awake/online for an off-host transfer; the server retains unmirrored
+archives while it is unavailable. The scheduled task should run again on login.
+Record the activated release, data checks, observed timings and recovery result in
 `POSTGRESQL_PROGRESS.md` and update `PROJECT_GUIDE.md`.

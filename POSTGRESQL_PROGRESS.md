@@ -1,5 +1,38 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: resumable off-host native recovery transfers — 2026-10-01
+
+The Beacon transfer helper now downloads only completed native archives and
+their matching manifests over the existing private SSH connection. Interrupted
+downloads resume from their actual local byte count. Exact size/hash checks and
+sealed local files precede server acknowledgement. Existing mismatching files,
+path traversal, malformed manifests and insufficient disk reserve are refused;
+unapproved files remain available for inspection. Local retention preserves
+the requested number of verified sets (at least two) and all unmirrored files.
+Failures publish private status and return a nonzero process result.
+
+Changed Python compiled; 13 focused backup/transfer safety tests passed with
+three subtests. Beacon regression passed 393 tests and 45 subtests, eight skips.
+A newly generated real 32-table PostgreSQL fixture archive restored exactly,
+then transferred from Oracle to the laptop through the actual SSH helper:
+151,461 bytes, matching manifest/hash, accepted server acknowledgement.
+A separate hidden Windows task ran that transfer successfully with result 0.
+A second controlled task with an absent test helper published failure status
+and returned result 1. Both owned test tasks were exported privately and removed
+after completion; no production backup schedule was enabled.
+
+Another fresh isolated Flet instance passed Overview, Channels, Real Time,
+Find, Saved and Agent. Clicks were the five sidebar destinations after Overview.
+Inspected `pull-01b` through `pull-06b` captures show the same retained
+channel/four videos/workspace, ranked and Last 24h cards, full Find form, saved
+card and Agent form/ledger; loading captures were followed by loaded captures.
+No Web/Finder exception appeared. The laptop's historical ledger remains
+unrelated to current Oracle service health. No shared-engine source changed.
+
+All 39,403,879 video-history rows have reached the inactive full import, which
+is still validating COPY relationships. Final verification/commit, full-size
+backup/recovery, measured retention, cloud preview and activation remain pending.
+
 ## Update: guarded recurring native backups — 2026-10-01
 
 Beacon now has an administrator-only scheduled backup wrapper and daily systemd
