@@ -71,6 +71,15 @@ host-local COPY on Oracle. It checks the complete archive, dependencies, strict
 primary-key order and all 30 typed-content hashes before committing. Real-server
 tests and all six screens passed with an archive-imported fixture. Full-size
 host-local import/recovery and live activation remain pending.
+The sealed full-size archive is now built and hash-verified on both hosts
+(5.42 GB). Its first host-local attempt exposed unbounded libpq COPY buffering:
+the producer advanced much faster than PostgreSQL and retained over 1 GB of
+pending data. Only that inactive rehearsal was cancelled; its transaction
+rolled back. Both administrator COPY paths now flush bounded 128 KiB chunks.
+A blocked-server regression reproduced the original defect and verified the
+fix. All 90 real PostgreSQL checks, both regression suites and all six real
+Flet screens passed. The original recovery snapshot and live SQLite deployment
+remain unchanged. A new full-size bounded import is the next gate.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
 measurements below are historical. The live web/Finder/gateway/radar services

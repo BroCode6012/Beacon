@@ -1,5 +1,38 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: bounded administrator COPY buffering — 2026-10-01
+
+The full ordered archive is complete: 5,417,124,928 bytes, with matching SHA-256
+on the laptop and Oracle. Its source remained the sealed 30.9 GB recovery copy.
+The host-local rehearsal exposed Psycopg/libpq buffering: the producer reached
+23.2 million discovery rows while PostgreSQL had accepted about 13.2 million,
+and Python retained approximately 1.4 GB. Only the inactive import was cancelled;
+its transaction rolled back. The live SQLite app and scraper were untouched.
+
+Both administrator migration paths now use a local COPY writer that splits
+data into at most 128 KiB chunks and flushes each chunk before continuing.
+There is no global driver modification. Existing commit/rollback and COPY error
+handling remain intact. A deliberately blocked real server reproduced the
+default writer's excessive buffering; the regression verifies bounded progress,
+exact Unicode/escape preservation, rollback and subsequent connection reuse.
+
+Changed Python compiled. Nine focused COPY/archive tests passed, followed by
+all 90 real PostgreSQL connection/store/migration/reconciliation/importer/runtime/
+save-job checks. Shared regression: 380 tests and 137 subtests passed, with
+66 local real-server skips (run separately on Oracle). Beacon: 380 tests and
+42 subtests passed, eight skips. Whitespace checks passed.
+
+A fresh bounded-import/reconciled fixture passed real Flet navigation through
+Overview, Channels, Real Time, Find, Saved and Agent. Overview showed one channel,
+four videos and a workspace; both grids loaded the retained card; Find showed
+its form; Saved retained membership. Scrolling and clicking Analysis showed
+loading, then the accented/Chinese description and all four uploads. Close and
+Agent opened the ledger. Every `bounded-01` through `bounded-09b` screenshot
+was inspected; immediate loading captures were followed by loaded captures.
+Web output contained only the existing local Python support warning and no
+application exception. Agent's historical laptop ledger does not measure
+Oracle health. Full-size retry, recovery rehearsal and activation remain pending.
+
 ## Update: host-local migration from a sealed archive — 2026-10-01
 
 The second full rehearsal rolled back after both operator SSH tunnels reset.
