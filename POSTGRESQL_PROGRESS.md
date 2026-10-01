@@ -35,6 +35,13 @@ producer memory was approximately 55 MB after ten minutes, compared with the
 previous unbounded 1.4 GB. The live SQLite release and all index/collector services
 remain unchanged. No final maintenance pause or PostgreSQL activation has begun.
 
+The private operator alias procedure also passed a disposable real-server check:
+all 30 legacy tables migrated from the same-inode alias, original bytes and the
+existing sidecar remained unchanged, an independently recovered file matched
+exactly, and a later source mutation invalidated the alias manifest. The initial
+fixture with pending WAL was correctly refused; only its test checkpoint was
+performed before retrying. The canonical live file was not opened by this check.
+
 ## Update: bounded administrator COPY buffering — 2026-10-01
 
 The full ordered archive is complete: 5,417,124,928 bytes, with matching SHA-256

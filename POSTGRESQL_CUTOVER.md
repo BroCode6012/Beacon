@@ -60,7 +60,17 @@ archive and manifest off-host; use `recover_quiescent_sqlite` to verify exact
 original bytes, full integrity and relationships in a new off-host file. Preserve
 that proof and the retained original's verified manifest privately. Reconciliation
 may read the sealed quiescent original locally on Oracle only while all these
-pause guards remain true. Do not copy a running WAL file or reuse this option
+pause guards remain true. If the canonical file already has an older sidecar,
+use a new private hard-link read alias and a new manifest rather than overwriting
+that sidecar. Prove the alias and original share the same inode; continuously
+check the canonical file's handles and WAL/journal bytes, not just the alias's
+filename. The alias is a pointer to the retained original, not an independent
+backup. The compressed archive and recovered off-host file supply the independent
+recovery copy. This alias path passed a disposable real PostgreSQL migration of
+all 30 legacy tables, exact off-host recovery, unchanged-source/sidecar checks
+and refusal after a later source mutation.
+
+Do not copy a running WAL file or reuse this option
 without the coordinated pause. The existing online logical snapshot remains
 available when a consistent online backup is needed.
 
