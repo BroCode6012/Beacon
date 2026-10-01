@@ -14,8 +14,10 @@ the rehearsal and cutover. Private settings and recovery files stay outside Git.
    Four legacy provider descriptions contain NUL characters. Use the explicit
    description-normalization option with a new private report; preserve its
    original-byte audit with the snapshot. All other cells compare exactly.
-   After import commit, run the explicit schema-owner upgrade to version 4 and
-   verify safe JSON reads before previewing the full target. Do not run DDL during
+   After import commit, run the explicit schema-owner upgrade to version 6 and
+   verify safe JSON/date reads and the covering/exact-count indexes before
+   previewing the full target. Exception-handling helpers must remain parallel
+   unsafe. Do not run DDL during
    the import transaction or from ordinary service starts.
 3. Measure actual PostgreSQL disk use, temporary/WAL use and remaining disk.
    Preserve at least 8 GiB free throughout administrator operations. Estimates
@@ -30,9 +32,16 @@ the rehearsal and cutover. Private settings and recovery files stay outside Git.
    into an empty, noncanonical target. If two full targets do not fit, recreate
    only the unused rehearsal target after checking the off-host archive and
    retained SQLite source. Never drop the active application database.
+   Prepare the restored tables with VACUUM ANALYZE before reader preview; a
+   native restore does not preserve the original heap visibility maps.
 6. Verify restricted reader/writer roles, schema permissions and full/read Finder
    authorization. Restoring an archive without privileges requires reapplying
    the restricted grants; preserve private role/deployment recovery settings.
+
+Use a separate read-role-only preview and inspect all six real screens before
+maintenance. Keep administrator recovery storage private. Its secret-free
+launcher belongs in the separate preview state directory with access for the
+application account; do not widen the administrator directory's permissions.
 
 ## Drain and catch up
 
