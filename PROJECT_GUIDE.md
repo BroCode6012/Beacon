@@ -64,6 +64,13 @@ stored JSON stays byte-for-byte unchanged and literal backslashes are preserved.
 The schema-owner upgrade is explicit and will run after the full import commits.
 Migration/recovery SQLite checks use a bounded 512 MiB connection-local cache
 to reduce repeated reads, retaining full integrity and relationship checks.
+The second full import rolled back after the laptop's SSH connection reset;
+native PostgreSQL did not restart. The verified administrator archive path now
+packs the unchanged recovery snapshot into an ordered compressed package for
+host-local COPY on Oracle. It checks the complete archive, dependencies, strict
+primary-key order and all 30 typed-content hashes before committing. Real-server
+tests and all six screens passed with an archive-imported fixture. Full-size
+host-local import/recovery and live activation remain pending.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
 measurements below are historical. The live web/Finder/gateway/radar services

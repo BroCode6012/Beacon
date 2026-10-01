@@ -1,5 +1,43 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: host-local migration from a sealed archive — 2026-10-01
+
+The second full rehearsal rolled back after both operator SSH tunnels reset.
+The native PostgreSQL process remained running, with no restart or OOM evidence.
+Production still selects SQLite. Bulk import now has an administrator-only path
+that builds a compressed, ordered record archive from the verified recovery
+snapshot and runs COPY on Oracle through its private Unix socket. A dropped
+operator connection will not own that import process. The original recovery
+SQLite file is opened read-only and remains unchanged.
+
+The archive retains original cells, schema inventory, primary keys, sequence
+high-water values and complete-stream hashes. Tables precede their dependants;
+rows are strictly ordered by primary key. Import verifies the sealed file,
+refuses populated targets, uses one transaction, checks relationships and
+compares typed hashes for all 30 legacy tables before commit. Unsupported
+provider-description characters still require explicit, privately audited
+normalization. Truncated/tampered archives, reordered rows and interrupted COPY
+roll back rather than publishing a success report.
+
+Changed Python compiled. Twelve focused archive/stream tests passed on real
+PostgreSQL. The broader real-server checks passed 62 connection/store/migration/
+reconciliation/stream/archive tests, 16 importer/runtime/description tests and
+10 save-job tests. Shared regression suite: 380 tests and 137 subtests passed,
+64 real-server skips locally. Beacon: 380 tests and 42 subtests passed, eight
+skips. Whitespace checks passed. Initial focused failures identified an incorrect
+reserved table name and dependency order; both were repaired before this gate.
+
+A fresh archive-imported and reconciled `beacon_archive_ui_20261001` fixture
+passed real Flet clicks: Overview showed one channel/four videos/workspace;
+Channels and Real Time loaded the retained channel; Find showed its full form;
+Saved showed retained membership; scrolling and clicking Analysis showed loading
+then the readable accented/Chinese description and all four videos; Close and
+Agent opened the ledger. Every `archive-01` through `archive-09` screenshot was
+visually inspected and remains outside Git in the temporary UI test directory.
+There were no application exceptions. Agent's operational ledger reads historical
+laptop state and is not evidence of Oracle health. Full-size host-local import,
+native recovery and production activation remain pending.
+
 ## Update: safe reads of preserved provider metadata — 2026-10-01
 
 A real PostgreSQL probe reproduced `UntranslatableCharacter` when a valid JSON
