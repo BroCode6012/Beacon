@@ -44,6 +44,11 @@ Final catch-up tooling now compares every legacy row with a verified snapshot,
 applies changes and removals in dependency order, and verifies all 30 tables
 before commit. It requires an explicit writer pause and refuses a target with
 saved-channel jobs. Workspace/Lab name swaps preserve their linked records.
+Administrator migration now adds matching byte-order indexes for exact-content
+checks, avoiding large identifier sorts; normal service starts do not run DDL.
+The staged PostgreSQL state directory retains the existing cloud radar queue
+and classification model under `/var/lib/beacon/data`. The full off-host copy
+has received all tables; validation and its success manifest remain pending.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
 measurements below are historical. The live web/Finder/gateway/radar services

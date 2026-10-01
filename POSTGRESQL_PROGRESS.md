@@ -1,5 +1,32 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: ordered verification reads — 2026-10-01
+
+Administrator migration now provisions byte-order indexes for text primary
+keys after its empty-target checks. Exact-content verification prefers ordered
+reads and restores the caller's query-planner setting on success; rollback
+restores it on failure. These indexes avoid sorting millions of identifiers
+under a different database collation. Normal app starts do not change the schema.
+
+Twelve migration/snapshot tests and all 66 real PostgreSQL tests passed. The
+shared suite passed 376 tests/137 subtests (51 real-server skips locally);
+Beacon passed 380 tests/42 subtests (eight skips). Changed Python compiled.
+A fresh migrated-and-reconciled fixture in `beacon_ordered_ui_20261001` passed
+real Flet navigation: Overview showed three retained workspaces; Channels and
+Real Time finished loading the channel; Find showed its complete form; Saved
+showed membership and background-refresh controls; Agent showed its form and
+local historical ledger. Saved > Analysis loaded four videos, including the
+updated Unicode title. Inspected `ordered-01` through `ordered-08` screenshots
+remain under `C:/WINDOWS/TEMP/beacon-pg-store-ui/`, outside Git. No application
+exception appeared. This is a fixture regression check, not a full-size benchmark.
+
+The off-host recovery file has received all 30 tables and rebuilt its indexes;
+integrity/relationship validation is still running. No success manifest has
+been published yet. The guarded full PostgreSQL import waits for that manifest.
+The live app remains on SQLite. PostgreSQL's staged state directory points to
+`/var/lib/beacon/data`, preserving the existing radar queue and classification
+model in place. No live service has switched databases.
+
 ## Update: final catch-up verified — 2026-10-01
 
 `postgres_reconcile` compares all 30 legacy tables by primary key and typed
