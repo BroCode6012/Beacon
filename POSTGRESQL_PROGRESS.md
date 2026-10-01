@@ -1,5 +1,25 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: bounded administrator scan memory — 2026-10-01
+
+SQLite administrator readers and recovery-file validators now use a bounded
+512 MiB connection-local page cache. Full integrity and foreign-key checks remain
+mandatory. The setting is not persisted to the source or applied to normal app
+connections. This addresses repeated page reads seen during the full off-host
+validation; the already-running receiver retains its original settings.
+
+The new regression proves source writes are denied and cache settings do not
+persist. All 25 streaming/migration/reconciliation tests passed on Oracle's real
+PostgreSQL test environment. Full shared suite: 377 tests/137 subtests passed,
+51 skips; Beacon: 380 tests/42 subtests passed, eight skips. Python compilation
+and whitespace checks passed. A fresh migrated-and-reconciled fixture in
+`beacon_cached_ui_20261001` passed real Flet clicks through all six screens.
+Inspected `cached-01` through `cached-06` images show workspaces, loaded channel
+results, Find/Saved/Agent controls and retained membership. Saved > Analysis
+showed loading (`07`) then the four preserved video records (`08`). Screenshots
+remain in the temporary test directory outside Git. No app exceptions appeared.
+Full-size import and production activation remain pending.
+
 ## Update: ordered verification reads — 2026-10-01
 
 Administrator migration now provisions byte-order indexes for text primary

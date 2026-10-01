@@ -49,6 +49,8 @@ checks, avoiding large identifier sorts; normal service starts do not run DDL.
 The staged PostgreSQL state directory retains the existing cloud radar queue
 and classification model under `/var/lib/beacon/data`. The full off-host copy
 has received all tables; validation and its success manifest remain pending.
+Migration/recovery SQLite checks use a bounded 512 MiB connection-local cache
+to reduce repeated reads, retaining full integrity and relationship checks.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
 measurements below are historical. The live web/Finder/gateway/radar services
