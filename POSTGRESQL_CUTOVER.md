@@ -49,7 +49,22 @@ actual process liveness, not a stale status file. Do not force-kill a worker to
 save time. The edge discovery/organizer may continue queuing signed bundles.
 
 Confirm no index service is still running against SQLite. Build and verify a new
-off-host snapshot while writers remain paused. Reconcile it into PostgreSQL with
+off-host snapshot while writers remain paused. The verified quiescent option
+first checks actual open database handles and continuously guards the stopped
+index units, importer timer, cooperative markers and unchanged release. After
+a successful WAL truncate checkpoint and zero open database handles, use
+`sqlite_quiescent_backup.compress_quiescent_sqlite` with the explicit pause and
+guard. It checks integrity, relationships, absence of pending WAL/journal bytes
+and an unchanged source before sealing its compressed archive. Transfer the
+archive and manifest off-host; use `recover_quiescent_sqlite` to verify exact
+original bytes, full integrity and relationships in a new off-host file. Preserve
+that proof and the retained original's verified manifest privately. Reconciliation
+may read the sealed quiescent original locally on Oracle only while all these
+pause guards remain true. Do not copy a running WAL file or reuse this option
+without the coordinated pause. The existing online logical snapshot remains
+available when a consistent online backup is needed.
+
+Reconcile the verified snapshot into PostgreSQL with
 `postgres_reconcile` and the explicit writer-pause assertion. Verify every legacy
 row before committing. The target's saved-channel job table must still be empty;
 do not use the full rehearsal target for test save jobs before final catch-up.

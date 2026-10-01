@@ -1,5 +1,40 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: compressed recovery for the final coordinated pause — 2026-10-01
+
+An explicit administrator helper can compress the original SQLite file after
+all index activity is drained and its WAL is checkpointed. It requires both
+an explicit writer-pause assertion and a continuous operator guard. Nonempty
+WAL/journal files, a changed source, a lost pause, integrity failure or broken
+relationships prevent a success manifest. It reads the source immutably and
+does not change its bytes or settings. Recovery creates only a new off-host
+file and verifies its original size/hash, full integrity and relationships.
+This avoids rebuilding tens of millions of logical rows during maintenance.
+It must never be used to copy an online database.
+
+Changed Python compiled. Seven local safety checks passed; all eight checks
+passed on Oracle, including actual PostgreSQL migration and final reconciliation
+from recovered files. The relevant real-server migration/reconciliation gate
+passed 30 tests. Shared regression passed 387 tests and 137 subtests, with
+67 local real-server skips; Beacon passed 380 tests and 42 subtests, eight skips.
+Whitespace checks passed.
+
+A separate Flet instance used `beacon_quiescent_ui_20261001`, migrated and
+reconciled from compressed/recovered fixtures. Overview retained one channel,
+four uploads and a workspace; Channels loaded its card; Real Time loaded it
+in both Last 24h and Newest after clicking Newest; Find showed the complete form;
+Saved retained membership. Scrolling and clicking Analysis showed loading then
+the accented/Chinese description and four uploads. Close and Agent opened the
+ledger. Every `quiescent-01` through `quiescent-09b` screenshot was inspected.
+The filename `quiescent-03b-realtime-empty.png` actually shows a loaded channel;
+no empty-state claim is made from that capture. Output had only the existing
+local Python support warning and no application exception.
+
+The bounded full host-local import is running independently on Oracle. Its
+producer memory was approximately 55 MB after ten minutes, compared with the
+previous unbounded 1.4 GB. The live SQLite release and all index/collector services
+remain unchanged. No final maintenance pause or PostgreSQL activation has begun.
+
 ## Update: bounded administrator COPY buffering — 2026-10-01
 
 The full ordered archive is complete: 5,417,124,928 bytes, with matching SHA-256

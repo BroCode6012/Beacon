@@ -80,6 +80,16 @@ A blocked-server regression reproduced the original defect and verified the
 fix. All 90 real PostgreSQL checks, both regression suites and all six real
 Flet screens passed. The original recovery snapshot and live SQLite deployment
 remain unchanged. A new full-size bounded import is the next gate.
+That retry now runs independently on Oracle; full verification is pending.
+The final coordinated pause may use the verified compressed quiescent recovery
+helper after all index processes drain and WAL is checkpointed. A continuous
+pause guard, unchanged source bytes, full integrity/relationship checks and
+off-host exact-byte recovery are mandatory. Reconciliation can then run locally
+against the retained, sealed quiescent original, avoiding another long SSH-owned
+transaction or a second full SQLite file on Oracle. No live source is copied
+this way while writers are active. This operator path has passed synthetic
+recovery/migration/catch-up checks and all six real Flet screens; its full-size
+maintenance use remains pending.
 
 Beacon now runs as a web app on Oracle. The older desktop descriptions and
 measurements below are historical. The live web/Finder/gateway/radar services
