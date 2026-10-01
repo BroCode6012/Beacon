@@ -14,6 +14,9 @@ the rehearsal and cutover. Private settings and recovery files stay outside Git.
    Four legacy provider descriptions contain NUL characters. Use the explicit
    description-normalization option with a new private report; preserve its
    original-byte audit with the snapshot. All other cells compare exactly.
+   After import commit, run the explicit schema-owner upgrade to version 4 and
+   verify safe JSON reads before previewing the full target. Do not run DDL during
+   the import transaction or from ordinary service starts.
 3. Measure actual PostgreSQL disk use, temporary/WAL use and remaining disk.
    Preserve at least 8 GiB free throughout administrator operations. Estimates
    and small fixtures do not replace this full measurement.

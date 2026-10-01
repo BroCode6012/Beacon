@@ -58,6 +58,10 @@ original byte in a private audit, and compares all other cells exactly. Future
 PostgreSQL provider/importer writes preserve the originals in provider metadata;
 SQLite and the sealed recovery file are unchanged. Full-size import is being
 retried; production activation remains pending.
+PostgreSQL schema version 4 also reads valid JSON containing escaped NULs safely.
+This prevents unrelated description metadata from breaking avatar/channel queries;
+stored JSON stays byte-for-byte unchanged and literal backslashes are preserved.
+The schema-owner upgrade is explicit and will run after the full import commits.
 Migration/recovery SQLite checks use a bounded 512 MiB connection-local cache
 to reduce repeated reads, retaining full integrity and relationship checks.
 

@@ -1,5 +1,36 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: safe reads of preserved provider metadata — 2026-10-01
+
+A real PostgreSQL probe reproduced `UntranslatableCharacter` when a valid JSON
+description contained an escaped NUL, even while reading an unrelated avatar.
+Schema version 4 validates original JSON syntax without converting every string
+to JSONB. Extraction removes active NUL escapes only in its temporary read value;
+the stored JSON remains identical. Escaped literal backslashes survive. Invalid
+documents are validated before normalization and remain rejected. Other malformed
+Unicode returns a missing field rather than aborting the listing transaction.
+The versioned schema-owner upgrade is explicit; normal app starts do not run DDL.
+The inactive full target will upgrade after its import transaction commits.
+
+Two new real regressions cover complete channel listings/avatars, unchanged stored
+metadata, adjacent NULs, literal escapes, malformed syntax and repeated schema
+upgrade with retained records. Fifteen focused tests and all 76 real PostgreSQL
+tests passed. Shared suite: 380 tests/137 subtests passed, 57 skips. Beacon:
+380 tests/42 subtests passed, eight skips. The first Beacon run had a global test
+environment conflict with its mocked Autopilot policy and a local HTTP transport
+failure; an unchanged isolated rerun with normal test settings passed. The real
+Flet verification instance retained `SIGNAL_DISABLE_AUTOPILOT=1` throughout.
+Changed Python compiled and whitespace checks passed.
+
+Real Flet navigation against a fresh `beacon_json_ui_20261001` migration/catch-up
+fixture with the original escaped-NUL JSON passed all six screens. Inspected
+`json-01` through `json-08` screenshots show Overview membership/counts, loaded
+Channels and Real Time cards, the complete Find form, loaded Saved membership,
+Saved > Analysis loading and its readable Unicode description/four videos, then
+Close > Agent's ledger. Output had no application exceptions. The screenshots
+are temporary evidence outside Git, not a production-size performance benchmark.
+The full import continues while the live SQLite services remain active.
+
 ## Update: verified recovery and audited descriptions — 2026-10-01
 
 The off-host recovery snapshot completed its original full integrity and
