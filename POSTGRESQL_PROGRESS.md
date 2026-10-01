@@ -1,5 +1,26 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: exact-statistics indexes — 2026-10-01
+
+Schema version 6 adds one covering video index for workspace/format reads and
+two compact indexes for exact discovery/history counts. The explicit owner
+upgrade preserves application records and remains separate from service startup.
+The inactive full-size target completed the upgrade in 260 seconds; the three
+indexes occupy approximately 874 MB. Production still selects SQLite.
+
+Verification passed 48 real PostgreSQL checks (one skip), 387 shared tests with
+137 subtests and 393 Beacon tests with 45 subtests. The new regression verifies
+repeat upgrades, unchanged workspace/format results, an index-only video read,
+and exact counts through a rolled-back write. Changed Python compiled.
+
+Real Flet verification clicked Overview Retry, Channels Retry, Long-form,
+Filters, minimum subscribers 50,000, Apply, Real Time, Find, Saved and Agent.
+Inspected `indexes-04` through `indexes-12` screenshots show connection-error
+recovery, unchanged channel statistics, an explicit empty result, all six screens
+and the expected Agent setup message in the secret-free private clone. Logs
+contain no application exception. Full-data timings/comparisons, complete native
+recovery and production activation remain pending.
+
 ## Update: bounded opportunity reads and stable ties — 2026-10-01
 
 The full-size PostgreSQL opportunity read no longer exceeds its 30-second

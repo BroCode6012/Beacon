@@ -105,6 +105,13 @@ all returned fields/order, and bounded native reads passed. Focused real-server
 tests, both regression suites and isolated Flet workflows verified the change.
 Long-form/workspace statistics and Overview counts remain the next measured
 performance gate before full-size recovery and activation.
+The explicit schema version 6 upgrade now adds covering video metrics and
+compact exact-count indexes. It completed on the inactive full-size target in
+260 seconds, preserving application rows. Upgrade/idempotency/rollback checks,
+48 real PostgreSQL checks, both regression suites and all six real Flet screens
+passed, including actual connection-error Retry recovery and long-form/empty
+filters. Full-data timings and complete recovery still gate activation; the
+live services continue using SQLite.
 The final coordinated pause may use the verified compressed quiescent recovery
 helper after all index processes drain and WAL is checkpointed. A continuous
 pause guard, unchanged source bytes, full integrity/relationship checks and
