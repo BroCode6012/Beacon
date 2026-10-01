@@ -112,6 +112,13 @@ compact exact-count indexes. It completed on the inactive full-size target in
 passed, including actual connection-error Retry recovery and long-form/empty
 filters. Full-data timings and complete recovery still gate activation; the
 live services continue using SQLite.
+All ten full-size restricted-reader queries now pass under their ordinary
+30-second limit, with exact SQLite result comparisons. Overview measured
+11.327 s, workspace statistics 1.792 s and long-form 9.487 s (SQLite's long-form
+comparison took 228.188 s). A recent-channel age crossed a day boundary between
+reads; the immediate recheck matched every field including age, with the first
+report preserved privately. Native full-size backup/off-host recovery is now
+running against the inactive copy. The live SQLite services remain available.
 The final coordinated pause may use the verified compressed quiescent recovery
 helper after all index processes drain and WAL is checkpointed. A continuous
 pause guard, unchanged source bytes, full integrity/relationship checks and

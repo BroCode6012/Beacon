@@ -2,6 +2,20 @@
 
 ## Update: exact-statistics indexes — 2026-10-01
 
+All ten actual restricted-reader queries now pass with the normal 30-second
+statement limit. Measurements: Overview 11.327 s, topics 3.282 s, workspaces
+1.792 s, opportunities 5.053 s, History 3.377 s, low-subscriber/high-view
+2.611 s, long-form 9.487 s, recent discoveries 8.549 s, matching count 3.222 s
+and Saved membership 0.064 s. These are one full-size trial, not latency promises.
+The SQLite long-form comparison took 228.188 s versus PostgreSQL's 9.487 s.
+All ten comparisons match every returned field and order. One channel's age
+crossed a day boundary while the slower SQLite comparison ran; an immediate
+native/SQLite recheck matched all recent fields including age. The initial
+clock-boundary comparison is retained privately. Full-size native backup,
+off-host verification and recovery are running; activation remains pending.
+The new staged release contains only pinned Beacon `12ed83d` and Quill
+`2997275` source, excluding unrelated concurrent working-tree edits.
+
 Schema version 6 adds one covering video index for workspace/format reads and
 two compact indexes for exact discovery/history counts. The explicit owner
 upgrade preserves application records and remains separate from service startup.
