@@ -27,6 +27,14 @@ Saved/reconnect/all-screen/auth/importer checks and a verified first production
 backup/off-host copy plus enabling both schedules remain pending.
 The app is still in maintenance; PostgreSQL has not been activated.
 
+At approximately 16:58 UTC, all 30 legacy tables had finished their initial
+comparison. The video table contains 5,120,792 records with 162,286 upserts;
+video discovery history contains 23,716,263 records with 318,729 upserts; video
+snapshot history contains 40,091,740 records with 687,861 upserts. These three
+tables reported zero deletions. The second, complete target-content verification
+is running before transaction commit. The unit remains active, the final proof
+is not yet present and its error log is empty; this is not a completed cutover.
+
 At approximately 15:44 UTC, 19 tables had completed their initial comparison;
 the large video-discovery history had compared 23.7 million records and was
 applying new records beyond the rehearsal baseline. The unit was still active,
