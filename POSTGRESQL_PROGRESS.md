@@ -1,6 +1,41 @@
 # PostgreSQL foundation — 2026-09-30
 
-## Resume here: PostgreSQL live; production backup verification pending — 2026-10-02
+## Resume here: PostgreSQL live; filter fix and backup verification pending — 2026-10-02
+
+Update around 18:08 UTC: actual production Real Time (24h and Newest), Find,
+Agent and Overview have loaded. The importer has zero remaining local/remote
+bundles and no errors; the Agent ledger subsequently changed to Delivering.
+All active index services passed the PostgreSQL selection guard. A live
+Long-form query repeatedly hit its 30-second statement limit. A candidate
+shared-engine fix filters eligible channels before reading indexed video
+durations. It preserves format filtering before ranking/LIMIT. It is **not
+deployed**: only `scripter/research/store.py` and `tests/test_postgres_store.py`
+are owned uncommitted Quill changes. Focused PostgreSQL tests passed (21), and
+the relevant shared suite passed (128, one skipped). The first new regression
+fixture needed a fixed discovery timestamp and normal float tolerance; that
+test-harness correction passed. Full live read-role measurements returned
+Long-form in 25.4s, Short-form in 18.4s, and exact Long-form count in 21.0s
+while the production backup was running. The old Long-form query still timed
+out. A sorted-duration experiment also timed out and was not added.
+
+The isolated real Flet gate is running as
+`beacon-pg-format-verification-20261002.service`, PID 952762, on server
+18571/18599, with the production PostgreSQL read role. Its code-only clone is
+`/var/tmp/beacon-pg-foundation/format-verification-20261002`. The initial clone
+followed deployment state links and failed on absent optional settings; only
+that owned failed clone was removed and rebuilt excluding all state links.
+The real live index was not copied or replaced. A first preview launch lacked
+permission to traverse the private operator directory; running it as that
+directory's owner fixed the isolated harness without weakening permissions.
+Its owned laptop SSH forward is PID 39456, port 18571, and browser tab 11.
+Finish Long/Short, combined/empty filters and all six preview screens before
+committing or deploying the query patch. Preserve every unrelated Quill change.
+
+The production backup has completed its table-fingerprint pass and is writing
+`beacon-20261002T174328Z-bfd6d4e6f3b0.dump.partial`; do not mistake the partial
+file for a complete recovery set. Finish its manifest/off-host/schedule gates
+below. Keep both owned forwards until their UI work is finished, then stop
+only those forwards and the isolated verification unit.
 
 PostgreSQL was activated successfully at approximately 17:12 UTC. Final
 reconciliation committed after exact comparison of all 30 legacy tables;
