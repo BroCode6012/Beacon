@@ -1,5 +1,19 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Current checkpoint: final recovery copy running — 2026-10-02
+
+The cooperative drain completed successfully without force-killing the radar.
+All index services and the importer timer are stopped, the retained SQLite
+deployment still selects SQLite, and the existing gateway tunnel is preserved.
+The independent pause guard confirmed zero unexpected open source handles.
+`beacon-postgres-final-recovery-20261002.service` now checkpoints committed WAL
+and builds the guarded compressed final recovery archive. Its private logs are
+`/var/tmp/beacon-pg-foundation/final-recovery-20261002.log` and `.err`.
+Require its successful completion and `final-source-sealed.json` before running
+the laptop `download_final_quiescent.py` receiver. Exact off-host recovery,
+final reconciliation, activation and post-cutover checks remain pending.
+The app is in maintenance; PostgreSQL has not been activated.
+
 ## Update: overnight recovery and full cloud preview passed — 2026-10-02
 
 The detached schema-6 recovery unit finished successfully after 7,939.6 seconds.
@@ -47,6 +61,15 @@ Agent setup state. Its journal has no Python traceback. That recheck and its
 tunnel were stopped. Non-secret repaired operator/test sources are preserved
 under `D:/BeaconBackups/20261001/operators/maintenance-20261002/` and the private
 Oracle foundation directory. The running drain remains cooperative.
+
+Disk preparation verified the complete 5,417,124,928-byte ordered import
+package against its sealed manifest on both the laptop and Oracle (identical
+SHA-256). After the complete native recovery/off-host proofs passed and its
+dependent jobs were confirmed stopped, only the redundant Oracle transfer
+package was removed. Its laptop copy and manifest, the original SQLite index,
+and every native recovery archive remain. Free server space increased from
+21,982,969,856 to 27,400,097,792 bytes. The private reclaim record identifies
+the exact removed file and its retained verified copy.
 
 ## Resume here tomorrow — 2026-10-02
 
