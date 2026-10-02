@@ -14,6 +14,14 @@ the laptop `download_final_quiescent.py` receiver. Exact off-host recovery,
 final reconciliation, activation and post-cutover checks remain pending.
 The app is in maintenance; PostgreSQL has not been activated.
 
+The final job started at approximately 10:44 UTC on October 2. At 11:44 UTC
+its full SQLite integrity/relationship check was still advancing with no
+reported error; compression had not begun. The checkpointed source is
+34,982,883,328 bytes. Only this owned job's runtime memory ceiling was raised
+from 1 GiB to 4 GiB, then to 6 GiB after checking available server RAM; its PID
+remained 907853 throughout. This did not restart the job or activate PostgreSQL.
+An active unit displaying `Result=success` is not a completion proof.
+
 ## Update: overnight recovery and full cloud preview passed — 2026-10-02
 
 The detached schema-6 recovery unit finished successfully after 7,939.6 seconds.
