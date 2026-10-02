@@ -33,6 +33,21 @@ full database integrity/relationship check is still running (actual child
 PID 4544 under launcher 20932); increasing process read counters confirm
 continued work. No final off-host recovery proof has been published yet.
 
+At 14:56 UTC the receiver was still advancing with an empty error log. A second
+laptop public-address change was repaired through the existing isolated OCI
+allowlist updater; SSH access was reverified without widening the `/32` rule.
+The private final statistics operator `vacuum_final_catchup.py` is prepared
+outside Git on both hosts, with non-secret sources retained in
+`D:/BeaconBackups/20261001/operators/maintenance-20261002/`. It reuses the tested
+VACUUM ANALYZE procedure, requires a completed successful catch-up unit plus
+matching final recovery/reconciliation proofs, preserves the prior report, and
+continuously checks the coordinated pause. Compilation and five refusal/proof
+tests passed locally and on Oracle. The real disposable PostgreSQL test then
+verified VACUUM ANALYZE on all 32 tables with rows preserved. Its initial run
+failed before database access because the disposable test DSN was unset; the
+explicit isolated-cluster setting corrected the harness. The final statistics
+operator has not been run against the full target.
+
 At approximately 12:43 UTC, the full source integrity and foreign-key checks
 passed and the final job advanced to compression. At 13:02 UTC, the completed
 unit and final seal were observed; the independent pause/manifest/inode gate
