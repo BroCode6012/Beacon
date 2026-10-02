@@ -1,6 +1,50 @@
 # PostgreSQL foundation — 2026-09-30
 
-## Current checkpoint: final reconciliation running — 2026-10-02
+## Resume here: PostgreSQL live; production backup verification pending — 2026-10-02
+
+PostgreSQL was activated successfully at approximately 17:12 UTC. Final
+reconciliation committed after exact comparison of all 30 legacy tables;
+schema 6 has 32 tables. The final statistics unit completed successfully at
+17:09 UTC. The final private settings recovery kit was hash-verified off-host.
+The original SQLite file is retained, but live saves and imports now write to
+PostgreSQL. **Do not switch back to SQLite: that would lose those new writes.**
+
+The live release is `/opt/beacon/releases/20261001T223800Z-postgres-schema6`.
+Finder, web, gateway, save worker and radar are running. The original gateway
+tunnel and edge collectors were preserved. The actual importer units are
+`beacon-edge-sync.service` and `beacon-edge-sync.timer`; the importer completed
+successfully at 17:42 UTC. The earlier `beacon-cloud-importer` name was incorrect.
+
+Actual production UI checks have verified Saved loading, empty-link validation,
+the Disaster Breakdown save, one request after repeat submission, browser
+reconnection with three memberships retained, and the real analysis dialog.
+A repeat analysis failed with the safe generic error while membership remained
+saved. Retry subsequently succeeded, and a further instrumented real refresh
+completed without exceptions. The original failure's cause is unconfirmed;
+do not describe it as a proven provider or database defect. The diagnostic
+harness initially lost its temporary key file when stopping the worker;
+capturing the existing process environment before stopping corrected the
+harness. The normal save worker was restored. No application code was changed.
+Full/read-token health checks returned 200, and a read-token save returned 403.
+Private `live-save-and-auth-proof-20261002.json` records the successful result.
+
+The first production backup started at 17:43 UTC in
+`beacon-postgres-backup.service`, PID 948877. It is still running; this is not
+yet a verified backup. Check `systemctl show beacon-postgres-backup.service
+--property=ActiveState,SubState,Result,ExecMainStatus,MainPID` and the completed
+archive/manifest under `/var/lib/beacon/recovery/scheduled`. The daily server
+timer and laptop `BeaconPostgresBackupTransfer` task remain disabled.
+
+Next: finish actual Channels/filter/empty, Real Time, Find, Agent and Overview
+checks; confirm importer acknowledgements and PostgreSQL selection; require
+backup completion and manifest/hash verification; run the pinned laptop pull
+with `D:/BeaconBackups/PostgreSQL/operators/schema6/transfer-config.json`; verify
+both off-host byte hashes and the server acknowledgement; update measured
+archive size, then enable and verify both existing backup schedules. Finish
+documentation and commit/push only owned files. Close only the owned local
+SSH forward (PID 53632, port 18570) and owned browser tab 10 when UI checks end.
+
+### Historical checkpoint: final reconciliation running
 
 The laptop receiver completed successfully around 15:10 UTC. The recovered
 34,982,883,328-byte source passed full integrity and foreign-key checks, and

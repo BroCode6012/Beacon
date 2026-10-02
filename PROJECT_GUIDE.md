@@ -5,7 +5,21 @@ Implementation status updated: **2026-08-17**
 
 ### Current web-app review — 2026-09-30
 
-Current migration checkpoint (October 2): complete schema-6 native recovery,
+Current migration checkpoint (October 2, 17:43 UTC): PostgreSQL is live after
+verified final reconciliation of all 30 legacy tables and statistics
+preparation of all 32 target tables. The original SQLite index and verified
+off-host recovery sets are retained. New saves and imports now go to
+PostgreSQL; reverting to the old SQLite deployment would lose these writes.
+The live Saved workflow retained its three memberships across reconnect,
+saved Disaster Breakdown once and showed its real analysis. A later refresh
+failed without losing membership; retry and a further real refresh passed,
+but the original failure's cause is not established. Read-token writes remain
+denied. The actual importer is `beacon-edge-sync`, and a production cycle
+completed successfully. The first native production backup is running;
+off-host verification and enabling both recurring schedules remain pending.
+Follow the latest entry in `POSTGRESQL_PROGRESS.md`.
+
+Earlier migration checkpoint: complete schema-6 native recovery,
 all 32 table comparisons/role checks and restored-table preparation passed.
 The full-data read-only cloud preview passed all six screens and retained the
 two Saved memberships. The coordinated maintenance drain completed without
