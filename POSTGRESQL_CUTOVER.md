@@ -57,6 +57,11 @@ canonical-index readers/writers only after draining their in-flight work. Check
 actual process liveness, not a stale status file. Do not force-kill a worker to
 save time. The edge discovery/organizer may continue queuing signed bundles.
 
+When replacing Caddy routes with the maintenance response, retain the original
+route hostname matchers. Automatic certificate handling depends on those names;
+preserving only the TLS configuration is insufficient. Verify HTTPS with normal
+certificate validation and require the 503 maintenance response before advancing.
+
 Confirm no index service is still running against SQLite. Build and verify a new
 off-host snapshot while writers remain paused. The verified quiescent option
 first checks actual open database handles and continuously guards the stopped

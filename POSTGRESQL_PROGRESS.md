@@ -1,6 +1,57 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Update: overnight recovery and full cloud preview passed — 2026-10-02
+
+The detached schema-6 recovery unit finished successfully after 7,939.6 seconds.
+All 32 restored table fingerprints matched, restricted role checks passed, and
+all 32 tables completed VACUUM ANALYZE. Reader writes/DDL and writer DDL/schema
+metadata changes remain forbidden. The verified native archive remains off-host.
+
+A separate read-role-only Flet preview on Oracle used the pinned schema-6
+release and private Finder port 18598. Real clicks covered Overview, Channels,
+Long-form, Filters, Apply, Real Time, Newest, Find, Saved and Agent. Inspected
+`cloud-20261002-01` through `cloud-20261002-21` screenshots show the complete
+265,217-channel / 5,091,451-video index counts, retained two Saved memberships,
+combined subscriber/format results, an explicit 500-million-subscriber empty
+result, the empty 24-hour discovery window and populated Newest view, the Find
+form, and successful browser reload/reconnection. Agent displayed its expected
+missing-AI-settings state in this credential-free preview; no AI request was
+sent. Some intermediate captures retain loading/prior-screen states; only the
+completed captures establish the result. Screenshots remain outside Git under
+`C:/Windows/Temp/beacon-pg-store-ui/`. The preview created zero saved requests
+and its journal contained no Python traceback.
+
+The preview app and its owned laptop SSH tunnel were stopped before beginning
+the cooperative maintenance drain. The read-only maintenance plan passed with
+9,921,428,129 bytes reserved for the final archive, in addition to the protected
+8 GiB disk reserve. `beacon-postgres-maintenance-drain-20261002.service` is now
+waiting for existing work to finish before stopping index services. Its private
+logs are `/var/tmp/beacon-pg-foundation/maintenance-drain-20261002.log` and `.err`.
+No worker is force-killed. The original SQLite file and gateway tunnel stay in
+place. Final sealed/off-host recovery, reconciliation, coordinated activation,
+live Saved checks and production backup scheduling remain pending.
+
+During the drain, a real HTTPS check reproduced a maintenance-proxy defect:
+removing the route host matchers stopped Caddy's automatic certificate handling.
+The private operator now retains the original hostname matchers while returning
+503. Changed Python compiled, nine focused tests passed locally and on Oracle,
+and an isolated actual Caddy/WebSocket fixture verified maintenance, stream
+closure and restoration. A normal certificate-verified HTTPS request to the
+configured hostname now returns 503 with the upgrade message. The browser tool
+could not open that public hostname (`ERR_BLOCKED_BY_CLIENT`); no browser safety
+barrier was bypassed, so public-page visual verification remains a limitation.
+A separate read-only Flet recheck clicked all six navigation controls;
+`cloud-recheck-20261002-01` through `06` screenshots show loaded Overview,
+Channels, Real Time's empty window, Find, both Saved cards and the expected
+Agent setup state. Its journal has no Python traceback. That recheck and its
+tunnel were stopped. Non-secret repaired operator/test sources are preserved
+under `D:/BeaconBackups/20261001/operators/maintenance-20261002/` and the private
+Oracle foundation directory. The running drain remains cooperative.
+
 ## Resume here tomorrow — 2026-10-02
+
+This section records the previous overnight stopping point; use the newer
+update above for the current maintenance stage.
 
 **Safe stopping point: the live app stays on SQLite.** No cloud preview,
 maintenance pause or PostgreSQL activation has started. Our finished code is
