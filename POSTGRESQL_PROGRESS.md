@@ -22,6 +22,16 @@ from 1 GiB to 4 GiB, then to 6 GiB after checking available server RAM; its PID
 remained 907853 throughout. This did not restart the job or activate PostgreSQL.
 An active unit displaying `Result=success` is not a completion proof.
 
+While that check runs, the pinned production backup service/timer templates
+were installed and passed `systemd-analyze verify`. Their private administrator
+settings and measured baseline archive-size setting are prepared, but the
+service remains inactive and the timer disabled. The laptop task
+`BeaconPostgresBackupTransfer` is registered and verified disabled, using
+`D:/BeaconBackups/PostgreSQL/operators/schema6/` rather than working-tree code.
+Actual post-activation backup creation, exact off-host transfer/acknowledgement,
+and enabling both schedules still remain. Use the registered pinned task;
+do not replace it with the temporary working-tree registration helper.
+
 ## Update: overnight recovery and full cloud preview passed — 2026-10-02
 
 The detached schema-6 recovery unit finished successfully after 7,939.6 seconds.
