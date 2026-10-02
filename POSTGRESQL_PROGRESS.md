@@ -27,6 +27,19 @@ Saved/reconnect/all-screen/auth/importer checks and a verified first production
 backup/off-host copy plus enabling both schedules remain pending.
 The app is still in maintenance; PostgreSQL has not been activated.
 
+At approximately 15:44 UTC, 19 tables had completed their initial comparison;
+the large video-discovery history had compared 23.7 million records and was
+applying new records beyond the rehearsal baseline. The unit was still active,
+its error log empty and server free space approximately 27.8 GB. No final
+reconciliation proof or commit success is claimed from this intermediate state.
+A stronger isolated populated-table VACUUM ANALYZE test also passed: all 32
+before/after content fingerprints matched. Its first verification attempt used
+a server cursor while autocommit was still enabled; restoring transaction mode
+for the final fingerprint check corrected the test harness. The actual cleanup
+procedure was unchanged. Sources remain outside Git in the private operators
+recovery folder. An older `youtube_index.sqlite3.previous` file was observed
+while measuring backup capacity and remains untouched.
+
 ### Earlier final-source recovery checkpoints
 
 The cooperative drain completed successfully without force-killing the radar.

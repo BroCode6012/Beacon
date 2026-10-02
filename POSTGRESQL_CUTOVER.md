@@ -95,6 +95,16 @@ do not use the full rehearsal target for test save jobs before final catch-up.
 If provider descriptions contain NULs, use the same explicit normalization option
 and preserve the catch-up report's original-byte audit in the recovery set.
 
+After final reconciliation commits, run VACUUM ANALYZE across all 32 inactive
+target tables while the coordinated pause remains guarded. Keep a new final
+preparation report anchored to the reconciled source hash; preserve the earlier
+restore-preparation report. The private `vacuum_final_catchup.py` operator
+requires the completed successful catch-up unit and matching sealed/off-host/
+reconciliation proofs before reusing the verified preparation procedure.
+Its refusal gates and real disposable PostgreSQL tests passed, including exact
+before/after fingerprints of populated tables. This prepares visibility maps
+and planner statistics without changing application records.
+
 At this point, preserve a private recovery set for service definitions, host and
 database settings, watchlist configuration, the radar queue, and the classifier
 model. Take a consistent queue backup rather than a raw copy of an active WAL
