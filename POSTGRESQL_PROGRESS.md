@@ -1,5 +1,54 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Resume here tomorrow — 2026-10-02
+
+**Safe stopping point: the live app stays on SQLite.** No cloud preview,
+maintenance pause or PostgreSQL activation has started. Our finished code is
+committed on `codex/postgresql-foundation` (Beacon `2ccf1ac`, Quill `2997275`
+before this resume-note commit). Other agents' working-tree changes are excluded.
+Local test app instances and their PostgreSQL SSH tunnel have been stopped.
+
+Finished: the full import and exact-result comparisons passed; schema 6 and its
+statistics indexes passed the tests and isolated screen checks. The complete
+32-table native backup and its protected laptop copy both passed verification.
+The pinned deployment is prepared but inactive. Backup schedules are prepared,
+not enabled.
+
+**Still running on Oracle:** `beacon-postgres-schema6-recovery-20261001.service`.
+It restores only the inactive PostgreSQL target, checks all 32 tables and role
+permissions, then runs `VACUUM ANALYZE`. It runs independently of this laptop
+and stops before preview or activation. Leave it alone tonight.
+
+Tomorrow, run this read-only check from PowerShell:
+
+```powershell
+ssh -o BatchMode=yes -o ConnectTimeout=10 -i C:\Users\user\.ssh\signal_edge_oracle_ed25519 ubuntu@51.170.132.206 "sudo -n systemctl show beacon-postgres-schema6-recovery-20261001.service --property=ActiveState,SubState,Result,ExecMainStatus,MainPID; sudo -n cat /var/tmp/beacon-pg-foundation/rehearsal-schema6-status.json; sudo -n tail -n 20 /var/tmp/beacon-pg-foundation/schema6-recovery.log"
+```
+
+An active unit is still working, even if `Result=success` is displayed. Require
+a completed successful unit, final state
+`recovery_verified_preview_and_cutover_still_pending`, and verified 32-table
+reports in `native-recovery-result.json` (schema 6 and role checks) and
+`native-read-preparation-after-restore.json`. Reports are under
+`/var/tmp/beacon-pg-foundation/`. If it failed, inspect the logs and repair only
+the inactive target; do not blindly restart the import or remove recovery files.
+
+Next steps, in order:
+
+1. Verify those recovery proofs and confirm the live services still use SQLite.
+2. After recovery passes, use `prepare_full_cloud_preview.py` with the pinned
+   `/opt/beacon/releases/20261001T223800Z-postgres-schema6` release. Run a separate
+   read-only preview and check all six screens. No full-target save jobs yet.
+3. Check disk space and the recovery archives; announce the planned maintenance
+   window before draining writers. Capture and verify the final SQLite recovery
+   copy off-host, catch up PostgreSQL, and verify the private recovery settings.
+4. Activate only after those gates pass. Test saving DisasterBreakdown, duplicate
+   saves, reconnect/retry, authorization, and collector/radar progress. Verify a
+   real production backup and off-host transfer before enabling backup schedules.
+
+The local Python 3.11+ upgrade remains open before October 4; coordinate it with
+the other agent's shared-runtime work. Oracle already uses Python 3.12.3.
+
 ## Update: full native archive verified off-host — 2026-10-01
 
 The native schema-6 archive completed with all 32 table fingerprints matching
