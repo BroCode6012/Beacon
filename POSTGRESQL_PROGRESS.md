@@ -1,6 +1,33 @@
 # PostgreSQL foundation — 2026-09-30
 
-## Current checkpoint: final off-host recovery running — 2026-10-02
+## Current checkpoint: final reconciliation running — 2026-10-02
+
+The laptop receiver completed successfully around 15:10 UTC. The recovered
+34,982,883,328-byte source passed full integrity and foreign-key checks, and
+the 8,701,371,465-byte archive and recovered source match the sealed cloud
+hashes exactly. `final-source-offhost-verified.json` is verified on both hosts;
+the independent pause gate and all source/archive manifests agree.
+
+After a fresh full hash of the server archive matched the verified laptop copy,
+only the redundant generated cloud `cutover-quiescent.sqlite3.gz` was removed.
+Its manifest, seal and proof remain. The laptop compressed archive and healthy
+recovered database, canonical cloud SQLite file and native PostgreSQL recovery
+archive are retained. Private `final-source-compressed-reclaim-20261002.json`
+records the exact deletion and 27,713,564,672 bytes of remaining server space.
+
+`beacon-postgres-final-catchup-20261001.service` started at approximately 15:14
+UTC with its existing guarded reconciliation operator, a six-hour limit and
+6 GiB memory ceiling after checking available RAM. Its logs are
+`/var/tmp/beacon-pg-foundation/final-catchup-20261002.log` and `.err`.
+Require unit completion, Result success, ExecMainStatus 0 and the matching
+verified 30-table `final-reconciliation-result.json` before proceeding.
+Next run the prepared `vacuum_final_catchup.py`, capture/verify the final
+private settings kit, then plan/apply coordinated activation. Actual production
+Saved/reconnect/all-screen/auth/importer checks and a verified first production
+backup/off-host copy plus enabling both schedules remain pending.
+The app is still in maintenance; PostgreSQL has not been activated.
+
+### Earlier final-source recovery checkpoints
 
 The cooperative drain completed successfully without force-killing the radar.
 All index services and the importer timer are stopped, the retained SQLite

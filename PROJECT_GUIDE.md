@@ -10,12 +10,16 @@ all 32 table comparisons/role checks and restored-table preparation passed.
 The full-data read-only cloud preview passed all six screens and retained the
 two Saved memberships. The coordinated maintenance drain completed without
 force-killing the radar; the guarded final recovery copy passed full source
-checks and was sealed successfully. Exact laptop recovery verification is now
-running while production still selects SQLite and the app stays in maintenance.
+checks and was sealed successfully. Exact laptop recovery passed full health
+and byte comparisons. Guarded final reconciliation is now running while
+production still selects SQLite and the app stays in maintenance. The redundant
+generated cloud gzip was removed only after a fresh whole-file hash agreed with
+the healthy off-host recovery; the original SQLite and all retained recovery
+sets remain available, with about 27.7 GB free before reconciliation.
 A reproduced
 Caddy maintenance HTTPS defect was repaired by retaining route host matchers,
 with focused tests, a real proxy fixture and a separate six-screen recheck.
-Final off-host recovery, catch-up and activation remain pending. Use the newest
+Final catch-up, target statistics preparation and activation remain pending. Use the newest
 entry in `POSTGRESQL_PROGRESS.md`; the rehearsal descriptions below are history.
 
 The next work is the reliable cloud foundation and PostgreSQL migration plan
