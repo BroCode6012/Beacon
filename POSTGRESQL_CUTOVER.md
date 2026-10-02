@@ -4,8 +4,11 @@ This is the operator's procedure. PostgreSQL became live on October 2 at
 approximately 17:12 UTC after verified final reconciliation and preparation.
 The original SQLite index remains in place as recovery material. New saves and
 imports write to PostgreSQL; do not revert to the old SQLite deployment after
-activation. First production backup/off-host and schedule verification remain
-pending; see `POSTGRESQL_PROGRESS.md` for the current checkpoint. Private
+activation. First production native backup, exact off-host verification and
+both recurring schedules passed their final checks on October 2 at 20:36 UTC.
+The normal laptop scheduled task returned result 0. Same-channel write waits
+and further search/ranking improvements remain separate development work.
+See `POSTGRESQL_PROGRESS.md` for the current checkpoint. Private
 settings and recovery files stay outside Git.
 
 ## Finish the rehearsal first
@@ -146,8 +149,9 @@ Before closing the migration, establish a tested recurring native backup and
 off-host transfer procedure with visible failure reporting and enough disk reserve
 for a new archive. Choose retention from actual archive sizes. Never discard the
 last verified recovery set to make room for an unverified replacement.
-`postgres_backup_schedule.py` and the daily `beacon-postgres-backup` templates
-are staged support, not an enabled schedule. Set the private
+`postgres_backup_schedule.py` and the daily `beacon-postgres-backup` units are
+verified and enabled in the current deployment. For another deployment, install
+them disabled until its own full-size recovery/off-host gates pass. Set the private
 `postgres-backup.env` measured `BEACON_BACKUP_EXPECTED_BYTES` only after the
 full native archive is measured, and preserve the private administrator settings
 as `postgres-admin.env`. The wrapper keeps two off-host verified sets, preserves

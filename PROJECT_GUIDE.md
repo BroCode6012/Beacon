@@ -1,23 +1,34 @@
 # Beacon — Codebase Investigation and Working Plan
 
 Investigation date: **2026-07-10**  
-Implementation status updated: **2026-08-17**
+Implementation status updated: **2026-10-02**
 
 ### Current web-app review — 2026-09-30
 
-Current migration checkpoint (October 2, 17:43 UTC): PostgreSQL is live after
+Current migration checkpoint (October 2, 20:36 UTC): PostgreSQL is live after
 verified final reconciliation of all 30 legacy tables and statistics
 preparation of all 32 target tables. The original SQLite index and verified
 off-host recovery sets are retained. New saves and imports now go to
 PostgreSQL; reverting to the old SQLite deployment would lose these writes.
-The live Saved workflow retained its three memberships across reconnect,
-saved Disaster Breakdown once and showed its real analysis. A later refresh
-failed without losing membership; retry and a further real refresh passed,
-but the original failure's cause is not established. Read-token writes remain
-denied. The actual importer is `beacon-edge-sync`, and a production cycle
-completed successfully. The first native production backup is running;
-off-host verification and enabling both recurring schedules remain pending.
-Follow the latest entry in `POSTGRESQL_PROGRESS.md`.
+The live Saved workflow retained three memberships across reconnect and saved
+Disaster Breakdown once with real analysis. A later refresh encountered three
+confirmed channel-row lock timeouts; membership was retained and later retry
+passed. The blocking writer was not identified. PostgreSQL importer transaction
+size remains a follow-up. Read-token writes remain denied. The actual importer
+is `beacon-edge-sync`, with successful production rounds and no remaining bundles.
+Shared commit `bd6f9a4` fixes a reproduced Long-form timeout by filtering eligible
+channels before indexed duration reads; its focused/shared tests and separate
+six-screen Flet verification passed. The deployed live Long-form filter loaded
+40+ cards. Long/Short queries still take tens of seconds under backup load.
+The first native production backup and exact off-host copy are verified. Both
+recurring schedules are enabled: daily on the server and every four hours/logon
+on the awake, online laptop. The normal laptop task returned actual result 0.
+The first failed scheduled attempt did not reproduce; its failure reporting and
+retries remain in place. All live closing checks passed and owned test resources
+are stopped. The migration milestone is complete. Next: shorten same-channel
+write waits, measure query speed under load, then improve ranking quality.
+Follow the newest entry in
+`POSTGRESQL_PROGRESS.md`; earlier migration entries below are historical.
 
 Earlier migration checkpoint: complete schema-6 native recovery,
 all 32 table comparisons/role checks and restored-table preparation passed.

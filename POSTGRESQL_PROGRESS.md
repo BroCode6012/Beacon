@@ -1,83 +1,109 @@
 # PostgreSQL foundation — 2026-09-30
 
-## Resume here: PostgreSQL live; filter fix and backup verification pending — 2026-10-02
+## Resume here: migration complete; next fix same-channel write waits — 2026-10-02
 
-Update around 18:08 UTC: actual production Real Time (24h and Newest), Find,
-Agent and Overview have loaded. The importer has zero remaining local/remote
-bundles and no errors; the Agent ledger subsequently changed to Delivering.
-All active index services passed the PostgreSQL selection guard. A live
-Long-form query repeatedly hit its 30-second statement limit. A candidate
-shared-engine fix filters eligible channels before reading indexed video
-durations. It preserves format filtering before ranking/LIMIT. It is **not
-deployed**: only `scripter/research/store.py` and `tests/test_postgres_store.py`
-are owned uncommitted Quill changes. Focused PostgreSQL tests passed (21), and
-the relevant shared suite passed (128, one skipped). The first new regression
-fixture needed a fixed discovery timestamp and normal float tolerance; that
-test-harness correction passed. Full live read-role measurements returned
-Long-form in 25.4s, Short-form in 18.4s, and exact Long-form count in 21.0s
-while the production backup was running. The old Long-form query still timed
-out. A sorted-duration experiment also timed out and was not added.
+Final migration checkpoint at 20:36 UTC: PostgreSQL is live. Final reconciliation
+compared all 30 legacy tables exactly; schema 6 has 32 tables. Statistics preparation and the
+full native restore rehearsal passed. The retained original SQLite and verified
+laptop recovery sets remain available. **Do not switch back to SQLite after new
+PostgreSQL writes.** A code rollback must retain the PostgreSQL backend.
 
-The isolated real Flet gate is running as
-`beacon-pg-format-verification-20261002.service`, PID 952762, on server
-18571/18599, with the production PostgreSQL read role. Its code-only clone is
-`/var/tmp/beacon-pg-foundation/format-verification-20261002`. The initial clone
-followed deployment state links and failed on absent optional settings; only
-that owned failed clone was removed and rebuilt excluding all state links.
-The real live index was not copied or replaced. A first preview launch lacked
-permission to traverse the private operator directory; running it as that
-directory's owner fixed the isolated harness without weakening permissions.
-Its owned laptop SSH forward is PID 39456, port 18571, and browser tab 11.
-Finish Long/Short, combined/empty filters and all six preview screens before
-committing or deploying the query patch. Preserve every unrelated Quill change.
+The live release is
+`/opt/beacon/releases/20261002T183918Z-postgres-format-bd6f9a4`.
+Shared commit `bd6f9a4` is committed/pushed on `codex/postgresql-foundation`.
+Only the owned `scripter/research/store.py` and `tests/test_postgres_store.py`
+were staged; all unrelated Quill changes and Beacon's taskbar change remain
+untouched. The release was built from the clean pinned schema-6 package plus
+those two exact committed files. Only Finder restarted; web, gateway, radar,
+save worker, the gateway tunnel and collectors retained their processes.
 
-The production backup has completed its table-fingerprint pass and is writing
-`beacon-20261002T174328Z-bfd6d4e6f3b0.dump.partial`; do not mistake the partial
-file for a complete recovery set. Finish its manifest/off-host/schedule gates
-below. Keep both owned forwards until their UI work is finished, then stop
-only those forwards and the isolated verification unit.
+The reproduced Long-form statement timeout is fixed by first selecting eligible
+channels, then looking up their indexed video durations. The format predicate
+still applies before ranking and page limits; SQLite behavior is unchanged.
+Focused PostgreSQL tests passed (21); the relevant shared suite passed (128,
+one skipped); relevant Beacon tests passed (113). A broad source-only Linux
+Beacon run had the same three failures and seven errors before and after;
+missing Git/assets/AI environment prevented claiming all 317 tests passed.
+The separate real Flet instance passed Overview, Channels, Real Time, Find,
+Saved and Agent, including Long/Short, combined filters and a genuine empty
+result. Its journal had no runtime exceptions. The deployed production
+Long-form Retry subsequently loaded 40+ cards, captured in
+`live-pg-20261002-19-long-form-result.png`. Under backup load the new query took
+25.4s for Long-form and 18.4s for Short-form; further speed work remains.
 
-PostgreSQL was activated successfully at approximately 17:12 UTC. Final
-reconciliation committed after exact comparison of all 30 legacy tables;
-schema 6 has 32 tables. The final statistics unit completed successfully at
-17:09 UTC. The final private settings recovery kit was hash-verified off-host.
-The original SQLite file is retained, but live saves and imports now write to
-PostgreSQL. **Do not switch back to SQLite: that would lose those new writes.**
+Actual production Saved checks passed the Disaster Breakdown save, repeat
+submission without duplicate membership, browser reconnection retaining three
+channels, its real analysis dialog, retry and a further successful refresh.
+Read-token writes returned 403. A previous refresh exhausted its retries
+without losing membership. PostgreSQL's server log now confirms three
+channel-row lock timeouts at 17:21:22, 17:21:47 and 17:22:31 UTC. The blocking
+writer's identity was not proven. The importer backlog was subsequently drained.
+Shortening PostgreSQL importer transactions is a follow-up, not an implemented
+fix. Do not claim that changing databases eliminates every same-row wait.
 
-The live release is `/opt/beacon/releases/20261001T223800Z-postgres-schema6`.
-Finder, web, gateway, save worker and radar are running. The original gateway
-tunnel and edge collectors were preserved. The actual importer units are
-`beacon-edge-sync.service` and `beacon-edge-sync.timer`; the importer completed
-successfully at 17:42 UTC. The earlier `beacon-cloud-importer` name was incorrect.
+The actual importer is `beacon-edge-sync.service`/`.timer`; production rounds
+completed with result 0 and no remaining bundles. All active index services
+passed the PostgreSQL selection guard. The gateway tunnel remains PID 658711.
+A fresh private live-deployment/roles/configuration/operational-queue recovery
+kit was also hash-verified on the laptop. It contains secrets, stays outside Git,
+and must never be displayed or unpacked into a public directory.
 
-Actual production UI checks have verified Saved loading, empty-link validation,
-the Disaster Breakdown save, one request after repeat submission, browser
-reconnection with three memberships retained, and the real analysis dialog.
-A repeat analysis failed with the safe generic error while membership remained
-saved. Retry subsequently succeeded, and a further instrumented real refresh
-completed without exceptions. The original failure's cause is unconfirmed;
-do not describe it as a proven provider or database defect. The diagnostic
-harness initially lost its temporary key file when stopping the worker;
-capturing the existing process environment before stopping corrected the
-harness. The normal save worker was restored. No application code was changed.
-Full/read-token health checks returned 200, and a read-token save returned 403.
-Private `live-save-and-auth-proof-20261002.json` records the successful result.
+The first production native backup completed successfully around 18:18 UTC:
+`beacon-20261002T174328Z-bfd6d4e6f3b0.dump`, 4,988,633,178 bytes, with all 32 table
+fingerprints and a completed manifest. At 18:56 UTC its laptop copy completed
+with matching size/hash, matching manifest and the server's exact off-host
+acknowledgement. Both copies are retained. Destination:
+`D:/BeaconBackups/PostgreSQL/archives`. The measured archive size is now in the
+private backup settings. About 22.6 GB free on the server covers two further
+archives plus the protected 8 GiB reserve, with about 4.0 GB additional margin
+at this measurement; data growth must still respect the reserve.
 
-The first production backup started at 17:43 UTC in
-`beacon-postgres-backup.service`, PID 948877. It is still running; this is not
-yet a verified backup. Check `systemctl show beacon-postgres-backup.service
---property=ActiveState,SubState,Result,ExecMainStatus,MainPID` and the completed
-archive/manifest under `/var/lib/beacon/recovery/scheduled`. The daily server
-timer and laptop `BeaconPostgresBackupTransfer` task remain disabled.
+Both backup schedules are enabled and verified. The daily server timer is
+active, with its next run October 3 at 02:05:21 UTC (daily 02:00 plus up to 15
+minutes of random delay). The normal pinned laptop task ran at 20:33 UTC,
+completed its local hash/server acknowledgement at 20:34:17 UTC and returned
+actual Task Scheduler result 0. Its next run is 21:00 UTC; it also runs at logon
+and repeats every four hours with network checks, missed-run recovery and two
+15-minute failure retries. The laptop must be awake, online and logged in for
+its interactive-user transfer; the cloud backup runs independently. Server
+retention preserves all unmirrored archives and refuses a third unmirrored set.
 
-Next: finish actual Channels/filter/empty, Real Time, Find, Agent and Overview
-checks; confirm importer acknowledgements and PostgreSQL selection; require
-backup completion and manifest/hash verification; run the pinned laptop pull
-with `D:/BeaconBackups/PostgreSQL/operators/schema6/transfer-config.json`; verify
-both off-host byte hashes and the server acknowledgement; update measured
-archive size, then enable and verify both existing backup schedules. Finish
-documentation and commit/push only owned files. Close only the owned local
-SSH forward (PID 53632, port 18570) and owned browser tab 10 when UI checks end.
+The first actual scheduled transfer attempt reported result 1 for a private
+server operation. Its precise cause was not established. A temporary diagnostic
+action subsequently passed catalog, manifest and acknowledgement calls with
+result 0. The original pinned action was restored and independently passed.
+The diagnostic action is no longer installed. No app code was changed for this
+unreproduced failure; nonzero task/status reporting and retries are retained.
+
+Final live checks at 20:36 UTC passed full/read health (200), active PostgreSQL
+selection for all index services, successful importer result 0, preserved
+original SQLite size/inode and the original gateway tunnel PID 658711. Private
+`migration-complete-20261002.json` records all closing proofs; activation and
+maintenance records now mark post-activation checks complete with writers active.
+No migration gate or one-off test/transfer job remains running.
+
+Next development steps:
+
+1. Reproduce contention between an import and an analysis editing the same
+   channel in a disposable PostgreSQL schema. Keep production data untouched.
+2. Shorten PostgreSQL importer transactions; preserve commit-before-ack,
+   idempotence, signed-bundle isolation and SQLite behavior. Complete the focused,
+   shared and separate real six-screen Flet gate before deploying another change.
+3. Measure Long/Short and combined-filter latency under active importing;
+   improve it with evidence instead of raising timeouts blindly.
+4. Improve topic/faceless/replicable classification and ranking with a labeled
+   benchmark, particularly the remaining false positives seen in browsing.
+
+Cleanup is complete for my temporary app verification: the separate Flet unit
+and disposable PostgreSQL cluster on port 18543 are stopped; owned laptop
+forwards 39456/53632 are closed and owned tabs 10/11 are closed. Production
+PostgreSQL on 5432, the live app, original gateway tunnel and user YouTube tab
+were preserved. Verified recovery copies and the enabled schedules are retained.
+
+After this migration milestone, address the confirmed same-channel write waits
+with a small, separately verified importer transaction change, then measure
+search speed and improve classification/ranking against a labeled benchmark.
+Those follow-ups are not completed by the database migration.
 
 ### Historical checkpoint: final reconciliation running
 
