@@ -1,18 +1,42 @@
 # PostgreSQL foundation — 2026-09-30
 
-## Current checkpoint: final recovery copy running — 2026-10-02
+## Current checkpoint: final off-host recovery running — 2026-10-02
 
 The cooperative drain completed successfully without force-killing the radar.
 All index services and the importer timer are stopped, the retained SQLite
 deployment still selects SQLite, and the existing gateway tunnel is preserved.
 The independent pause guard confirmed zero unexpected open source handles.
-`beacon-postgres-final-recovery-20261002.service` now checkpoints committed WAL
-and builds the guarded compressed final recovery archive. Its private logs are
+`beacon-postgres-final-recovery-20261002.service` completed successfully:
+inactive, MainPID 0, Result success and ExecMainStatus 0. It checkpointed
+committed WAL and sealed the guarded compressed final recovery archive.
+Its private logs are
 `/var/tmp/beacon-pg-foundation/final-recovery-20261002.log` and `.err`.
-Require its successful completion and `final-source-sealed.json` before running
-the laptop `download_final_quiescent.py` receiver. Exact off-host recovery,
-final reconciliation, activation and post-cutover checks remain pending.
+The final seal and archive manifest agree on the 34,982,883,328-byte original
+and 8,701,371,465-byte compressed archive; full integrity and relationship
+checks passed, and the retained original/private alias share the same inode.
+The laptop `download_final_quiescent.py` receiver is running (owned launcher
+PID 20932), transferring into `D:/BeaconBackups/20261001/`. Its logs are
+`C:/Windows/Temp/beacon-pg-store-ui/final-recovery-transfer-20261002.log` and
+`.err`. The read-only SSH status monitor ended when the source job completed.
+Transfer alone is not recovery verification: require the receiver's successful
+exact decompression/hash/integrity checks and `final-source-offhost-verified.json`
+on both hosts. Final reconciliation, activation and post-cutover checks remain
+pending.
 The app is in maintenance; PostgreSQL has not been activated.
+
+At approximately 12:43 UTC, the full source integrity and foreign-key checks
+passed and the final job advanced to compression. At 13:02 UTC, the completed
+unit and final seal were observed; the independent pause/manifest/inode gate
+passed before the laptop receiver was started.
+
+Next: verify off-host recovery, run the guarded final catch-up unit
+`beacon-postgres-final-catchup-20261001.service`, then refresh the inactive
+target's visibility maps/statistics with the existing tested VACUUM ANALYZE
+procedure and a new final-catch-up report. Capture/verify the final private
+settings kit before the activation plan/apply steps. After activation, test
+the real Disaster Breakdown save, reconnection, all six screens, authorization
+and importer acknowledgements. Create/verify a real production backup and its
+off-host copy before enabling the prepared server/laptop schedules.
 
 The final job started at approximately 10:44 UTC on October 2. At 11:44 UTC
 its full SQLite integrity/relationship check was still advancing with no

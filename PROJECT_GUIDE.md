@@ -9,8 +9,10 @@ Current migration checkpoint (October 2): complete schema-6 native recovery,
 all 32 table comparisons/role checks and restored-table preparation passed.
 The full-data read-only cloud preview passed all six screens and retained the
 two Saved memberships. The coordinated maintenance drain completed without
-force-killing the radar; the guarded final recovery copy is now running while
-production still selects SQLite. A reproduced
+force-killing the radar; the guarded final recovery copy passed full source
+checks and was sealed successfully. Exact laptop recovery verification is now
+running while production still selects SQLite and the app stays in maintenance.
+A reproduced
 Caddy maintenance HTTPS defect was repaired by retaining route host matchers,
 with focused tests, a real proxy fixture and a separate six-screen recheck.
 Final off-host recovery, catch-up and activation remain pending. Use the newest
