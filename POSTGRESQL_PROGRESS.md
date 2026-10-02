@@ -24,6 +24,15 @@ on both hosts. Final reconciliation, activation and post-cutover checks remain
 pending.
 The app is in maintenance; PostgreSQL has not been activated.
 
+The complete archive arrived around 14:01 UTC and passed its local SHA-256
+check. All 34,982,883,328 source bytes were recovered by approximately 14:07
+UTC. A separate readback independently hashed both stored files and matched
+the sealed source/archive exactly; its proof is
+`D:/BeaconBackups/20261001/final-source-readback-verified.json`. The receiver's
+full database integrity/relationship check is still running (actual child
+PID 4544 under launcher 20932); increasing process read counters confirm
+continued work. No final off-host recovery proof has been published yet.
+
 At approximately 12:43 UTC, the full source integrity and foreign-key checks
 passed and the final job advanced to compression. At 13:02 UTC, the completed
 unit and final seal were observed; the independent pause/manifest/inode gate
