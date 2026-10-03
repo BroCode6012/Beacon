@@ -5,6 +5,16 @@ Implementation status updated: **2026-10-03**
 
 ### Current web-app review — 2026-09-30
 
+October 3 search-attribution implementation: shared commit `55acfbb` is live in
+app release `20261003T145500Z-query-yield-55acfbb` and collector release
+`20261003T145500Z-query-provenance-55acfbb`. Signed query-run provenance credits
+actual committed new IDs once when searches overlap. Bounded read-only Finder
+`discovery_yield` separates historical unknowns and small samples from measured
+query/topic/provider/sort evidence. Tests, private PostgreSQL, six-screen Flet,
+save/import overlap, retry/reconnect and token authorization passed. Scheduling,
+quotas and opportunity gates remain unchanged; faster daily growth is still
+unproven. See `DISCOVERY_THROUGHPUT_PLAN.md` for limitations and next steps.
+
 October 3 discovery implementation: shared commits `caaa203`/`72e83b1` now record
 actual committed new versus existing channel IDs per signed import and avoid
 channel API lookups whose unchanged video results would be discarded. The live

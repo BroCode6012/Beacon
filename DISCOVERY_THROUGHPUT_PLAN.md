@@ -4,6 +4,85 @@ The user wants a much larger useful channel catalogue and prioritizes collection
 speed over the remaining feature roadmap. This is a diagnosis and development
 sequence; no discovery settings, workers or live data were changed for this audit.
 
+## Search-by-search discovery measurement - 2026-10-03
+
+Shared commit `55acfbb` records which search first matched each globally new
+channel inserted by a signed discovery import. Collector query-run rows now
+carry bounded channel provenance. Importer credit uses actual successful inserts;
+overlapping searches get one credit per new channel, with the earliest completed
+matching search credited. This is recorded provenance, not an isolated causal
+experiment. Failed imports and replayed bundles cannot inflate the result.
+
+The read-only Finder tool `discovery_yield` reports query/topic/provider/sort,
+successes, failures, credited new channels and emitted existing-channel matches.
+It requires three successful samples by default before ranking a query, bounds
+hours to 1-168, and reads at most 2,048 discovery ledger entries. Historical or
+partial records remain explicitly unmeasured. Its counted-new total covers only
+bundles with the newer insert counters; it is not a replacement for whole-index
+historical growth counts. Existing-channel matches refer to emitted delta parents,
+not every unchanged result on a search page. No table/schema migration, historical
+backfill, plan, quota or scheduling change was made. The existing signed ledger
+and post-commit ACK retain integer-valued counters. Beacon and Production Lab
+share this engine; the Lab routes this read tool to the shared discovery index.
+
+Verification: seven Python files compiled; 29 focused tests plus 43 subtests;
+150 relevant shared tests plus 176 subtests against private PostgreSQL; 95 Beacon
+tests plus 19 subtests; and eight collector tests in the actual candidate edge
+runtime. Separate real Flet verification clicked Overview, Channels, Real Time,
+Find, Saved and Agent. Screenshots proved only the two qualified fixture channels
+surfaced after three incomplete catalogue inserts, Saved was initially empty,
+Save & analyse completed while the neighboring import remained open, deliberately
+failed analysis retained its request, Retry reached Ready, and browser reload
+retained two saved results. Agent's missing-AI setup state was expected; no AI
+answers were tested. Signed overlapping fixtures credited three new channels once
+across six successful searches; a real unchanged collector fixture added one
+successful search and no new channels. New read-tool calls returned 200 for full
+and read credentials; read-token writes returned 403. No unhandled exceptions
+were found in the test app or save worker.
+
+Live app: `20261003T145500Z-query-yield-55acfbb`; collector:
+`20261003T145500Z-query-provenance-55acfbb`. Only Finder and the discovery worker
+restarted. The collector exited cooperatively with status 0. Web, gateway, radar,
+save worker and organizer process IDs stayed unchanged. PostgreSQL stays canonical.
+Both live health checks and read-tool calls passed; the initial report correctly
+said collecting, with older bundles unmeasured. No increased daily growth rate is
+claimed. Next: collect comparable samples, then test a bounded productive/search
+exploration allocation with a separate refresh budget before expanding workers.
+
+Production end-to-end confirmation at 15:02:53 UTC: the normal timer imported
+two discovery/organization bundles, 1,420 channel records, six globally new
+channel IDs and 1,414 existing entries (distinct within each bundle). All six new
+IDs received search provenance, with zero unattributed new IDs in that discovery
+bundle. The report separated 124 successful searches and one failed search;
+125 query identities remain below the default three-success minimum. Both signed
+ACKs reached the collector after commit; zero failed imports and zero local or
+remote backlog. Older counted additions remain explicitly unattributed. This
+single round does not establish a daily growth improvement.
+
+Cleanup stopped `beacon-query-yield-ui-20261003.service`, dropped only disposable
+schema `beacon_save_ui_6540d1dc9d94`, stopped private PostgreSQL 18543, closed test
+tab 16 and stopped owned SSH forward 12684. Production PostgreSQL 5432, the
+original gateway tunnel and recovery assets remain retained. Private proof files
+are `query-yield-release-activated-20261003.json`,
+`query-yield-normal-import-proof-20261003.json` and
+`query-yield-cleanup-20261003.json` in `/var/tmp/beacon-pg-foundation`.
+
+Separate browser evidence (generated files in
+`C:/Windows/Temp/beacon-query-yield-20261003/`, not committed):
+
+| Click / action | Capture | What was visually verified |
+|---|---|---|
+| Open Overview | `01-overview.png` | Connected Finder; 5 fixture channels and 24 videos |
+| Activate Channels | `02-channels.png` | Exactly two qualified channels; three incomplete catalogue records suppressed |
+| Activate Real Time | `Real-Time.png` | Discovery window and qualified cards still load |
+| Activate Find | `Find.png` | Complete sweep field, start control and browse action |
+| Activate Saved | `Saved.png` | Empty shelf and complete link form |
+| Submit first fixture link | `save-loading.png`, `save-ready.png` | Request recorded, then Ready while neighboring import was still open (server probe confirmed overlap) |
+| Submit controlled failing link | `save-error.png` | Saved request retained; explicit retry available |
+| Activate Retry | `retry-ready.png` | Recovered second channel; two saved cards |
+| Activate Agent | `Agent.png` | Complete controls and expected missing-AI setup message |
+| Reload and reopen Saved | `save-reconnected.png` | Two Ready requests and two saved memberships retained |
+
 ## First implementation — 2026-10-03
 
 Shared commits `caaa203` and `72e83b1` add exact committed import accounting and
