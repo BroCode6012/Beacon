@@ -40,6 +40,13 @@ loaded 40+ cards; full/read health returned 200 and a read-token write returned
 403. Normal imports continue succeeding. User data, production collectors,
 gateway tunnel, web, radar and save worker were retained.
 
+The deployed Short-form screen also loaded 40+ cards. Final cleanup stopped
+only the owned `beacon-save-wait-ui-20261003.service`, private PostgreSQL 18543,
+two temporary browser tabs and local SSH forwards 46724/44440. All eight
+checked production app/database/import/backup services or timers stayed active.
+No one-off test or benchmark job remains running. Private proof:
+`/var/tmp/beacon-pg-foundation/product-fixes-20261003-complete.json`.
+
 Continue the authorized roadmap in `BEACON_ROADMAP.md`: next create a reviewed
 ranking/classification benchmark from representative real channel evidence
 before changing ranking thresholds. Steps 3–7 remain product development work;
