@@ -13,6 +13,14 @@ then completion without a panel), a deliberate failure, Retry, and Refresh
 (recovered channel present, panel absent). Overview, Channels, Real Time, Find,
 Saved and Agent were screenshot-inspected; the isolated Agent showed its expected
 missing-setup state. Test-worker/UI journals had no exceptions.
+Beacon commit `51a3515` is live in `20261003T183332Z-quiet-saved-51a3515`.
+Only the web service restarted; Finder, Saved worker, gateway, radar, discovery
+and organizer PIDs stayed unchanged. PostgreSQL activation and source hashes
+passed. The actual live Saved page shows all three channels directly below the
+form with no Latest save requests panel. All four completed durable records
+remain intact, health returned 200, and the web journal had no exceptions.
+Owned test Flet/PostgreSQL resources, browser tabs and SSH forwards were cleaned
+up after verification.
 
 ## Saved freshness and daily movement — 2026-10-03
 
