@@ -282,6 +282,7 @@ Saved cards keep their existing identity, evidence band, qualification explanati
 - **Daily movement:** A wrapping text row shows the approximate 24-hour subscriber, channel-view, and upload changes. Metric values use the existing body type and Deep Text; the time window uses Muted Steel. Missing or insufficient history is described explicitly rather than presented as zero growth.
 - **Quiet video signal:** An optional Deep Beacon Green text action with a trend icon reads “Video picking up” and the measured view change. It opens the observed video; its tooltip names the comparison and avoids implying a viral prediction. It stays inside the existing card without another tile, shadow, or alert banner.
 - **Schedule helper:** The shelf count and Refresh live action share the header row. The explanation and automatic-check schedule occupy separate text lines underneath so they remain readable at the desktop minimum. Refresh live disables while its request is submitted; the recorded check continues in the background.
+- **Unfinished requests only:** Save progress shows pending work and retryable failures. Completed requests disappear from the screen; when every request is complete, the progress panel is absent.
 
 **The Freshness Before Movement Rule.** Saved growth belongs to the last measured check: show freshness before daily changes, distinguish missing history from zero movement, and keep a video signal quieter than the evidence it supplements.
 

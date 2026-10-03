@@ -1,5 +1,19 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Saved completion notices hidden — 2026-10-03
+
+The user requested removal of persistent Ready notifications. Beacon now filters
+completed requests before the progress panel's display limit and omits the panel
+when none remain. Queued/working requests and failures with Retry remain visible;
+durable request records and the six-hour refresh worker are unchanged.
+Two regressions cover all-complete and mixed lists, including eight completed
+rows before pending/failed ones. Compilation and 69 focused Beacon tests plus
+10 subtests passed. A separate real Flet app clicked Save & analyse (pending,
+then completion without a panel), a deliberate failure, Retry, and Refresh
+(recovered channel present, panel absent). Overview, Channels, Real Time, Find,
+Saved and Agent were screenshot-inspected; the isolated Agent showed its expected
+missing-setup state. Test-worker/UI journals had no exceptions.
+
 ## Saved freshness and daily movement — 2026-10-03
 
 Cause confirmed read-only: Bertha's last recorded measurement was October 2

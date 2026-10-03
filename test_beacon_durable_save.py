@@ -71,6 +71,28 @@ class DurableSaveUI(unittest.TestCase):
         self.assertEqual(beacon_save.request_status({'status': 'failed', 'saved_at': 'now'})[0],
                          'Saved — analysis needs a retry')
 
+    def test_completed_requests_leave_no_notification_panel(self):
+        app = self.app()
+        app._watch_save_requests = Mock()
+        app._ensure = Mock(return_value={'data': [{'id': 1, 'status': 'ready'}]})
+        self.assertIsNone(app._save_requests_section())
+        app._watch_save_requests.assert_called_once()
+
+    def test_completed_requests_do_not_crowd_out_pending_or_retry_controls(self):
+        app = self.app()
+        app._watch_save_requests = Mock()
+        app._ensure = Mock(return_value={'data': [
+            *[{'id': n, 'status': 'ready', 'input_link': 'finished'} for n in range(8)],
+            {'id': 9, 'status': 'working', 'input_link': 'pending'},
+            {'id': 10, 'status': 'failed', 'input_link': 'failed'},
+        ]})
+        app.card = lambda *controls: controls
+        panel = app._save_requests_section()
+        self.assertEqual(len(panel), 3)  # Heading and two unfinished requests.
+        self.assertEqual(panel[1].controls[1].controls[1].value, 'pending')
+        self.assertEqual(panel[2].controls[1].controls[1].value, 'failed')
+        self.assertEqual(panel[2].controls[2].text, 'Retry')
+
     def test_background_redraw_reuses_the_typing_control(self):
         app = self.app()
         app._render_saved_with_field = Mock()

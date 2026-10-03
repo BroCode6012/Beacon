@@ -5,6 +5,12 @@ Implementation status updated: **2026-10-03**
 
 ### Current web-app review — 2026-09-30
 
+October 3 Saved simplification: completed `ready` requests are hidden from the
+Saved progress panel; an all-complete list produces no panel. Pending work and
+failed requests retain their existing status and Retry control. Filtering happens
+before the eight-row display limit. This is a Beacon UI change; durable request
+records and automatic background refresh remain intact.
+
 October 3 Saved tracking: shared commit `0cbfcd4` adds a bounded five-minute
 scheduler tick to the existing cloud save worker. Enabled Saved channels become
 due after six hours; manual requests take priority, queued work is deduplicated,

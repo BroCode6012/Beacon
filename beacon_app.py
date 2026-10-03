@@ -6358,15 +6358,16 @@ class BeaconApp:
             return self._loading_note("Reading save progress…")
         if "error" in entry:
             return self._error_card(entry["error"])
-        requests = entry.get("data") or []
+        requests = [request for request in (entry.get("data") or [])
+                    if request.get("status") != "ready"]
         if not requests:
             return None
         controls = [h("Latest save requests", 16)]
         for request in requests[:8]:
             title, detail = beacon_save.request_status(request)
             failed = request.get("status") == "failed"
-            color = WARN if failed else ACCENT_DARK if request.get("status") == "ready" else ACCENT2
-            icon = ft.Icons.ERROR_OUTLINE if failed else ft.Icons.CHECK_CIRCLE if request.get("status") == "ready" else ft.Icons.SCHEDULE
+            color = WARN if failed else ACCENT2
+            icon = ft.Icons.ERROR_OUTLINE if failed else ft.Icons.SCHEDULE
             row = [ft.Icon(icon, size=19, color=color), ft.Column([
                 ft.Text(title, size=14, weight=ft.FontWeight.W_700, color=color),
                 ft.Text(str((request.get("result") or {}).get("title") or request.get("input_link") or ""),
