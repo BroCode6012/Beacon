@@ -4,6 +4,54 @@ The user wants a much larger useful channel catalogue and prioritizes collection
 speed over the remaining feature roadmap. This is a diagnosis and development
 sequence; no discovery settings, workers or live data were changed for this audit.
 
+## First implementation — 2026-10-03
+
+Shared commits `caaa203` and `72e83b1` add exact committed import accounting and
+remove a reproduced redundant API lookup. Application release:
+`20261003T133022Z-discovery-yield-72e83b1`; collector release:
+`20261003T133022Z-delta-channel-72e83b1`.
+
+Each newly imported signed bundle now records `channels_new` (distinct IDs this
+transaction actually inserted) and `channels_existing` (distinct IDs already in
+the canonical index). The legacy `channels` field still counts input records.
+Metrics persist in the existing import ledger and signed acknowledgements only
+after commit. Duplicate delivery retains its original report and is excluded
+from the sync's added totals. Failed bundles roll back both reserved IDs and
+metrics. Discovery and organization remain distinguishable by bundle kind.
+Historical bundles are not relabeled; query/family attribution is still pending.
+
+The collector still checks current video views. It now requests channel details
+only for videos that will actually produce imported changes. An unchanged repeat
+needed one API request instead of two in the controlled regression; a changed
+view still triggered official channel enrichment and a snapshot. This is an API
+work saving, not proof of faster daily catalogue growth. Worker count, signed
+plans, quotas, refresh behavior and opportunity gates are retained.
+
+Verification passed 11 focused import tests, 8 collector tests, 186 relevant
+shared tests plus 183 subtests (one skip), and 95 Beacon tests plus 19 subtests.
+Both atomic patches passed separate real Flet checks of all six screens, queued
+save → Ready during imports, empty Saved, retained failed analysis → Retry →
+Ready, and browser reconnection. The collector fixture imported its signed
+unchanged query run with zero new channels and no channel-detail API request.
+No unhandled UI exceptions occurred. AI was deliberately unconfigured in these
+fixtures; no live AI-answer claim is made.
+
+The exact counter adds bounded parent reservations in the same transaction.
+A private 500-record PostgreSQL benchmark measured roughly 22–47 ms additional
+work per batch; no throughput acceleration is attributed to this measurement.
+The next substantial work is query/source attribution and a bounded coverage
+trial, followed by lightweight discovery versus deep-analysis separation.
+
+Normal production confirmation: the 13:34:54 UTC organization import refreshed
+11 existing channels and inserted zero. The 13:39:42 UTC discovery/organization
+round processed 1,463 channel records, inserted 9 globally new channel IDs and
+merged 1,454 existing entries (distinct within each bundle). Both bundles were
+acknowledged after commit; sync exited 0 with no failures or local/remote backlog.
+These are per-round observations, not a daily growth forecast. Only the discovery
+worker restarted, after cooperative exit 0; the other app workers continued.
+The temporary app, private PostgreSQL 18543, owned fixture schemas, browser tab
+and SSH forward have been cleaned up. Production PostgreSQL remains active.
+
 ## Measured live baseline
 
 Read-only checks around 10:35–10:37 UTC:

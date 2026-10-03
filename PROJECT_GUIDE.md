@@ -5,6 +5,16 @@ Implementation status updated: **2026-10-03**
 
 ### Current web-app review — 2026-09-30
 
+October 3 discovery implementation: shared commits `caaa203`/`72e83b1` now record
+actual committed new versus existing channel IDs per signed import and avoid
+channel API lookups whose unchanged video results would be discarded. The live
+app release is `20261003T133022Z-discovery-yield-72e83b1`; the discovery collector
+uses `20261003T133022Z-delta-channel-72e83b1`. Existing bundle kinds, signatures,
+commit-before-ack, quota limits, video-view checks and opportunity gates remain.
+Focused/shared tests and separate six-screen Flet, save/import overlap and
+retry/reconnection checks passed. Search-family attribution and daily growth
+improvements are not yet established; see `DISCOVERY_THROUGHPUT_PLAN.md`.
+
 October 3 priority override: the user now prioritizes discovery throughput and
 catalogue coverage. Read-only production checks measured 6,380 new channels in
 72 hours and 2,091 in 24 hours, alongside 33,389 successful daily edge searches.

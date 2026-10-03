@@ -1,5 +1,69 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Resume here: exact discovery accounting and first API saving — 2026-10-03
+
+The canonical live index remains PostgreSQL. Shared commits `caaa203` and
+`72e83b1` are committed/pushed on `codex/postgresql-foundation`. Current app:
+`/opt/beacon/releases/20261003T133022Z-discovery-yield-72e83b1`. Current collector:
+`/opt/signal-edge/releases/20261003T133022Z-delta-channel-72e83b1`.
+
+The importer now persists distinct `channels_new`/`channels_existing` counts
+after a successful commit, separately from the compatible input-record count.
+The existing ledger and signed ACK carry these counts; no schema migration or
+second catalogue is introduced. Replayed bundles retain their original counts
+and do not inflate sync totals. Failed imports leave no reserved IDs or growth
+claim. Organization versus discovery is identifiable by bundle kind, but
+per-query attribution and correcting the historical yield-estimate floor remain
+next work. Previously imported bundles are intentionally not backfilled.
+
+The collector continues official video-view checks, then enriches only channels
+whose videos produce delta records. The all-unchanged regression used 1 API
+request instead of 2; a changed view retained enrichment and snapshots. This
+does not establish a higher daily new-channel rate. Worker/plan/quota settings,
+filters, operator membership and the video refresh path remain intact.
+
+Each atomic patch passed compilation and focused tests before the next patch.
+Final verification: 11 focused importer tests; 8 collector tests (also against
+the actual isolated collector runtime); 186 shared tests plus 183 subtests and
+one skip; 95 Beacon tests plus 19 subtests. Separate real Flet checks clicked
+Overview, Channels, Real Time, Find, Agent and Saved for each patch. Captures
+proved 2 fixture channels/24 videos remained browsable, Saved was initially
+empty, Save & analyse showed Queued then Ready during an open neighboring
+import, analysis failure retained membership and Retry recovered to Ready,
+and reconnect retained both saved requests. Agent's missing-AI setup state was
+expected; no AI answers were tested. A signed unchanged collector run imported
+with `channels_new=0`, one query run and zero channel-detail calls. Journals and
+the fixture save worker contained no unhandled exceptions.
+
+Release preparation copied only clean deployed code, preserving app state
+symlinks and executable helper modes. The edge release shares the previous
+immutable virtual environment and overlays only the committed collector file.
+The old discovery worker exited cooperatively with status 0 before restart.
+The web, Finder, gateway, radar, save worker and organizer remained running.
+Full/read health returned 200 and a read-token write returned 403. Production
+organization at 13:34:54 UTC reported 0 new / 11 existing channels. Normal sync
+at 13:39:42 UTC processed two discovery/organization bundles: 1,463 channel
+records, 9 globally new IDs, 1,454 existing entries (distinct within each bundle),
+125 query runs. Both signed acknowledgements returned successfully after
+commit; result 0, no failures, zero local/remote backlog. This is a single round,
+not proof of improved daily growth. The collector's process cwd resolves to
+the new immutable edge release.
+
+Cleanup stopped the owned `beacon-channel-yield-ui-20261003.service` and
+`beacon-collector-delta-ui-20261003.service`, removed only their disposable
+fixture schemas, stopped private PostgreSQL 18543, closed test tab 15 and
+stopped local SSH forward 41468. Production PostgreSQL 5432 and the original
+gateway tunnel remain retained. No one-off test job remains running. Private
+proof files: `yield-release-activated-20261003.json`,
+`yield-normal-import-proof-20261003.json` and `yield-cleanup-20261003.json` in
+`/var/tmp/beacon-pg-foundation`.
+
+Next steps: inspect new signed import counts by bundle kind; implement bounded
+query/source attribution; use it for productive-search and separate refresh
+budgets; run a comparable coverage trial; then split lightweight discovery from
+deep analysis. Do not claim the proposed 10,000/day target has been reached.
+Protected SQLite recovery assets and other-agent working files remain retained.
+
 ## Current priority: increase actual discovery throughput — 2026-10-03
 
 The user moved new-channel collection speed ahead of the remaining roadmap.
