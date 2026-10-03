@@ -5,6 +5,14 @@ formats, with foundations suitable for a possible future paid product.
 The user authorized steps 1–7. Billing and public customer launch are outside
 this development sequence. Explain each milestone in beginner-friendly terms.
 
+## Current priority: discovery throughput
+
+The user moved collection speed ahead of the remaining product enhancements
+on October 3. Prioritize actual **new unique channels per day**, while keeping
+the existing app responsive and preserving strict opportunity filtering.
+See `DISCOVERY_THROUGHPUT_PLAN.md` for the measured baseline and next sequence.
+Database/query improvements alone do not increase YouTube discovery coverage.
+
 1. **Reliable saving and background work.** Release completed imports promptly;
    preserve saved requests through errors/restarts; verify concurrent importing
    and channel analysis. First importer contention fix deployed as `8fee1be`.

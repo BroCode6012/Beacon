@@ -5,6 +5,14 @@ Implementation status updated: **2026-10-03**
 
 ### Current web-app review — 2026-09-30
 
+October 3 priority override: the user now prioritizes discovery throughput and
+catalogue coverage. Read-only production checks measured 6,380 new channels in
+72 hours and 2,091 in 24 hours, alongside 33,389 successful daily edge searches.
+Import backlog was empty; repeated search coverage, the bounded collector plan
+and inaccurate yield-estimate floor need investigation before expanding workers.
+See `DISCOVERY_THROUGHPUT_PLAN.md`; collection speed comes before the remaining
+ranking/UI/AI feature roadmap. No runtime settings changed during this audit.
+
 October 3 product development: roadmap steps 1–7 are authorized and recorded in
 `BEACON_ROADMAP.md`. PostgreSQL importer commit `8fee1be` now commits each signed
 bundle independently, releasing completed channel-row edits before unrelated

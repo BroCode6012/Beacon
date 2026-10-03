@@ -1,5 +1,16 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Current priority: increase actual discovery throughput — 2026-10-03
+
+The user moved new-channel collection speed ahead of the remaining roadmap.
+Read-only measurements and the next sequence are in
+`DISCOVERY_THROUGHPUT_PLAN.md`. The index remains PostgreSQL on live release
+`20261003T102250Z-postgres-ranked-b16d173`. This audit changed no production
+workers, discovery plans, provider limits or index records. The previous test
+resources remain stopped. Next measure globally new-channel yield by source,
+reduce redundant exploration and separate lightweight discovery from deep
+analysis before choosing additional capacity.
+
 ## Resume here: save contention and format-search fixes live — 2026-10-03
 
 The live index remains PostgreSQL. Current release:
