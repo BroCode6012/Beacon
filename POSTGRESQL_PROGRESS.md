@@ -40,9 +40,25 @@ requests returned 200; a read-token write returned 403. Worker/UI journals had n
 exceptions. A header collision was repaired and recaptured at 1280px and the
 1040px desktop minimum. Impeccable finish-review disposition: ship.
 
-Cloud rollout status and first real Saved checks will be recorded here after
-activation. Missing comparable remote history needs approximately another day;
-no historical daily numbers are invented.
+Cloud release `20261003T173748Z-saved-watch-0cbfcd4` is active with Beacon commit
+`219ce93` and shared commit `0cbfcd4`. Committed-file SHA-256 checks passed before
+switching the release. The save worker was idle at the restart boundary; only
+save worker, Finder and web restarted. Gateway, radar, discovery and organizer
+PIDs stayed unchanged. PostgreSQL activation checks passed; no database/schema
+switch occurred. Normal signed imports continued after rollout.
+
+All three real Saved channels refreshed automatically on October 3 at
+17:38:37–17:38:42 UTC; every job finished ready in one attempt. Live UI screenshot
+inspection showed Disaster Breakdown +17,159 channel views over 24.34 hours,
+with unchanged rounded subscriber/upload counts. Bertha now showed 101K
+subscribers, 42 uploads and 218K average views, plus its fresh check time.
+Bertha and Dark Wild Archives lack a comparable verified reading from the prior
+24–30 hours, so their daily movement remains collecting until another day of
+checks. No historical daily numbers are invented and no current video pickup
+was claimed. Live full/read measurements returned 200 in 0.279/0.133 seconds;
+read-token writes returned 403, health returned 200, and unauthenticated public
+HTTPS remained 401. All application/collection services and import/backup timers
+were active; updated-service journals showed zero exception lines.
 
 ## Resume here: search-by-search discovery measurement - 2026-10-03
 

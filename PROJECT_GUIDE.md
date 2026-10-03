@@ -17,6 +17,9 @@ history stays explicitly unavailable. Saved cards use a compact tracking band;
 the old cumulative badge is retained only for unavailable older services.
 Private PostgreSQL, real six-screen Flet, automatic refresh, save/import overlap,
 retry/reconnect and authorization checks passed; see `POSTGRESQL_PROGRESS.md`.
+Release `20261003T173748Z-saved-watch-0cbfcd4` is active: the first automatic pass
+refreshed all three Saved channels successfully. The real UI shows fresh times;
+Disaster Breakdown has measured daily views while two channels collect history.
 
 October 3 search-attribution implementation: shared commit `55acfbb` is live in
 app release `20261003T145500Z-query-yield-55acfbb` and collector release
