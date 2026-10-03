@@ -1,5 +1,98 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Resume here: save contention and format-search fixes live — 2026-10-03
+
+The live index remains PostgreSQL. Current release:
+`/opt/beacon/releases/20261003T102250Z-postgres-ranked-b16d173`.
+Shared commits `8fee1be` and `b16d173` are committed/pushed on
+`codex/postgresql-foundation`. The first commits signed imports per bundle to
+release finished channel edits promptly; the second checks video duration in
+stable ranking order and stops once enough format matches fill the page.
+Counts still examine all matches, and SQLite behavior is unchanged.
+
+The new query matched every returned field of the old query in one repeatable
+read transaction against the full live data. Long-form: 22.379s before versus
+4.555s after; Short-form: 14.629s versus 3.602s. A separate earlier prototype
+was 4.895s versus the 14.493s initial Long-form baseline. These are measured
+runs, not guaranteed response times. The duration-read regression failed
+before the change (40 lookups) and passed afterward (3 lookups to get the first
+matching channel). Missing lengths, boundary duration 90s, combined filters,
+counts, descending/ascending ranking and zero/negative RPM comparisons passed.
+Focused PostgreSQL store tests passed 22; relevant shared verification passed
+180 tests plus 183 subtests, one skip; relevant Beacon verification passed
+102 tests plus 19 subtests.
+
+Separate real Flet verification opened all six screens. Channels Long-form
+showed the History fixture; Filters → Short → Apply showed the Space fixture;
+Short plus Min subs 999999 showed a genuine empty result; Best Opportunities
+cleared filters and recovered both cards. Stopping only private test PostgreSQL
+18543 produced a handled database-unavailable card; restarting that private
+cluster and clicking Retry recovered both cards. Production PostgreSQL 5432
+remained active. Real Time → Long-form showed the matching discovered fixture.
+Overview, Find, Saved's empty shelf and Agent's expected missing-AI setup state
+were captured and visually inspected. No unhandled journal tracebacks or SQL
+query errors occurred. This does not claim live AI-answer verification.
+
+The cloud release was copied from the previous clean pinned release, preserving
+state symlinks/executable modes, then overlaid with the exact two committed
+store/test files. Only Finder restarted. The real production Long-form screen
+loaded 40+ cards; full/read health returned 200 and a read-token write returned
+403. Normal imports continue succeeding. User data, production collectors,
+gateway tunnel, web, radar and save worker were retained.
+
+Continue the authorized roadmap in `BEACON_ROADMAP.md`: next create a reviewed
+ranking/classification benchmark from representative real channel evidence
+before changing ranking thresholds. Steps 3–7 remain product development work;
+the ordinary 2–3-second search goal also needs broader measurements under load.
+Do not undo these fixes or restart the migration. Retained SQLite/recovery
+copies are recovery assets; all new index writes stay on PostgreSQL.
+
+## Current work: product roadmap, step 1 deployed — 2026-10-03
+
+PostgreSQL remains the live index. Shared commit `8fee1be` releases imported
+channel-row locks after each signed bundle instead of retaining them across
+20 unrelated bundles. SQLite batching is unchanged. This fixes a reproduced
+importer contention mechanism; the writer behind October 2's historical lock
+timeouts was not identified, and active edits to the same row still serialize.
+
+The regression failed before the patch and passed afterward. Focused PostgreSQL
+importer tests passed (6); the relevant shared selection passed 179 tests with
+177 subtests and one skip; the relevant Beacon selection passed 102 tests with
+19 subtests. An optional broad source-only Linux run retained the same nine
+baseline failures (391 passed); it is not a clean full-suite claim.
+
+Real isolated Flet verification clicked Saved, submitted a synthetic channel,
+and observed Queued then Ready while the next importer bundle was still staged.
+The finished first bundle was committed; both signed acknowledgements followed
+their commits. A deliberately failed analysis retained membership, Retry reached
+Ready, reconnect retained progress, and a repeat save retained exactly two
+requests/two memberships. Overview, Channels, Real Time, Find, Saved and Agent
+were opened and screenshots inspected. Agent showed its expected missing-AI
+setup state in this credential-free fixture; AI answers were not tested. No
+fixture worker errors or journal tracebacks occurred. The first harness pause
+exceeded its private idle-transaction limit; a corrected fresh fixture passed.
+Production safety limits were unchanged.
+
+Current release:
+`/opt/beacon/releases/20261003T100650Z-postgres-import-8fee1be`.
+Only the two exact committed importer/test files were overlaid on the pinned
+clean package. Existing state links and executable helper permissions were
+preserved. The first package check exposed missing executable permissions on
+two helpers; restoring their previous modes resolved it. The next normal sync
+imported/acknowledged one bundle, returned 0, and left no backlog/errors. Web,
+Finder, radar, save worker and gateway processes stayed running. The live Saved
+screen retained three channels and Disaster Breakdown Ready.
+
+Step 2 is now measuring actual query work. Read-only baseline: Best 3.72s,
+History 2.68s, Long-form 14.49s, recent 24h 5.93s. Long-form's measured plan
+looked up durations for 10,708 candidates before selecting 40. A ranked-read
+prototype is being compared before any further application code change.
+Private test resources and SSH forwards are still active during verification;
+stop only the owned fixtures/tunnels at a stopping point.
+
+The authorized sequence is documented in `BEACON_ROADMAP.md`. Steps 2–7 are
+not complete. Earlier migration checkpoints below are historical.
+
 ## Resume here: migration complete; next fix same-channel write waits — 2026-10-02
 
 Final migration checkpoint at 20:36 UTC: PostgreSQL is live. Final reconciliation

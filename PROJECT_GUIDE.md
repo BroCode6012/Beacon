@@ -1,9 +1,25 @@
 # Beacon — Codebase Investigation and Working Plan
 
 Investigation date: **2026-07-10**  
-Implementation status updated: **2026-10-02**
+Implementation status updated: **2026-10-03**
 
 ### Current web-app review — 2026-09-30
+
+October 3 product development: roadmap steps 1–7 are authorized and recorded in
+`BEACON_ROADMAP.md`. PostgreSQL importer commit `8fee1be` now commits each signed
+bundle independently, releasing completed channel-row edits before unrelated
+bundles. Real concurrent save/import, retry/reconnect/deduplication, relevant
+tests and six-screen Flet verification passed. The cloud release is
+`20261003T102250Z-postgres-ranked-b16d173`; normal import/ack completed with result
+0 and no backlog. Existing application processes stayed running. The previous
+writer's historical identity remains unproven. Shared commit `b16d173` now reads
+video lengths in stable ranking order and stops after enough format matches.
+Full-data comparisons preserved all returned fields while Long-form improved
+from 22.379s to 4.555s and Short-form from 14.629s to 3.602s in measured runs.
+Tests and separate six-screen/empty/error-recovery verification passed; only
+Finder restarted for this query release. Broader speed measurements remain;
+the next product phase is a reviewed recommendation benchmark. The latest
+checkpoint is in `POSTGRESQL_PROGRESS.md`.
 
 Current migration checkpoint (October 2, 20:36 UTC): PostgreSQL is live after
 verified final reconciliation of all 30 legacy tables and statistics
