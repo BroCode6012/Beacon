@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-31T22:37:16+01:00",
-  "title": "Design System: Signal",
+  "generatedAt": "2026-10-03T17:35:18.882730+00:00",
+  "title": "Design System: Beacon",
   "extensions": {
     "colorMeta": {
       "canvas": {
@@ -442,14 +442,21 @@
       "description": "Compact timestamped maintenance record with tools summarized before expandable detail.",
       "html": "<details class='ds-autopilot-audit'><summary><span class='ds-pass-check'>✓</span><span><strong>Maintenance pass · 2026-07-31 22:10</strong><small>Reclassified topics · Cleaned junk · Read searches</small></span></summary><div class='ds-pass-detail'><p>Queries rejected: space documentary facts [near duplicate]</p><p><strong>What changed:</strong> Topic coverage was refreshed; no channel or video rows were deleted.</p></div></details>",
       "css": ".ds-autopilot-audit{max-width:560px;background:#F7F9FC;color:#14233B;border-radius:10px;overflow:hidden;font-family:'Segoe UI Variable Text','Segoe UI',sans-serif}.ds-autopilot-audit summary{display:flex;align-items:center;gap:9px;padding:5px 9px;cursor:pointer;list-style:none}.ds-autopilot-audit summary::-webkit-details-marker{display:none}.ds-autopilot-audit summary>span:last-child{display:grid;gap:2px}.ds-autopilot-audit strong{font-size:11px}.ds-autopilot-audit small{color:#66758A;font-size:9px}.ds-pass-check{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#E6F7F0;color:#0C8C59;font-weight:700}.ds-autopilot-audit summary:hover{background:#EEF3F8}.ds-autopilot-audit summary:focus-visible{outline:3px solid rgba(78,103,232,.20);outline-offset:-3px}.ds-pass-detail{display:grid;gap:7px;padding:0 12px 10px 40px;color:#66758A;font-size:10px;line-height:1.35}.ds-pass-detail p{margin:0}"
+    },
+    {
+      "name": "Saved Tracking",
+      "kind": "custom",
+      "description": "Unboxed freshness and daily changes within an existing saved card; an optional quiet action opens the measured video. Preview values are illustrative.",
+      "html": "<div class=\"ds-saved-tracking\"><p class=\"ds-saved-stamp\">Checked 7m ago</p><div class=\"ds-saved-movement\"><span class=\"ds-saved-window\">~24h</span><span>+45 subs</span><span>+200K views</span><span>0 uploads</span></div><a class=\"ds-saved-video\" href=\"#video\" title=\"Compared with recent uploads. A measured signal, not a viral prediction.\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"m16 6 2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4L19.71 9.71 22 12V6z\"/></svg>Video picking up · +90K views (~24h)</a></div>",
+      "css": ".ds-saved-tracking{display:grid;gap:5px;color:#14233B;font-family:\"Segoe UI Variable Text\",\"Segoe UI\",sans-serif}.ds-saved-stamp{margin:0;color:#66758A;font-size:11px}.ds-saved-movement{display:flex;flex-wrap:wrap;gap:14px;font-size:12px}.ds-saved-window{color:#66758A;font-size:11px}.ds-saved-video{display:flex;align-items:center;gap:8px;width:fit-content;color:#0C8C59;text-decoration:none;font-size:14px}.ds-saved-video:hover{background:#E6F7F0}.ds-saved-video:focus-visible{outline:2px solid #4E67E8;outline-offset:2px}"
     }
   ],
   "narrative": {
     "northStar": "Daylight Flight Deck",
-    "overview": "Daylight Flight Deck turns Signal into a bright operational research desk rather than a generic analytics dashboard. A fixed ink-blue rail anchors a cool paper canvas, while white evidence surfaces, compact outlined controls, and restrained state color make a dense investigative app feel calm and legible.\n\nThe system is evidence-first: opportunity cards keep identity, eligibility, proof metrics, confidence, and the plain-language reason for qualification in one sweep. Signal Green marks live, approved, selected, or successful state; Analysis Cobalt identifies analytical context, provenance, and technical detail; Agent and Autopilot actions remain transparent through progressive-disclosure audit patterns.",
+    "overview": "Daylight Flight Deck turns Beacon into a bright operational research desk rather than a generic analytics dashboard. A fixed ink-blue rail anchors a cool paper canvas, while white evidence surfaces, compact outlined controls, and restrained state color make a dense investigative app feel calm and legible.\n\nThe system is evidence-first: opportunity cards keep identity, eligibility, proof metrics, confidence, and the plain-language reason for qualification in one sweep. Beacon Green marks live, approved, selected, or successful state; Analysis Cobalt identifies analytical context, provenance, and technical detail; Agent and Autopilot actions remain transparent through progressive-disclosure audit patterns.",
     "keyCharacteristics": [
       "Bright cool-paper workspace anchored by a fixed ink-blue rail.",
-      "Signal Green for live/approved state and Cobalt for analysis/provenance.",
+      "Beacon Green for live/approved state and Cobalt for analysis/provenance.",
       "Compact desktop density with generous outer gutters and wrapped controls.",
       "White cards over tonal inset surfaces, using one restrained ambient shadow.",
       "Evidence-first opportunity cards and reversible, expandable Agent audits."
@@ -457,7 +464,7 @@
     "rules": [
       {
         "name": "The State Has a Job Rule",
-        "body": "Signal Green means live, allowed, selected, successful, or eligible; Amber means waiting or attention; Danger Red means failure or destructive intent.",
+        "body": "Beacon Green means live, allowed, selected, successful, or eligible; Amber means waiting or attention; Danger Red means failure or destructive intent.",
         "section": "colors"
       },
       {
@@ -501,6 +508,11 @@
         "section": "components"
       },
       {
+        "name": "The Freshness Before Movement Rule",
+        "body": "Saved growth belongs to the last measured check: show freshness before daily changes, distinguish missing history from zero movement, and keep a video signal quieter than the evidence it supplements.",
+        "section": "components"
+      },
+      {
         "name": "The Audit Before Assurance Rule",
         "body": "Never rely on an AI summary alone to imply what changed; show the tool, outcome, status, count, reversibility, and expandable detail as separate evidence.",
         "section": "components"
@@ -508,7 +520,7 @@
     ],
     "dos": [
       "Do keep the Cool Paper canvas and fixed Ink Blue rail as the stable frame across all five screens.",
-      "Do use Signal Green for live/approved state and Analysis Cobalt for interpretation, provenance, and technical detail.",
+      "Do use Beacon Green for live/approved state and Analysis Cobalt for interpretation, provenance, and technical detail.",
       "Do keep identity, eligibility, metrics, and “Why it qualifies” evidence together on every opportunity card.",
       "Do wrap controls and collapse responsive columns so every workflow remains usable at 1040×700.",
       "Do pair semantic color with text, icons, counts, or status words.",
@@ -516,8 +528,8 @@
       "Do design loading, empty, success, stalled, and error states as first-class operational surfaces."
     ],
     "donts": [
-      "Don't turn Signal into a generic dark analytics dashboard or copy another creator tool's branding.",
-      "Don't use Signal Green and Analysis Cobalt interchangeably; each has a distinct semantic job.",
+      "Don't turn Beacon into a generic dark analytics dashboard or copy another creator tool's branding.",
+      "Don't use Beacon Green and Analysis Cobalt interchangeably; each has a distinct semantic job.",
       "Don't surface an opportunity score without the sample, leverage, recency, and qualification rationale that support it.",
       "Don't stack shadows, nested metric tiles, or decorative gradients inside evidence cards.",
       "Don't hide tool outcomes, failures, or state changes inside prose-only Agent responses.",

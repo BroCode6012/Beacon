@@ -2762,6 +2762,10 @@ class BeaconApp:
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
             ft.Divider(color=BORDER, height=1),
             tiles,
+        ]
+        if saved:
+            col.append(self._saved_tracking_band(r))
+        col += [
             self._opportunity_evidence_band(r, saved=saved),
         ]
 
@@ -5842,6 +5846,48 @@ class BeaconApp:
         self.content.controls.append(ft.Column(body, spacing=16, tight=True))
 
     # -- Saved: channels you found yourself on YouTube --------------------------------
+    def _saved_tracking_band(self, row: dict) -> ft.Control:
+        t = row.get("tracking") or {}
+        checked = self._ago(t.get("checked_at"))
+        status = t.get("status", "unavailable")
+        stamp = f"Checked {checked}" if checked else "Waiting for first live check"
+        if status == "stale":
+            stamp += " · update due"
+        if status == "unavailable":
+            stamp = "Check history unavailable · try Refresh live"
+        items = [ft.Text(stamp, size=11, color=MUTED)]
+        if status == "measured":
+            span = t.get("interval_hours") or 24
+            metrics = []
+            for label, field in (("subs", "subscribers_delta"), ("views", "views_delta"),
+                                 ("uploads", "uploads_delta")):
+                value = t.get(field)
+                if value is None:
+                    text = f"{label} unavailable"
+                else:
+                    text = f"{'+' if value > 0 else ''}{human_num(value)} {label}"
+                metrics.append(ft.Text(text, size=12, color=TEXT))
+            items.append(ft.Row([ft.Text("~24h", size=11, color=MUTED)] + metrics,
+                                spacing=14, wrap=True))
+            tooltip = (f"Measured over {span:g} hours, ending at the check above. "
+                       "Subscriber changes use YouTube's rounded public counts; "
+                       "views are channel-wide totals, not average views.")
+        else:
+            items.append(ft.Text("~24h changes: waiting for two comparable checks"
+                                 if status == "collecting" else
+                                 "~24h changes unavailable until a fresh check", size=11, color=MUTED))
+            tooltip = "Checks run in the background about every six hours. Missing history is not zero growth."
+        signal = t.get("video_signal")
+        if signal:
+            items.append(ft.TextButton(
+                f"Video picking up · +{human_num(signal['views_delta'])} views (~24h)",
+                icon=ft.Icons.TRENDING_UP,
+                tooltip=f"{signal['title']} · compared with {signal['compared_uploads']} recent uploads. A measured signal, not a viral prediction.",
+                style=ft.ButtonStyle(color=ACCENT_DARK, padding=0),
+                on_click=self._open_url(f"https://www.youtube.com/watch?v={signal['video_id']}"),
+            ))
+        return ft.Container(ft.Column(items, spacing=5, tight=True), tooltip=tooltip)
+
     def _growth_pill(self, row: dict) -> ft.Control | None:
         """'+5.1K subs since saved · 2.3K/day' when a channel has been measured more than once.
 
@@ -5866,7 +5912,8 @@ class BeaconApp:
         """Per-card controls on the saved shelf: read the evidence, or drop the channel."""
         cid = str(row.get("channel_id") or "")
         name = str(row.get("title") or cid)
-        growth = self._growth_pill(row)
+        growth = (self._growth_pill(row) if
+                  (row.get("tracking") or {}).get("status") in (None, "unavailable") else None)
         return ([growth] if growth else []) + [
             ft.OutlinedButton(
                 "Analysis",
@@ -6431,21 +6478,18 @@ class BeaconApp:
         else:
             fresh = "live numbers not checked yet this session"
         if getattr(self, "_durable_saves", False):
-            fresh = "Refresh live queues a background check"
+            fresh = "Auto-checks every 6h · Refresh live checks sooner"
         refreshing = getattr(self, "_saved_refreshing", False)
         self.content.controls.append(ft.Row([
             ft.Container(
                 self.section_heading(
                     f"{len(rows)} saved channel{'s' if len(rows) != 1 else ''}",
-                    "Your own finds, scored on the same evidence as the crawler's. "
-                    "The opportunity gate is NOT applied here — you chose these, so they "
-                    "all show.",
+                    "Your hand-picked channels.",
                     ft.Icons.BOOKMARK,
                 ),
                 expand=True,
             ),
-            ft.Column([
-                ft.OutlinedButton(
+            ft.OutlinedButton(
                     "Checking…" if refreshing else "Refresh live",
                     icon=ft.Icons.SYNC,
                     on_click=self._saved_refresh,
@@ -6453,10 +6497,10 @@ class BeaconApp:
                     style=ft.ButtonStyle(color=ACCENT2, side=ft.BorderSide(1, BORDER),
                                          shape=ft.RoundedRectangleBorder(radius=11)),
                 ),
-                muted(fresh, 10),
-            ], spacing=3, tight=True,
-               horizontal_alignment=ft.CrossAxisAlignment.END),
         ], vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=12))
+        self.content.controls.append(muted(
+            "Your choices stay visible, including channels that need review.", 11))
+        self.content.controls.append(muted(fresh, 10))
         self.content.controls.append(
             self.card_grid(rows, kind="channel", limit=self.saved_shown,
                            niche_id=self._saved_niche_id,

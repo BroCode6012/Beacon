@@ -1,5 +1,49 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Saved freshness and daily movement — 2026-10-03
+
+Cause confirmed read-only: Bertha's last recorded measurement was October 2
+01:46 UTC. The durable PostgreSQL save worker only claimed explicit requests;
+opening Saved deliberately skipped the old browser-driven refresh. Shared
+commit `0cbfcd4` now schedules enabled Saved members after six hours, in batches
+of at most 20 per five-minute tick. Existing jobs win; manual requests have
+priority. The existing lease, short write transaction, retry and membership
+preservation guarantees remain. No schema migration or collector change.
+
+Read-only `saved_channel_tracking` uses only actual remote `manual-save` history,
+including a distinct hidden-subscriber source. The compact UI shows check time,
+signed subscriber/channel-total-view/upload changes across an actual 24–30 hour
+span (labelled ~24h with the interval in the tooltip), or explicit missing/stale
+history. Readings older than eight hours cannot claim current daily movement.
+Subscriber counts inherit YouTube's rounding; hidden counts stay unavailable.
+One quiet clickable video signal requires at least five measured recent uploads,
+10,000 gained views, and three times typical hourly movement; it is not a viral
+prediction. At most 30 recent uploads are compared. Existing discovery/opportunity
+gates and separate full/read authorization remain unchanged.
+
+Verification: seven changed Python files compiled; 64 relevant shared tests and
+153 subtests passed against private PostgreSQL, plus 79 relevant Beacon tests
+and 12 subtests both locally and in the isolated server runtime. A broader
+server-only Agent/icon test selection exposed fixture dependencies (Bedrock
+configuration, Pillow and Git) absent from that private clone; those unrelated
+tests were not used to claim this feature's verification. The focused feature
+suites passed. Real separate Flet checks clicked Saved (empty), Refresh, Refresh
+live (pending then ready during neighboring signed imports), Save & analyse
+(deliberate failure), Retry (ready), and reloaded the session. Automatic scheduling
+changed a stale card without Refresh live; repeated scheduling queued zero
+duplicates. Synthetic +45 subs/+200K channel views and a +90K pickup proved the
+measured layout; stale and single-point cards withheld comparisons. The pickup
+button opened its synthetic video's exact YouTube URL. Overview, Channels, Real
+Time, Find, Saved and Agent were clicked and screenshot-inspected. The isolated
+Agent showed its missing-setup state without an exception. Full/read measurement
+requests returned 200; a read-token write returned 403. Worker/UI journals had no
+exceptions. A header collision was repaired and recaptured at 1280px and the
+1040px desktop minimum. Impeccable finish-review disposition: ship.
+
+Cloud rollout status and first real Saved checks will be recorded here after
+activation. Missing comparable remote history needs approximately another day;
+no historical daily numbers are invented.
+
 ## Resume here: search-by-search discovery measurement - 2026-10-03
 
 Shared commit `55acfbb` records which search first matched each globally new

@@ -213,9 +213,16 @@ def shelf_members(finder, niche_id: int) -> dict[str, dict]:
         # Raised, never read as "nothing saved": an empty shelf is a real answer, and a
         # hiccup must not be cached as one.
         raise SaveError(f"Could not read your saved shelf: {rows}")
+    try:
+        tracking_result = finder.call("saved_channel_tracking", niche_id=int(niche_id))
+        tracking = tracking_result.get("channels", {}) if isinstance(tracking_result, dict) else {}
+    except Exception:
+        # Shelf membership remains usable while the read-only measurement is unavailable.
+        tracking = {}
     return {
         r["channel_id"]: {"saved_at": r.get("added_at") or "",
-                          "growth": r.get("growth") or {}}
+                          "growth": r.get("growth") or {},
+                          "tracking": tracking.get(r["channel_id"], {"status": "unavailable"})}
         for r in rows if r.get("channel_id")
     }
 
@@ -249,6 +256,7 @@ def saved_channels(finder, niche_id: int, limit: int = 120) -> list[dict]:
         entry = members.get(row.get("channel_id")) or {}
         row["saved_at"] = entry.get("saved_at", "")
         row["growth"] = entry.get("growth", {})
+        row["tracking"] = entry.get("tracking", {})
     rows.sort(key=lambda r: _when(r.get("saved_at")), reverse=True)
     return rows[:int(limit)]
 

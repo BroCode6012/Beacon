@@ -5,6 +5,19 @@ Implementation status updated: **2026-10-03**
 
 ### Current web-app review — 2026-09-30
 
+October 3 Saved tracking: shared commit `0cbfcd4` adds a bounded five-minute
+scheduler tick to the existing cloud save worker. Enabled Saved channels become
+due after six hours; manual requests take priority, queued work is deduplicated,
+and failed checks retain membership with a six-hour automatic retry cooldown.
+The read-only Finder `saved_channel_tracking` reports verified remote check time,
+measured subscriber/channel-view/upload differences over a 24–30 hour interval,
+and one conservative video pickup signal among at most 30 recent uploads.
+Local-index copies do not prove freshness; stale, missing and hidden-subscriber
+history stays explicitly unavailable. Saved cards use a compact tracking band;
+the old cumulative badge is retained only for unavailable older services.
+Private PostgreSQL, real six-screen Flet, automatic refresh, save/import overlap,
+retry/reconnect and authorization checks passed; see `POSTGRESQL_PROGRESS.md`.
+
 October 3 search-attribution implementation: shared commit `55acfbb` is live in
 app release `20261003T145500Z-query-yield-55acfbb` and collector release
 `20261003T145500Z-query-provenance-55acfbb`. Signed query-run provenance credits
