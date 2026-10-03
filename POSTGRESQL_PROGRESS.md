@@ -59,6 +59,10 @@ was claimed. Live full/read measurements returned 200 in 0.279/0.133 seconds;
 read-token writes returned 403, health returned 200, and unauthenticated public
 HTTPS remained 401. All application/collection services and import/backup timers
 were active; updated-service journals showed zero exception lines.
+Verification cleanup completed: the owned Flet rehearsal unit stopped, private
+fixture schemas were removed from the isolated PostgreSQL instance, that test
+instance stopped, and the two owned test/live-check SSH forwards and browser
+tabs closed. Production services keep running.
 
 ## Resume here: search-by-search discovery measurement - 2026-10-03
 
