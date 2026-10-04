@@ -32,7 +32,8 @@ class Remote:
     def command(self, argv, *, input=None, timeout=300):
         result = subprocess.run(self.ssh + [shlex.join(['sudo', '-n', *argv])],
                                 input=input, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                timeout=timeout)
+                                timeout=timeout,
+                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         if result.returncode:
             raise recovery.BackupError('The private recovery server operation failed.')
         return result.stdout
@@ -48,7 +49,8 @@ class Remote:
         argv = ['sudo', '-n', 'tail', '-c', '+' + str(offset + 1), self.directory + '/' + name]
         try:
             result = subprocess.run(self.ssh + [shlex.join(argv)], stdout=output,
-                                    stderr=subprocess.PIPE, timeout=timeout)
+                                    stderr=subprocess.PIPE, timeout=timeout,
+                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             return result.returncode == 0
         except subprocess.TimeoutExpired:
             return False

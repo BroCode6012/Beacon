@@ -1,5 +1,26 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Laptop backup connections hidden — 2026-10-04
+
+The recurring visible OpenSSH terminal belonged to the laptop's
+`BeaconPostgresBackupTransfer` task. Its parent already used `pythonw.exe`,
+but both metadata and streaming SSH subprocesses lacked `CREATE_NO_WINDOW`.
+Both launch sites now apply that Windows flag (zero on other platforms).
+The verified scheduled operator copy under
+`D:/BeaconBackups/PostgreSQL/operators/schema6/` received the same patch.
+The existing identified connection window was hidden without killing it;
+the laptop task was subsequently reloaded to apply the flag to every retry.
+Partial recovery files were preserved. No cloud service, live index, schema,
+retention policy or schedule changed.
+
+Both Python files compiled; 14 backup/transfer tests passed, including resumable
+downloads, corruption rejection, acknowledgment ordering and the two hidden
+launch sites. A real `pythonw.exe` probe exercised local OpenSSH and a held-open
+console child: no child window, exact streamed output, successful completion.
+The actual scheduled task relaunched using `pythonw.exe`; desktop inspection
+confirmed the unwanted terminal was absent. The backup remains asynchronous;
+these checks do not claim that today's whole archive transfer has finished.
+
 ## Saved completion notices hidden — 2026-10-03
 
 The user requested removal of persistent Ready notifications. Beacon now filters

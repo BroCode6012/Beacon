@@ -2,9 +2,40 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import postgres_backup_pull as transfer
 import postgres_backup_schedule as recovery
+
+
+class WindowlessRemoteTests(unittest.TestCase):
+    def test_metadata_and_archive_connections_do_not_create_windows(self):
+        with tempfile.TemporaryDirectory() as root:
+            key = Path(root) / 'fixture-key'; key.write_text('test fixture only')
+            remote = transfer.Remote({'remote_directory': '/fixture/recovery',
+                                      'remote_python': '/fixture/python',
+                                      'remote_script': '/fixture/backup.py',
+                                      'ssh_key': str(key), 'ssh_host': 'fixture-host'})
+            # Emulate the Windows flag even when this suite runs on Linux.
+            with patch.object(transfer.subprocess, 'CREATE_NO_WINDOW', 0x08000000, create=True), \
+                    patch.object(transfer.subprocess, 'run') as run:
+                run.return_value.returncode = 0
+                run.return_value.stdout = b'fixture response'
+                self.assertEqual(remote.command(['cat', '/fixture/manifest'], input=b'proof'),
+                                 b'fixture response')
+                self.assertEqual(run.call_args.kwargs['creationflags'], 0x08000000)
+                self.assertEqual(run.call_args.kwargs['input'], b'proof')
+                self.assertEqual(run.call_args.kwargs['timeout'], 300)
+                with (Path(root) / 'fixture.partial').open('ab') as output:
+                    self.assertTrue(remote.append('fixture.dump', 123, output, 60))
+                    self.assertEqual(run.call_args.kwargs['creationflags'], 0x08000000)
+                    self.assertIs(run.call_args.kwargs['stdout'], output)
+                    self.assertEqual(run.call_args.kwargs['timeout'], 60)
+                    self.assertIn('+124', run.call_args.args[0][-1])
+                    run.return_value.returncode = 1
+                    self.assertFalse(remote.append('fixture.dump', 123, output, 60))
+                    run.side_effect = transfer.subprocess.TimeoutExpired('ssh', 60)
+                    self.assertFalse(remote.append('fixture.dump', 123, output, 60))
 
 
 class TransferSafetyTests(unittest.TestCase):
