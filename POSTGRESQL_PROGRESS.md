@@ -1,5 +1,58 @@
 # PostgreSQL foundation — 2026-09-30
 
+## Discovery searches rewarded for new channels — 2026-10-04
+
+Shared commit `dacaf25` is deployed in collector release
+`20261004T181311Z-channel-feedback-dacaf25`. Signed post-commit feedback now
+measures actual new-channel additions, requires three successful observations,
+retains 12 samples and applies known ACKs once. After first-pass coverage,
+adaptive scheduling allocates 60% proven searches, 20% exploration and 20%
+age-ordered query refresh; tiny batches rotate the same proportions. Pending
+feedback is bounded at 256 bundles per plan. Missing/legacy/partial ACKs stay
+unknown, failed searches stay failures, and invalid ACKs cannot stop collection.
+Saved automatic checks, the signed plan, quotas, cadence, organizer and
+opportunity gates remain unchanged. No paid tools or extra server were added.
+
+The collector alone restarted after cooperative exit 0. The web app, Finder,
+Saved worker, radar and organizer retained their PIDs. PostgreSQL remains the
+only canonical index. The minimal collector package received two unchanged
+committed helper dependencies; a pinned-release dependency check caught missing
+files before any live worker was stopped. All source hashes passed.
+
+Compilation, 134 relevant shared tests plus 18 subtests against private
+PostgreSQL, 396 clean Beacon tests plus 45 subtests (8 platform skips), and 54
+exact-release collector tests passed. Broader test-environment failures and
+scope exclusions are recorded in `DISCOVERY_THROUGHPUT_PLAN.md`. Separate real
+Flet checks clicked all six screens, saved during an open neighboring import,
+exercised an empty shelf, queued save, controlled failure, Retry, reload and
+Refresh. The last screenshot shows two retained saved cards and no Ready panel.
+Fixture imports succeeded; UI/save-worker exception checks were clean.
+
+Baseline: 272,272 channels at 18:13:11 UTC, with 2,076 additions in the preceding
+24 hours. Faster daily growth is not yet proven; measured priorities will ramp
+up as fresh ACK samples arrive. Next work is comparing complete daily windows,
+then testing bounded new search families/languages while preserving refresh.
+The first normal production import at 18:22:26 UTC added 9 globally new channels
+and merged 1,099 existing matches. At 18:23:46 its signed ACK had been consumed
+once, and feedback exactly matched the canonical ledger: 87 successful searches,
+13 provider JSON failures, 87 contexts and zero pending feedback. Sync returned
+0. The pre-existing retry controller backed off from 100 to 75 queries after
+provider failures. Priorities correctly remain in the measurement phase until
+three successes are available. This single round does not establish a speedup.
+Full/read report calls returned 200; read-token save enqueue returned 403.
+
+Cleanup at 18:25:40 UTC stopped the owned test UI/Finder group, dropped only
+`beacon_save_ui_e6d8e758e310`, stopped private PostgreSQL 18543, closed the browser
+test tab and closed owned SSH forward 29428. All six production service processes
+remained running, web health returned 200, and PostgreSQL 5432 was untouched.
+Private proof files under `/var/tmp/beacon-pg-foundation` are
+`discovery-feedback-release-activated-20261004.json`,
+`discovery-feedback-normal-import-proof-20261004.json`,
+`discovery-feedback-ui-proof-20261004.json` and
+`discovery-feedback-cleanup-20261004.json`. Other-agent changes were neither
+staged nor deployed. Previous collector release remains available for rollback;
+canonical PostgreSQL writes and Saved memberships remain retained.
+
 ## Laptop backup connections hidden — 2026-10-04
 
 The recurring visible OpenSSH terminal belonged to the laptop's

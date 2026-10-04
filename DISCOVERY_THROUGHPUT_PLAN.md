@@ -1,5 +1,110 @@
 # Discovery throughput — priority updated 2026-10-03
 
+## Committed-channel selection — 2026-10-04
+
+Shared commit `dacaf25` teaches the collector from signed acknowledgements of
+successful canonical imports. No direct database access is added to the collector.
+It remembers the exact query/topic/provider/sort identities for each emitted
+bundle, verifies its ACK signature, node, imported/duplicate status and matching
+counts, and applies each known bundle once. Unknown historical ACKs, partial
+provenance, missing ACKs and failed searches cannot become zero-success samples.
+Invalid evidence is rejected without stopping collection. Delayed ACKs are
+ordered by recorded collector run, so they cannot replace a newer 12-sample
+window. Pending feedback is capped at 256 bundles per plan; dropped pending
+evidence is counted. Topic, explicit sort or result-limit changes invalidate old
+query feedback; superseded plan ACKs are discarded.
+
+First-pass coverage and provider retry backoff still take priority. Without three
+successful measurements for the current topic/sort, the old scheduler remains.
+When measured evidence is available, the five-slot pattern is three productive,
+one exploration and one refresh slot: **60% / 20% / 20%**. Small batches rotate
+that pattern across ticks. Productive searches rank by actual credited new
+channels per successful search in the recent window, with at least three
+successes and positive yield. Exploration revisits unknown or low-yield searches;
+refresh uses oldest-completed searches, including previously retired ones. Slots
+never duplicate a query; unavailable roles fall back to age-ordered work and are
+reported as fallback. A new video from an existing channel earns no discovery
+credit. The refresh allocation rechecks query results/views; the separate Saved
+worker still checks enabled saved channels every six hours. This allocation does
+not guarantee that every indexed channel gets a full remote refresh.
+
+This is the first selection improvement, not completion of the broad-coverage
+plan. Search families, languages, date windows and deeper-page discovery have
+not been expanded. Quota ceilings, workers, run cadence, signed plans, organizer,
+classification and opportunity gates are unchanged. Existing free tools and the
+existing Oracle instance are used; no paid source, proxy or service was added.
+Beacon and Production Lab share the changed engine.
+
+The collector release `20261004T181311Z-channel-feedback-dacaf25` is active.
+The old collector exited cooperatively with code 0. Web, Finder, Saved worker,
+radar and organizer PIDs stayed unchanged. The minimal older collector package
+also received two unchanged committed dependencies: the process helper and the
+existing attribution helper. Dependency omissions were caught by the pinned
+release test gate before activation. The app release remains
+`20261003T183332Z-quiet-saved-51a3515`; PostgreSQL stays canonical.
+
+Pre-rollout baseline at **2026-10-04 18:13:11 UTC**: **272,272 channels**, with
+**2,076 newly added in the preceding 24 hours**. Priority allocation ramps up as
+new signed measurements reach the three-success threshold. No daily speedup or
+Nexlev-sized coverage is claimed from these tests. Next: compare subsequent full
+24-hour growth, new channels per 1,000 successful searches, failures and queue
+age; then add bounded new search families/languages and evaluate their measured
+yield. Retain a separate refresh allocation and Saved freshness throughout.
+
+Verification: all four changed Python files compiled; 134 relevant shared tests
+plus 18 subtests passed against private PostgreSQL, including real commit,
+existing-channel, duplicate import and rollback-to-no-ACK checks. The clean
+laptop Beacon suite passed 396 tests plus 45 subtests (8 platform skips).
+Collector-runtime checks passed 55 tests (one private-PostgreSQL skip and one
+controller-only dependency deselection); the exact minimal pinned release passed
+54 tests with three application/database tests deselected, already verified in
+the full application runtime. An attempted broad cloud Beacon run encountered
+missing test Bedrock configuration, Git and Pillow; the complete clean laptop
+suite passed with synthetic Bedrock configuration. A local test environment's
+autopilot-disable flag was removed before its successful full rerun. These were
+test setup issues; production credentials and dependencies were not altered.
+
+Real isolated Flet verification used the shared cloud venv, separate Finder
+port/token/state and private PostgreSQL port 18543. Screenshots were inspected in
+`C:/Windows/Temp/beacon-discovery-feedback-20261004/` (not committed):
+
+| Actual action | Capture | What was verified |
+|---|---|---|
+| Open Overview | `01-overview.png` | Connected Finder, fixture index and empty niche workspace |
+| Click Channels | `02-channels.png` | Two qualifying synthetic channels and complete filters |
+| Click Real Time | `03-real-time.png` | Discovery window, fresh cards and separate discovery-time label |
+| Click Find | `04-find.png` | Complete sweep form and browse action |
+| Click Saved | `05-saved-empty.png` | Empty shelf and complete save form |
+| Enter fixture channel and click Save & analyse | `save-loading.png`, `save-success.png` | Queued request then one saved card; server probe confirmed the neighboring import was still open |
+| Save a deliberately failing fixture | `save-error.png` | Retained request with Retry and explanatory failure |
+| Click Retry after enabling fixture recovery | `retry-loading.png` | Request returned to pending, without losing the saved card |
+| Click Agent | `06-agent.png` | Complete controls and expected missing-AI setup state; no live AI-answer claim |
+| Return to Saved, reload and click Refresh | `save-reconnected.png` | Two saved cards, recovered channel, no persistent Ready panel |
+
+Both fixture imports committed, the fixture save worker had no exceptions, and
+the test UI journal had no unhandled exceptions. Production app health returned
+200 locally; unauthenticated public requests correctly received 401. Private
+release proof is `/var/tmp/beacon-pg-foundation/discovery-feedback-release-activated-20261004.json`.
+
+Production end-to-end confirmation at **18:23:46 UTC**: the first normal import
+committed **9 globally new channels** and **1,099 existing channel matches**.
+Its signed feedback matched the canonical ledger: **87 successful searches**,
+**13 provider JSON failures**, 87 measured contexts, no pending feedback and no
+rejected ACKs. The importer returned 0. The existing retry controller backed off
+from 100 to 75 searches after those provider failures; its behavior was not
+changed in this task. Failures are excluded from successful yield samples. The
+allocation correctly remains on the legacy scheduler while these first samples
+are below the three-success threshold. One batch is not a daily speed result.
+Proof: `discovery-feedback-normal-import-proof-20261004.json` under the private
+server work root. Both full/read credentials could read the report (200), and
+read credentials could not enqueue a save (403).
+
+Cleanup stopped only the disposable test UI/Finder group, dropped only schema
+`beacon_save_ui_e6d8e758e310`, stopped private PostgreSQL 18543, closed the test
+browser tab and closed owned SSH forward 29428. Production PostgreSQL 5432 and
+all six live service processes remained running. Cleanup proof is
+`/var/tmp/beacon-pg-foundation/discovery-feedback-cleanup-20261004.json`.
+
 The user wants a much larger useful channel catalogue and prioritizes collection
 speed over the remaining feature roadmap. This is a diagnosis and development
 sequence; no discovery settings, workers or live data were changed for this audit.

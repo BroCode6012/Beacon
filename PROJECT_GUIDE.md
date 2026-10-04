@@ -1,9 +1,23 @@
 # Beacon — Codebase Investigation and Working Plan
 
 Investigation date: **2026-07-10**  
-Implementation status updated: **2026-10-03**
+Implementation status updated: **2026-10-04**
 
 ### Current web-app review — 2026-09-30
+
+October 4 discovery selection: shared commit `dacaf25` adds bounded collector
+feedback from signed post-commit import acknowledgements. After first-pass
+coverage, adaptive scheduling uses recent globally new channel additions and
+reserves 60% proven searches, 20% exploration and 20% age-ordered query rechecks.
+Three successful measurements are required; the window retains 12 samples.
+Missing/old/partial ACKs remain unknown, failed searches are not zero successes,
+and replay/out-of-order delivery cannot inflate the window. Pending feedback is
+capped at 256 bundles per plan. Existing quota, concurrency, plan, organization,
+Saved six-hour checks and opportunity gates remain. Only discovery restarted,
+cooperatively, in `20261004T181311Z-channel-feedback-dacaf25`; PostgreSQL remains
+canonical. Before rollout the index held 272,272 channels, with 2,076 added in
+24 hours. A higher daily rate is not yet proven. Broadening the actual search
+families/languages remains a subsequent step. See `DISCOVERY_THROUGHPUT_PLAN.md`.
 
 October 3 Saved simplification: completed `ready` requests are hidden from the
 Saved progress panel; an all-complete list produces no panel. Pending work and
