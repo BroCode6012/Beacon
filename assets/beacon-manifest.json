@@ -1,0 +1,35 @@
+{
+  "name": "Beacon — Niche Finder",
+  "short_name": "Beacon",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0D1628",
+  "theme_color": "#0D1628",
+  "description": "Beacon — find faceless, replicable YouTube niches",
+  "orientation": "natural",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icons/beacon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/beacon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/beacon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/beacon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

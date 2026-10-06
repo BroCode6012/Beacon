@@ -1,0 +1,26 @@
+[Unit]
+Description=Public road to Beacon's door (Cloudflare quick tunnel) — enabled only at the switch-over
+# A quick tunnel's address changes whenever this restarts. On a server that never sleeps that
+# is rare, but it still happens (reboot, crash): the new address is in the log below, and
+# Muse needs it plus the same key re-entered. A permanent address needs a named tunnel.
+After=beacon-gateway.service network-online.target
+Wants=network-online.target
+
+[Service]
+# Found on the PATH: Cloudflare's own package installs /usr/local/bin/cloudflared, a distro
+# package /usr/bin/cloudflared — the unit must not care which.
+Type=simple
+User=@USER@
+Group=@USER@
+EnvironmentFile=@DATA@/beacon_host.env
+ExecStart=/usr/bin/env cloudflared tunnel --no-autoupdate --url http://127.0.0.1:${BEACON_GATEWAY_PORT} --logfile @DATA@/storage/muse_tunnel.log
+Restart=always
+RestartSec=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=@DATA@/storage
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,31 @@
+[Unit]
+Description=Beacon cloud-collector import — the collector's finds go straight into the library
+# Enabled only at the switch-over, AFTER the laptop's own sync is turned off: two importers
+# would split the collector's bundles between two libraries.
+After=beacon-finder.service
+
+[Service]
+Type=oneshot
+# Root, because the collector keeps its outbox private (0600, its own account). SQLite hands
+# any journal file root creates back to the library's owner, so the library stays beacon's.
+User=root
+EnvironmentFile=@DATA@/beacon_host.env
+# The collector's signing key — bundles are verified with it, acknowledgements signed with it.
+EnvironmentFile=@KEYS@
+EnvironmentFile=-@DATA@/postgres.env
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HOME=@DATA@
+# The engine's transport, unchanged — local-ssh runs its commands on this machine instead of
+# logging in to it. No key is used; the setting only has to name an existing file.
+Environment=SIGNAL_EDGE_SSH_HOST=127.0.0.1
+Environment=SIGNAL_EDGE_SSH_BIN=@HOME@/current/Beacon/deploy/server/local-ssh
+Environment=SIGNAL_EDGE_SSH_KEY=@HOME@/current/Beacon/deploy/server/local-ssh
+WorkingDirectory=@HOME@/current/Quill
+ExecStart=@HOME@/venv/bin/python -m scripter.edge sync --max-bundles 100
+TimeoutStartSec=50min
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=@DATA@ /var/lib/signal-edge
+CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE

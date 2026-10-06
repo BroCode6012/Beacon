@@ -1,0 +1,32 @@
+[Unit]
+Description=Beacon screens as a web app (Flet web mode)
+After=beacon-finder.service
+Wants=beacon-finder.service
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+EnvironmentFile=@DATA@/beacon_host.env
+EnvironmentFile=-@DATA@/postgres.env
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HOME=@DATA@
+# Only the YouTube keys from the machine's key file (see deploy/server/youtube-keys).
+RuntimeDirectory=beacon-web
+RuntimeDirectoryMode=0750
+ExecStartPre=+/bin/sh @HOME@/current/Beacon/deploy/server/youtube-keys @KEYS@ /run/beacon-web/youtube.env @USER@
+EnvironmentFile=-/run/beacon-web/youtube.env
+WorkingDirectory=@HOME@/current/Beacon
+# Wait for the data service. Started first, the app would launch a second one of its own and
+# the two would take turns stealing the port.
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 60); do curl -s -o /dev/null -m 2 "http://127.0.0.1:$FINDER_PORT/health" && exit 0; sleep 2; done; exit 0'
+ExecStart=@HOME@/venv/bin/python @HOME@/current/Beacon/beacon_app.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=@DATA@
+
+[Install]
+WantedBy=multi-user.target

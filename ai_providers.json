@@ -15,6 +15,16 @@
     "vision": ""
   },
   "providers": {
+    "muse-spark": {
+      "kind": "openai",
+      "label": "Muse Spark (Meta)",
+      "notes": "Meta's Muse Spark through the Meta Model API — drop-in OpenAI-compatible with native parallel tool calling, so Beacon's tools work unchanged. Get a key from dev.meta.ai and put it in Beacon/.env as BEACON_META_API_KEY. Model ids: muse-spark-1.3 / 1.2 / 1.1.",
+      "base_url": "https://api.meta.ai/v1",
+      "auth": "bearer",
+      "api_key": "${BEACON_META_API_KEY|MODEL_API_KEY}",
+      "model": "${BEACON_META_MODEL:-muse-spark-1.3}",
+      "max_tokens": 8000
+    },
     "foundry-thinking": {
       "kind": "openai",
       "label": "Foundry · thinking",

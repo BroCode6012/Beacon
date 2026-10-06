@@ -1,0 +1,10 @@
+[Unit]
+Description=Collect the cloud collector's finds every 2 minutes (enabled only at the switch-over)
+
+[Timer]
+OnBootSec=2min
+# Counted from the END of the previous run, so a long catch-up is never run twice at once.
+OnUnitInactiveSec=2min
+
+[Install]
+WantedBy=timers.target

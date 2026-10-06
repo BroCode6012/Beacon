@@ -1,0 +1,37 @@
+[Unit]
+Description=Beacon background scraper (radar worker) — enabled only at the switch-over
+After=beacon-finder.service
+Wants=beacon-finder.service
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+EnvironmentFile=@DATA@/beacon_host.env
+EnvironmentFile=-@DATA@/postgres.env
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HOME=@DATA@
+# The operator's Stop must survive a reboot: while Beacon's pause marker exists the service
+# skips itself (not a failure). Only the Overview's Start removes the marker.
+ExecCondition=/bin/sh -c '! test -e @DATA@/engine-storage/signal_scraper_paused.flag'
+# The scraper needs the YouTube keys and nothing else from the machine's key file — in
+# particular not the collector's signing key. Root copies just those lines into a private
+# runtime file before each start (the file vanishes when the service stops); see youtube-keys
+# for why a single YOUTUBE_API_KEY is derived when the file lists only the pool.
+RuntimeDirectory=beacon-radar
+RuntimeDirectoryMode=0750
+ExecStartPre=+/bin/sh @HOME@/current/Beacon/deploy/server/youtube-keys @KEYS@ /run/beacon-radar/youtube.env @USER@
+EnvironmentFile=-/run/beacon-radar/youtube.env
+WorkingDirectory=@HOME@/current/Quill
+ExecStart=@HOME@/venv/bin/python -m scripter.cli radar-worker
+# on-failure, not always: a cooperative Stop (the stop flag) ends the worker cleanly and must
+# STAY stopped, exactly like the laptop's Stop button. A crash is still restarted.
+Restart=on-failure
+RestartSec=30
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=@DATA@
+
+[Install]
+WantedBy=multi-user.target

@@ -59,6 +59,9 @@ always what they want. Note the shelf deliberately does NOT apply the faceless/r
 gate: the user chose these, so report a weak one honestly rather than hiding it.
 - Guide the scraper: crawl_niche, start/stop_scraper, add/remove_watchlist_queries, \
 set_scraper_config, scraper_status.
+- Settle shaky FACELESS labels: faceless_review_queue lists channels shown as faceless on weak \
+evidence (with thumbnails); look, then record faceless / on_camera / unclear with \
+set_faceless_verdict — your verdict overrides the automatic checks.
 - Control the APP'S VIEWS: show_channels applies filters to the Channels tab AND \
 switches to it so the USER SEES the results — use it whenever the user wants to SEE / \
 filter / browse channels in the app ("show me ...", "filter the channels view", "edit \
@@ -214,6 +217,24 @@ TOOLS = [
                     "enum": ["Overview", "Channels", "Real Time", "Find", "Saved",
                              "Agent"]}}, ["view"]),
     _spec("clear_channel_filters", "Reset the Channels view (show the whole index)."),
+    # -- faceless review: an AI settles the channels whose faceless label is shaky --
+    _spec("faceless_review_queue",
+          "Channels Beacon currently shows as FACELESS on shaky evidence (the thumbnail face "
+          "check was unsure, or only the text judge decided), best opportunities first — each "
+          "with its link, top video titles and thumbnail image URLs, plus how to decide. Look, "
+          "then record decisions with set_faceless_verdict.",
+          {"limit": _INT}),
+    _spec("set_faceless_verdict",
+          "Record your faceless decision for channels you reviewed. 'faceless' = no recurring "
+          "human host on camera (narration over footage, animation, stock/AI visuals, screen "
+          "recordings); 'on_camera' = the same person presents on camera in most videos; "
+          "'unclear' = cannot tell. Your verdict outranks the automatic checks everywhere in "
+          "Beacon. Recorded and undoable.",
+          {"verdicts": {"type": "array", "items": {"type": "object", "properties": {
+              "channel_id": _STR,
+              "verdict": {"type": "string", "enum": ["faceless", "on_camera", "unclear"]},
+              "reason": _STR}, "required": ["channel_id", "verdict"]}}},
+          ["verdicts"]),
     # -- the Saved shelf: channels the USER found on YouTube themselves --
     _spec("save_channel",
           "Save a YouTube channel the user found themselves onto the Saved shelf, and "
@@ -245,7 +266,7 @@ _DATA_MUTATING_TOOLS = {
     "add_channel_to_niche", "create_niche", "exclude_channels",
     "unexclude_channels", "exclude_by_filter", "run_junk_filter",
     "set_channel_topic", "reclassify_topics", "crawl_niche",
-    "save_channel", "remove_saved_channel", "seed_channels",
+    "save_channel", "remove_saved_channel", "seed_channels", "set_faceless_verdict",
 }
 
 
@@ -336,6 +357,13 @@ class BeaconAgent:
                 pass
         return result
 
+    def _reviewer_name(self) -> str:
+        """Who is deciding, for the record: the AI provider that answers this agent."""
+        try:
+            return str(self.provider or "agent")
+        except Exception:  # noqa: BLE001 — a name must never break a tool call
+            return "agent"
+
     def _dispatch_raw(self, name: str, args: dict) -> object:
         args = {k: v for k, v in (args or {}).items() if v is not None}
         if self.allowed_tools is not None and name not in self.allowed_tools:
@@ -425,6 +453,16 @@ class BeaconAgent:
             # any concurrent edits, instead of overwriting the whole file from a stale read).
             self.sweep.update_config(_apply_cfg)
             return {"applied": applied, "note": "takes effect on the next scraper cycle"}
+        if name in {"faceless_review_queue", "set_faceless_verdict"}:
+            import os
+            import faceless_review
+            db = os.environ["YOUTUBE_INDEX_DB"]
+            if name == "faceless_review_queue":
+                return faceless_review.review_queue(self.finder, db,
+                                                    limit=int(args.get("limit") or 10))
+            return faceless_review.save_verdicts(db, args.get("verdicts") or [],
+                                                 reviewer=args.get("reviewer")
+                                                 or self._reviewer_name())
         # Beacon channel searches are always constrained to faceless, repeatable
         # opportunities. The engine flag is optional for Production Lab callers,
         # but mandatory inside this product.

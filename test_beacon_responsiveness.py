@@ -19,8 +19,49 @@ from beacon_app import BeaconApp
 
 
 class _Page:
+    def __init__(self) -> None:
+        self.updates = 0
+
     def update(self) -> None:
-        pass
+        self.updates += 1
+
+
+class BrowserSessionTests(unittest.TestCase):
+    def test_disconnect_stops_watchers_and_reconnect_starts_fresh_ones(self) -> None:
+        app = BeaconApp.__new__(BeaconApp)
+        old_stop = threading.Event()
+        app._session_stop = old_stop
+        app._overview_watch_started = True
+        app._cloud_watch_started = True
+        app._rt_watch_started = True
+        app.autopilot = SimpleNamespace(enabled=True, shutdown=mock.Mock(), start=mock.Mock())
+        app.content = object()
+        app._render = mock.Mock()
+
+        app._session_disconnected()
+        self.assertTrue(old_stop.is_set())
+        self.assertFalse(app._overview_watch_started)
+        self.assertFalse(app._cloud_watch_started)
+        self.assertFalse(app._rt_watch_started)
+        app.autopilot.shutdown.assert_called_once()
+
+        app._session_connected()
+        self.assertIsNot(app._session_stop, old_stop)
+        self.assertTrue(old_stop.is_set())  # old workers cannot revive on reconnect
+        self.assertFalse(app._session_stop.is_set())
+        app.autopilot.start.assert_called_once()
+        app._render.assert_called_once()
+
+    def test_closed_session_does_not_publish_background_redraw(self) -> None:
+        app = BeaconApp.__new__(BeaconApp)
+        app._render_lock = threading.RLock()
+        app._session_stop = threading.Event()
+        app._session_stop.set()
+        app.page = _Page()
+        app.content = SimpleNamespace(controls=["existing"])
+        BeaconApp._render(app)
+        self.assertEqual(app.content.controls, ["existing"])
+        self.assertEqual(app.page.updates, 0)
 
 
 def _busy_app(section: str = "Channels") -> BeaconApp:
@@ -32,12 +73,21 @@ def _busy_app(section: str = "Channels") -> BeaconApp:
     app.status = SimpleNamespace(value="", color=None)
     app._busy = False
     app._busy_lock = threading.Lock()
+    app._render_lock = threading.RLock()
     app._busy_tasks = {}
     app._busy_seq = 0
     return app
 
 
 class LoadingSignalTests(unittest.TestCase):
+    def test_loading_during_render_does_not_publish_a_half_built_page(self) -> None:
+        app = _busy_app("Find")
+        app._rendering = True
+        token = app._begin_busy("Loading channels…", "Find")
+        self.assertEqual(app.page.updates, 0)
+        app._end_busy(token)
+        self.assertEqual(app.page.updates, 0)
+
     def test_another_screens_load_does_not_show_here(self) -> None:
         app = _busy_app("Channels")
         app._begin_busy("Loading index stats…", "Overview")
@@ -150,6 +200,26 @@ class RedrawTests(unittest.TestCase):
         BeaconApp._render(app)
         self.assertEqual(app._section_keys["Saved"], {"saved:40"})
         self.assertIsNone(app._render_keys)
+
+    def test_a_screen_error_keeps_navigation_and_shows_recovery(self) -> None:
+        app = BeaconApp.__new__(BeaconApp)
+        app._render_lock = threading.RLock()
+        app._section_keys, app._render_keys = {}, None
+        app.section = "Find"
+        app.page = _Page()
+        app.content = SimpleNamespace(controls=["old"])
+        app._nav_tiles = lambda: ["Find"]
+        app._nav_col = SimpleNamespace(controls=["old nav"])
+        app._page_header = lambda: "header"
+        app._error_card = lambda _message: "recovery"
+        app._restore_scroll = lambda: None
+        app._render_find = lambda: (_ for _ in ()).throw(RuntimeError("broken card"))
+        with self.assertLogs(level="ERROR"):
+            BeaconApp._render(app)
+        self.assertEqual(app.content.controls, ["header", "recovery"])
+        self.assertEqual(app._nav_col.controls, ["Find"])
+        self.assertEqual(app.page.updates, 1)
+        self.assertFalse(app._rendering)
 
 
 class _Proc:

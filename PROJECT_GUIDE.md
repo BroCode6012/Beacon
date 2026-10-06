@@ -1,7 +1,306 @@
 # Beacon — Codebase Investigation and Working Plan
 
 Investigation date: **2026-07-10**  
-Implementation status updated: **2026-08-17**
+Implementation status updated: **2026-10-04**
+
+### Current web-app review — 2026-09-30
+
+October 4 discovery selection: shared commit `dacaf25` adds bounded collector
+feedback from signed post-commit import acknowledgements. After first-pass
+coverage, adaptive scheduling uses recent globally new channel additions and
+reserves 60% proven searches, 20% exploration and 20% age-ordered query rechecks.
+Three successful measurements are required; the window retains 12 samples.
+Missing/old/partial ACKs remain unknown, failed searches are not zero successes,
+and replay/out-of-order delivery cannot inflate the window. Pending feedback is
+capped at 256 bundles per plan. Existing quota, concurrency, plan, organization,
+Saved six-hour checks and opportunity gates remain. Only discovery restarted,
+cooperatively, in `20261004T181311Z-channel-feedback-dacaf25`; PostgreSQL remains
+canonical. Before rollout the index held 272,272 channels, with 2,076 added in
+24 hours. A higher daily rate is not yet proven. Broadening the actual search
+families/languages remains a subsequent step. See `DISCOVERY_THROUGHPUT_PLAN.md`.
+
+October 3 Saved simplification: completed `ready` requests are hidden from the
+Saved progress panel; an all-complete list produces no panel. Pending work and
+failed requests retain their existing status and Retry control. Filtering happens
+before the eight-row display limit. This is a Beacon UI change; durable request
+records and automatic background refresh remain intact.
+
+October 3 Saved tracking: shared commit `0cbfcd4` adds a bounded five-minute
+scheduler tick to the existing cloud save worker. Enabled Saved channels become
+due after six hours; manual requests take priority, queued work is deduplicated,
+and failed checks retain membership with a six-hour automatic retry cooldown.
+The read-only Finder `saved_channel_tracking` reports verified remote check time,
+measured subscriber/channel-view/upload differences over a 24–30 hour interval,
+and one conservative video pickup signal among at most 30 recent uploads.
+Local-index copies do not prove freshness; stale, missing and hidden-subscriber
+history stays explicitly unavailable. Saved cards use a compact tracking band;
+the old cumulative badge is retained only for unavailable older services.
+Private PostgreSQL, real six-screen Flet, automatic refresh, save/import overlap,
+retry/reconnect and authorization checks passed; see `POSTGRESQL_PROGRESS.md`.
+Release `20261003T173748Z-saved-watch-0cbfcd4` is active: the first automatic pass
+refreshed all three Saved channels successfully. The real UI shows fresh times;
+Disaster Breakdown has measured daily views while two channels collect history.
+
+October 3 search-attribution implementation: shared commit `55acfbb` is live in
+app release `20261003T145500Z-query-yield-55acfbb` and collector release
+`20261003T145500Z-query-provenance-55acfbb`. Signed query-run provenance credits
+actual committed new IDs once when searches overlap. Bounded read-only Finder
+`discovery_yield` separates historical unknowns and small samples from measured
+query/topic/provider/sort evidence. Tests, private PostgreSQL, six-screen Flet,
+save/import overlap, retry/reconnect and token authorization passed. Scheduling,
+quotas and opportunity gates remain unchanged; faster daily growth is still
+unproven. See `DISCOVERY_THROUGHPUT_PLAN.md` for limitations and next steps.
+
+October 3 discovery implementation: shared commits `caaa203`/`72e83b1` now record
+actual committed new versus existing channel IDs per signed import and avoid
+channel API lookups whose unchanged video results would be discarded. The live
+app release is `20261003T133022Z-discovery-yield-72e83b1`; the discovery collector
+uses `20261003T133022Z-delta-channel-72e83b1`. Existing bundle kinds, signatures,
+commit-before-ack, quota limits, video-view checks and opportunity gates remain.
+Focused/shared tests and separate six-screen Flet, save/import overlap and
+retry/reconnection checks passed. Search-family attribution and daily growth
+improvements are not yet established; see `DISCOVERY_THROUGHPUT_PLAN.md`.
+
+October 3 priority override: the user now prioritizes discovery throughput and
+catalogue coverage. Read-only production checks measured 6,380 new channels in
+72 hours and 2,091 in 24 hours, alongside 33,389 successful daily edge searches.
+Import backlog was empty; repeated search coverage, the bounded collector plan
+and inaccurate yield-estimate floor need investigation before expanding workers.
+See `DISCOVERY_THROUGHPUT_PLAN.md`; collection speed comes before the remaining
+ranking/UI/AI feature roadmap. No runtime settings changed during this audit.
+
+October 3 product development: roadmap steps 1–7 are authorized and recorded in
+`BEACON_ROADMAP.md`. PostgreSQL importer commit `8fee1be` now commits each signed
+bundle independently, releasing completed channel-row edits before unrelated
+bundles. Real concurrent save/import, retry/reconnect/deduplication, relevant
+tests and six-screen Flet verification passed. The cloud release is
+`20261003T102250Z-postgres-ranked-b16d173`; normal import/ack completed with result
+0 and no backlog. Existing application processes stayed running. The previous
+writer's historical identity remains unproven. Shared commit `b16d173` now reads
+video lengths in stable ranking order and stops after enough format matches.
+Full-data comparisons preserved all returned fields while Long-form improved
+from 22.379s to 4.555s and Short-form from 14.629s to 3.602s in measured runs.
+Tests and separate six-screen/empty/error-recovery verification passed; only
+Finder restarted for this query release. Broader speed measurements remain;
+the next product phase is a reviewed recommendation benchmark. The latest
+checkpoint is in `POSTGRESQL_PROGRESS.md`.
+
+Current migration checkpoint (October 2, 20:36 UTC): PostgreSQL is live after
+verified final reconciliation of all 30 legacy tables and statistics
+preparation of all 32 target tables. The original SQLite index and verified
+off-host recovery sets are retained. New saves and imports now go to
+PostgreSQL; reverting to the old SQLite deployment would lose these writes.
+The live Saved workflow retained three memberships across reconnect and saved
+Disaster Breakdown once with real analysis. A later refresh encountered three
+confirmed channel-row lock timeouts; membership was retained and later retry
+passed. The blocking writer was not identified. PostgreSQL importer transaction
+size remains a follow-up. Read-token writes remain denied. The actual importer
+is `beacon-edge-sync`, with successful production rounds and no remaining bundles.
+Shared commit `bd6f9a4` fixes a reproduced Long-form timeout by filtering eligible
+channels before indexed duration reads; its focused/shared tests and separate
+six-screen Flet verification passed. The deployed live Long-form filter loaded
+40+ cards. Long/Short queries still take tens of seconds under backup load.
+The first native production backup and exact off-host copy are verified. Both
+recurring schedules are enabled: daily on the server and every four hours/logon
+on the awake, online laptop. The normal laptop task returned actual result 0.
+The first failed scheduled attempt did not reproduce; its failure reporting and
+retries remain in place. All live closing checks passed and owned test resources
+are stopped. The migration milestone is complete. Next: shorten same-channel
+write waits, measure query speed under load, then improve ranking quality.
+Follow the newest entry in
+`POSTGRESQL_PROGRESS.md`; earlier migration entries below are historical.
+
+Earlier migration checkpoint: complete schema-6 native recovery,
+all 32 table comparisons/role checks and restored-table preparation passed.
+The full-data read-only cloud preview passed all six screens and retained the
+two Saved memberships. The coordinated maintenance drain completed without
+force-killing the radar; the guarded final recovery copy passed full source
+checks and was sealed successfully. Exact laptop recovery passed full health
+and byte comparisons. Guarded final reconciliation is now running while
+production still selects SQLite and the app stays in maintenance. The redundant
+generated cloud gzip was removed only after a fresh whole-file hash agreed with
+the healthy off-host recovery; the original SQLite and all retained recovery
+sets remain available, with about 27.7 GB free before reconciliation.
+A reproduced
+Caddy maintenance HTTPS defect was repaired by retaining route host matchers,
+with focused tests, a real proxy fixture and a separate six-screen recheck.
+Final catch-up, target statistics preparation and activation remain pending. Use the newest
+entry in `POSTGRESQL_PROGRESS.md`; the rehearsal descriptions below are history.
+
+The next work is the reliable cloud foundation and PostgreSQL migration plan
+in `POSTGRESQL_PLAN.md`, with the coordinated operator procedure in
+`POSTGRESQL_CUTOVER.md`. The current code is being recorded on paired Beacon
+and shared-engine branches before migration development. The first product
+milestone is durable saving with analysis in the background; PostgreSQL and
+the existing live SQLite index must be compared in an isolated rehearsal
+before production cutover. Shared-engine compatibility with Production Lab
+and full-token/read-token authorization remain mandatory.
+
+The first PostgreSQL foundation is now verified on the
+`codex/postgresql-foundation` branches: an explicit, optional connection layer
+with commit/rollback, read-only transactions, bounded lock/query waits and
+credential-safe connection errors. The shared YouTubeStore now also supports
+an explicitly selected PostgreSQL backend and a versioned 30-table schema.
+Synthetic comparisons and a separate real web instance verified scores,
+filters, memberships, exclusions, all screens and connection-error recovery.
+The private test cluster remains isolated from production. Importer integration
+and runtime ownership/permission checks have also passed. The durable save engine
+has verified queued requests, committed membership, background analysis, bounded
+retries and worker recovery. The operator's Disaster Breakdown link saved and
+analysed successfully in the test schema. UI progress and retry controls now
+read persisted requests, survive browser reconnection, and queue shelf refreshes
+without fetching YouTube data in the browser. Production worker deployment
+and the full-size migration/recovery rehearsal remain before cutover. Administrator
+snapshot, transfer and native PostgreSQL recovery tools have passed synthetic
+verification, including exact-content checks for all 30 legacy tables. See
+`POSTGRESQL_PROGRESS.md`. The off-host streaming snapshot path is now verified;
+the planned full recovery snapshot will be built under `D:/BeaconBackups/`,
+outside both repositories. It pins one consistent read while the live database
+continues accepting writes. Native PostgreSQL 16 is provisioned privately on
+Oracle with staged credentials, but no live service selects it yet. Full data
+comparison, recovery and final reconciliation remain required before cutover.
+Server deployment templates now include a separately enabled save worker and
+optional private PostgreSQL settings for every index service. The installer
+refuses activation while any index process or the explicit radar configuration
+still selects SQLite; ordinary SQLite upgrades retain their existing behavior.
+Final catch-up tooling now compares every legacy row with a verified snapshot,
+applies changes and removals in dependency order, and verifies all 30 tables
+before commit. It requires an explicit writer pause and refuses a target with
+saved-channel jobs. Workspace/Lab name swaps preserve their linked records.
+Administrator migration now adds matching byte-order indexes for exact-content
+checks, avoiding large identifier sorts; normal service starts do not run DDL.
+The staged PostgreSQL state directory retains the existing cloud radar queue
+and classification model under `/var/lib/beacon/data`. The full off-host copy
+has passed full integrity/relationship validation and published its success
+manifest: 265,217 channels, 5,091,451 videos and all 30 legacy tables, 30.9 GB.
+The first inactive PostgreSQL import rolled back safely after encountering four
+provider descriptions containing NUL characters. Explicit administrator
+normalization now removes only those unsupported characters, retains every
+original byte in a private audit, and compares all other cells exactly. Future
+PostgreSQL provider/importer writes preserve the originals in provider metadata;
+SQLite and the sealed recovery file are unchanged. Full-size import is being
+retried; production activation remains pending.
+PostgreSQL schema version 4 also reads valid JSON containing escaped NULs safely.
+This prevents unrelated description metadata from breaking avatar/channel queries;
+stored JSON stays byte-for-byte unchanged and literal backslashes are preserved.
+The schema-owner upgrade is explicit and will run after the full import commits.
+Migration/recovery SQLite checks use a bounded 512 MiB connection-local cache
+to reduce repeated reads, retaining full integrity and relationship checks.
+The second full import rolled back after the laptop's SSH connection reset;
+native PostgreSQL did not restart. The verified administrator archive path now
+packs the unchanged recovery snapshot into an ordered compressed package for
+host-local COPY on Oracle. It checks the complete archive, dependencies, strict
+primary-key order and all 30 typed-content hashes before committing. Real-server
+tests and all six screens passed with an archive-imported fixture. Full-size
+host-local import/recovery and live activation remain pending.
+The sealed full-size archive is now built and hash-verified on both hosts
+(5.42 GB). Its first host-local attempt exposed unbounded libpq COPY buffering:
+the producer advanced much faster than PostgreSQL and retained over 1 GB of
+pending data. Only that inactive rehearsal was cancelled; its transaction
+rolled back. Both administrator COPY paths now flush bounded 128 KiB chunks.
+A blocked-server regression reproduced the original defect and verified the
+fix. All 90 real PostgreSQL checks, both regression suites and all six real
+Flet screens passed. The original recovery snapshot and live SQLite deployment
+remain unchanged. A new full-size bounded import is the next gate.
+That retry completed and committed at 20:32:38 UTC on October 1, after all 30
+legacy tables passed their typed-content comparisons. It retained 265,217 channels,
+5,091,451 videos and 39,403,879 video-history records, with only the four explicitly
+audited provider-description NUL normalizations. The explicit schema version 4
+upgrade also passed. Actual native query comparisons, full-size backup/recovery,
+cloud preview, final catch-up and production activation remain pending; the live
+app still selects SQLite. Private maintenance/activation plans now have tested
+proof, source, disk and process gates. Separate real Caddy/WebSocket and isolated
+network-namespace fixtures verified request draining and restored access without
+changing the production proxy, firewall or index services.
+The first full-data query gate stopped safely before advancing. Schema version 5
+corrects JSON/date helpers whose exception handlers cannot run during PostgreSQL
+parallel execution. An actual failing parallel query, explicit owner upgrade,
+94 PostgreSQL checks, both regression suites and all six real Flet screens
+verified the correction; the inactive full-size target now uses version 5.
+Overview, workspace and opportunity reads still need measured performance fixes.
+No full-size recovery or production activation has been claimed or performed.
+PostgreSQL opportunity reads now materialize the eligible classification stage
+before expensive score predicates and decode avatars only after page selection.
+Both backends order equal scores/discovery timestamps by channel ID; PostgreSQL
+preserves SQLite's NULL ordering. Five actual full-data comparisons passed for
+all returned fields/order, and bounded native reads passed. Focused real-server
+tests, both regression suites and isolated Flet workflows verified the change.
+Long-form/workspace statistics and Overview counts remain the next measured
+performance gate before full-size recovery and activation.
+The explicit schema version 6 upgrade now adds covering video metrics and
+compact exact-count indexes. It completed on the inactive full-size target in
+260 seconds, preserving application rows. Upgrade/idempotency/rollback checks,
+48 real PostgreSQL checks, both regression suites and all six real Flet screens
+passed, including actual connection-error Retry recovery and long-form/empty
+filters. Full-data timings and complete recovery still gate activation; the
+live services continue using SQLite.
+All ten full-size restricted-reader queries now pass under their ordinary
+30-second limit, with exact SQLite result comparisons. Overview measured
+11.327 s, workspace statistics 1.792 s and long-form 9.487 s (SQLite's long-form
+comparison took 228.188 s). A recent-channel age crossed a day boundary between
+reads; the immediate recheck matched every field including age, with the first
+report preserved privately. Native full-size backup/off-host recovery is now
+running against the inactive copy. The 4,947,483,261-byte native archive now
+matches all 32 table fingerprints and is hash-verified in protected laptop
+storage, together with the private deployment recovery set. The complete
+restore is running only against the inactive PostgreSQL target. Restored
+content/role checks, cloud preview, final catch-up and activation remain pending.
+Permanent pinned laptop transfer scripts and the task configuration are
+prepared outside Git; the production schedule is not enabled.
+The live SQLite services remain available.
+The final coordinated pause may use the verified compressed quiescent recovery
+helper after all index processes drain and WAL is checkpointed. A continuous
+pause guard, unchanged source bytes, full integrity/relationship checks and
+off-host exact-byte recovery are mandatory. Reconciliation can then run locally
+against the retained, sealed quiescent original, avoiding another long SSH-owned
+transaction or a second full SQLite file on Oracle. No live source is copied
+this way while writers are active. This operator path has passed synthetic
+recovery/migration/catch-up checks and all six real Flet screens; its full-size
+maintenance use remains pending.
+Beacon's administrator recurring-backup wrapper and daily systemd templates
+are verified on a disposable real PostgreSQL database, including exact 32-table
+restore. They require measured archive space, serialize operations, retain two
+off-host verified sets and preserve all unmirrored sets. Two unmirrored sets
+block another creation; failures publish private credential-safe status.
+The templates are not enabled in production. Full-size recovery, scheduled
+off-host transfer and measured retention setup remain before activation.
+The matching off-host transfer helper now resumes interrupted SSH downloads,
+verifies exact archive bytes and manifests before acknowledgement, and protects
+existing mismatching files. A real 32-table native fixture transferred correctly
+from Oracle to the laptop. Separate hidden Windows task runs proved success
+result 0 and visible failure result 1; both owned fixture tasks were removed.
+Production scheduling still awaits full-size measurements and cutover.
+
+Beacon now runs as a web app on Oracle. The older desktop descriptions and
+measurements below are historical. The live web/Finder/gateway/radar services
+run from a versioned release, and Oracle's application database is private to
+that host. The laptop index mentioned below is a separate legacy/local state;
+do not treat it as the web app's current database.
+
+The September review found a Find tab that showed only its heading while the
+server remained healthy. The UI now serializes redraws and displays a retry
+card if a screen cannot be drawn. Background screen refreshers stop when a
+browser session disconnects and start afresh on reconnect; its Autopilot
+scheduler pauses without changing the operator's saved On setting. The Find
+screen preserves the subject and reports a completed sweep's discovered leads,
+including clear empty and error states. Cloud status reflects the scheduled
+importer instead of implying that the web process needs its own signing key.
+
+Opportunity views now reject high-confidence music, children's, and major
+brand/channel names in the shared Finder's faceless/replicable query path;
+this shared-engine rule also affects Production Lab queries that request that
+path. Excluded records remain in the index. Agent writes have a durable
+started/finished audit pair written before and after execution, with pending
+changes shown for manual review and without an unsafe Undo button.
+
+These changes were checked with regression tests and separate real Flet web
+sessions using isolated Finder ports and a scratch database. The production
+browser showed the recovered Find form and other screens after deployment.
+The exact trigger of the original frozen tab was not captured in a stack trace,
+so the redraw and session-lifetime changes are resilience fixes rather than a
+claim that every possible freeze is eliminated. Off-host backup and migration
+of the laptop/shared venv from Python 3.10 remain open work; Oracle's web
+runtime is already Python 3.12.3.
 
 This document is the durable map of Beacon: what it is, why it exists, how it
 works, what is currently running, what was verified, where the important risks

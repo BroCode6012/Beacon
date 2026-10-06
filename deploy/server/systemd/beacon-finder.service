@@ -1,0 +1,29 @@
+[Unit]
+Description=Beacon data service (the finder)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+EnvironmentFile=@DATA@/beacon_host.env
+EnvironmentFile=-@DATA@/postgres.env
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HOME=@DATA@
+# Only the YouTube keys from the machine's key file (see deploy/server/youtube-keys).
+RuntimeDirectory=beacon-finder
+RuntimeDirectoryMode=0750
+ExecStartPre=+/bin/sh @HOME@/current/Beacon/deploy/server/youtube-keys @KEYS@ /run/beacon-finder/youtube.env @USER@
+EnvironmentFile=-/run/beacon-finder/youtube.env
+WorkingDirectory=@HOME@/current/Beacon
+ExecStart=@HOME@/venv/bin/python @HOME@/current/Beacon/finder_service.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=@DATA@
+
+[Install]
+WantedBy=multi-user.target

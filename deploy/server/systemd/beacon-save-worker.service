@@ -1,0 +1,31 @@
+[Unit]
+Description=Beacon saved-channel analysis worker — enabled after verified PostgreSQL cutover
+After=beacon-finder.service
+Wants=beacon-finder.service
+ConditionPathExists=@DATA@/postgres.env
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+EnvironmentFile=@DATA@/beacon_host.env
+EnvironmentFile=@DATA@/postgres.env
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HOME=@DATA@
+RuntimeDirectory=beacon-save-worker
+RuntimeDirectoryMode=0750
+ExecStartPre=+/bin/sh @HOME@/current/Beacon/deploy/server/youtube-keys @KEYS@ /run/beacon-save-worker/youtube.env @USER@
+EnvironmentFile=-/run/beacon-save-worker/youtube.env
+WorkingDirectory=@HOME@/current/Quill
+ExecStart=@HOME@/venv/bin/python -m scripter.research.channel_save_jobs
+Restart=on-failure
+RestartSec=5
+# SIGTERM stops between jobs; the current bounded job can commit first.
+TimeoutStopSec=180
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=@DATA@
+
+[Install]
+WantedBy=multi-user.target

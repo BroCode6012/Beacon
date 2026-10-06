@@ -1,0 +1,28 @@
+#!/bin/sh
+# youtube-keys KEYS_FILE OUT_FILE USER — give one Beacon service ONLY the YouTube keys it needs.
+#
+# Run as root by every Beacon service before it starts (the key file is root-only): the scraper,
+# the data service (live refreshes, saving a channel), the screens and Muse's door (a video link
+# is resolved to its channel with the key pool). The machine's key file may also hold the cloud
+# collector's signing key; none of them needs it, so only the YOUTUBE_API_KEY(S) lines are
+# copied. (Before 2026-09-29 only the scraper got keys, and "Refresh live" on the Saved screen
+# quietly refreshed nothing on the server.)
+#
+# The engine reads keys under two names: the pool (YOUTUBE_API_KEYS, comma-separated) and, for
+# channel-stat enrichment, a single YOUTUBE_API_KEY — without it the scraper logs "Channel
+# enrich skipped: no YOUTUBE_API_KEY" every cycle (seen on Oracle, 2026-09-29, whose key file
+# only lists the pool). When the single one is missing, the pool's first key stands in.
+# Values are never printed.
+set -eu
+src=$1
+out=$2
+user=$3
+umask 027
+grep -E '^YOUTUBE_API_KEYS?=' "$src" > "$out" || true
+if ! grep -q '^YOUTUBE_API_KEY=' "$out"; then
+    first=$(sed -n 's/^YOUTUBE_API_KEYS=["'"'"']*\([^,"'"'"']*\).*/\1/p' "$out" | head -n 1)
+    if [ -n "$first" ]; then
+        printf 'YOUTUBE_API_KEY=%s\n' "$first" >> "$out"
+    fi
+fi
+chown "root:$user" "$out"

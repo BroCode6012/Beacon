@@ -1,0 +1,29 @@
+[Unit]
+Description=Beacon's read-only door for outside agents (Muse) — listens on 127.0.0.1 only
+After=beacon-finder.service
+Wants=beacon-finder.service
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+EnvironmentFile=@DATA@/beacon_host.env
+EnvironmentFile=-@DATA@/postgres.env
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 HOME=@DATA@
+# Only the YouTube keys from the machine's key file (see deploy/server/youtube-keys).
+RuntimeDirectory=beacon-gateway
+RuntimeDirectoryMode=0750
+ExecStartPre=+/bin/sh @HOME@/current/Beacon/deploy/server/youtube-keys @KEYS@ /run/beacon-gateway/youtube.env @USER@
+EnvironmentFile=-/run/beacon-gateway/youtube.env
+WorkingDirectory=@HOME@/current/Beacon
+ExecStart=@HOME@/venv/bin/python @HOME@/current/Beacon/beacon_gateway.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=@DATA@
+
+[Install]
+WantedBy=multi-user.target

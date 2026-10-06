@@ -2,6 +2,9 @@
 .env
 *.token
 *token*.json
+*.pem
+*.key
+.aws/
 
 # Generated Signal state
 _autopilot.json
@@ -21,9 +24,25 @@ verification/
 *.sqlite3-*
 *.db
 *.db-*
+*.sqlite
+*.sqlite-*
+*.wal
+*.shm
+# Generated model weights
+*.joblib
+*.pkl
+*.pt
+*.pth
+*.onnx
+*.safetensors
 *.png
 *.jpg
 *.jpeg
+# ...except Beacon's own icons (drawn by tools_make_icons.py): the web version needs them, and
+# the code package that goes to the server only carries what git would.
+!assets/*.png
+!assets/icons/
+!assets/icons/*.png
 
 # Local environments and editor files
 .venv/
@@ -39,3 +58,9 @@ _ai_choice.json
 
 # stray file created by a bad Windows redirect (not real content)
 nul
+
+# third-party programs downloaded for Beacon (cloudflared for the Muse link) - not our code
+tools/
+
+# this machine's host settings (holds the data service keys on a server)
+beacon_host.env

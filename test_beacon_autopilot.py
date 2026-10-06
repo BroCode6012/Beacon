@@ -4,6 +4,7 @@ import os
 import pathlib
 import shutil
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -17,6 +18,17 @@ class _App:
 
 
 class AutopilotEnvironmentGuardTests(unittest.TestCase):
+    def test_page_shutdown_stops_scheduler_without_turning_saved_setting_off(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.object(beacon_autopilot, "STATE_FILE", pathlib.Path(folder) / "state.json"):
+                autopilot = Autopilot(_App())
+        autopilot.enabled = True
+        autopilot.next_run_ts = 123.0
+        autopilot.shutdown()
+        self.assertTrue(autopilot.enabled)
+        self.assertTrue(autopilot._stop.is_set())
+        self.assertIsNone(autopilot.next_run_ts)
+
     def test_environment_guard_suppresses_saved_autopilot_without_rewriting_it(self) -> None:
         with patch.dict(os.environ, {"SIGNAL_DISABLE_AUTOPILOT": "1"}):
             autopilot = Autopilot(_App())
@@ -309,17 +321,19 @@ class RunningLineTickerTests(unittest.TestCase):
 
         app = BeaconApp.__new__(BeaconApp)
         app.section = "Agent"
+        app._session_stop = threading.Event()
         app._pass_line = _Line()
         app.autopilot = SimpleNamespace(running_now=True, running_kind="deep",
                                         running_since=time.time() - 8 * 60)
         ticks = []
 
-        def fake_sleep(_s):
+        def fake_wait(_s):
             ticks.append(1)
             if len(ticks) >= 2:
                 app.autopilot.running_now = False     # the pass finishes
+            return False
 
-        with patch("beacon_app.time.sleep", fake_sleep):
+        with patch.object(app._session_stop, "wait", fake_wait):
             app._tick_pass_line()                      # returns once the pass is over
         self.assertEqual(app._pass_line.value, "running a full sweep of the index… 8m so far")
         self.assertEqual(app._pass_line.updates, 1)
