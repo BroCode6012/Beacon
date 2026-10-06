@@ -8,8 +8,8 @@ Beacon small and comfortable to work on alone.
 On launch it connects to a running Finder service; if none is up, it self-hosts one in-process
 so Beacon always works standalone (Phase 4 will make that a proper always-on separate process).
 
-Run (uses the Lab venv, which has the deps):
-    D:\\Youtube\\Quill\\.venv\\Scripts\\python.exe D:\\Youtube\\Beacon\\beacon_app.py
+Run (uses Beacon's own environment):
+    D:\\Youtube\\Beacon\\.venv\\Scripts\\python.exe D:\\Youtube\\Beacon\\beacon_app.py
 
 DESIGN CONTRACT — seed c1c0b719
 THESIS: Beacon is a daylight operations board for finding repeatable YouTube
@@ -38,7 +38,7 @@ import logging
 import time
 from pathlib import Path
 
-import engine_link  # noqa: F401 — wires shared engine onto sys.path + sets YOUTUBE_INDEX_DB
+import engine_link  # noqa: F401 — initializes Beacon engine and YOUTUBE_INDEX_DB
 import flet as ft
 
 import sweep_control  # drives the shared background scraper (must import AFTER engine_link)
@@ -56,8 +56,8 @@ import beacon_agent   # Beacon's OWN control agent (any AI provider; separate fr
 import beacon_ai      # which AI answers: providers, settings, connection tests
 import beacon_save    # save + analyse a channel you found yourself on YouTube
 import beacon_autopilot  # optional background maintenance loop (off by default)
-from scripter.intelligence.finder_client import FinderClient, FinderError
-from scripter.taskbar_identity import claim_taskbar_button
+from beacon_engine.intelligence.finder_client import FinderClient, FinderError
+from beacon_engine.taskbar_identity import claim_taskbar_button
 
 # --- palette (self-contained; Beacon owns its own look) ---------------------
 DISPLAY_FONT = "Bahnschrift"
@@ -759,7 +759,7 @@ class BeaconApp:
         self._scrape_banner: dict | None = None
 
         page.title = "Beacon — Niche Finder"
-        # Quill, Beacon and Vault all draw through the same flet.exe; without its own ID
+        # Flet apps draw through the same flet.exe; without Beacon's own ID
         # and icon, Windows stacks Beacon under whichever of them opened first.
         icon = Path(__file__).with_name("assets") / "beacon_icon.ico"
         if icon.exists():
@@ -1038,7 +1038,7 @@ class BeaconApp:
             self._kill_process_tree(own)
         # self-host in-process (fallback) — also patient with a busy database, but only
         # until the overall deadline: if the service already waited it out, so did we.
-        from scripter.intelligence.local_api import serve_in_thread
+        from beacon_engine.intelligence.local_api import serve_in_thread
         while True:
             try:
                 serve_in_thread(host=HOST, port=PORT, db_path=DB,
@@ -4156,7 +4156,7 @@ class BeaconApp:
         working. Lets the card distinguish 'quiet/stuck' from 'busy'. (Reads the file mtime
         directly, like _oracle_state, so it stays a Beacon-side display concern.)"""
         try:
-            path = (sweep_control.SCRIPTER_ROOT / "storage" / "edge_sync"
+            path = (sweep_control.ENGINE_ROOT / "storage" / "edge_sync"
                     / "sync_progress.json")
             if not path.exists():
                 return None
@@ -5165,7 +5165,7 @@ class BeaconApp:
             base = (
                 Path(root)
                 if root
-                else sweep_control.SCRIPTER_ROOT / "storage" / "edge_sync"
+                else sweep_control.ENGINE_ROOT / "storage" / "edge_sync"
             )
             path = base / "remote_status.json"
             if not path.exists():

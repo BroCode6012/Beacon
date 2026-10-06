@@ -1,0 +1,11 @@
+[Unit]
+Description=Check every 5 minutes that Signal edge discovery is still progressing
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=signal-edge-watchdog.service
+
+[Install]
+WantedBy=timers.target

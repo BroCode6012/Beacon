@@ -55,7 +55,7 @@ class PostgreSQLDeploymentTests(unittest.TestCase):
         worker=(SERVER/'systemd/beacon-save-worker.service').read_text(encoding='utf-8')
         self.assertIn('ConditionPathExists=@DATA@/postgres.env',worker)
         self.assertIn('EnvironmentFile=@DATA@/postgres.env',worker)
-        self.assertIn('-m scripter.research.channel_save_jobs',worker)
+        self.assertIn('-m beacon_engine.research.channel_save_jobs',worker)
         self.assertIn('TimeoutStopSec=180',worker)
         self.assertNotIn('EnvironmentFile=@KEYS@',worker)
         installer=(SERVER/'install.sh').read_text(encoding='utf-8')

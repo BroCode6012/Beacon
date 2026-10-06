@@ -32,7 +32,7 @@ KEY = os.getenv("BEACON_CLOUD_KEY", str(Path.home() / ".ssh" / "signal_edge_orac
 LOCAL_PORT = int(os.getenv("BEACON_CLOUD_LOCAL_PORT", "8571"))
 REMOTE_PORT = int(os.getenv("BEACON_CLOUD_REMOTE_PORT", "8570"))
 URL = f"http://127.0.0.1:{LOCAL_PORT}/"
-ENGINE = Path(os.getenv("FACELESS_ENGINE_DIR") or (HERE.parent / "Quill"))
+ENGINE = HERE
 HIDDEN = 0x08000000 if os.name == "nt" else 0                   # CREATE_NO_WINDOW
 DETACHED = (0x00000008 | HIDDEN) if os.name == "nt" else 0       # + DETACHED_PROCESS: outlives us
 
@@ -72,7 +72,7 @@ def refresh_access() -> None:
     """The server's firewall admits SSH only from this laptop's current internet address.
     BeaconOracleAccess refreshes that every 5 min; do it now too in case the address just
     changed (the updater is the engine's standalone script, its settings in the engine .env)."""
-    updater = ENGINE / "scripter" / "edge" / "oci_allowlist.py"
+    updater = ENGINE / "beacon_engine" / "edge" / "oci_allowlist.py"
     python = ENGINE / "storage" / "oci_updater_venv" / "Scripts" / "python.exe"
     if updater.exists() and python.exists():
         subprocess.run([str(python), str(updater), "--status",

@@ -1,20 +1,16 @@
-"""The standalone FINDER service — the shared niche-finder tool, run as its own process.
+"""Beacon's authenticated Finder API, running as its own process.
 
-It owns the discovery engine + the shared ~24GB index, and exposes ~35 commands over
-localhost HTTP with TWO keys:
-  * FULL key  (FINDER_TOKEN)      -> read + write  — used by the Beacon control room
-  * READ key  (FINDER_READ_TOKEN) -> read only     — used by the Production Lab
-
-Start it once and leave it running; both apps connect to it (see FinderClient). Keys are
-written to a shared token file so the apps can pick them up automatically.
+The FULL key grants read/write access; the READ key grants read-only access.
+Only Beacon's own engine, settings and index are used. Token files are private
+Beacon state. No other application is connected automatically.
 
 This service NEVER holds a visible console window. However you start it -- the .vbs, a
 shell, a scheduled task, an agent copying a command out of the docs -- it ends up running
 under pythonw.exe with no console at all (see _relaunch_hidden). Any of these are fine:
 
     wscript.exe D:\\Youtube\\Beacon\\start_finder_hidden.vbs
-    D:\\Youtube\\Quill\\.venv\\Scripts\\pythonw.exe D:\\Youtube\\Beacon\\finder_service.py
-    D:\\Youtube\\Quill\\.venv\\Scripts\\python.exe  D:\\Youtube\\Beacon\\finder_service.py
+    D:\\Youtube\\Beacon\\.venv\\Scripts\\pythonw.exe D:\\Youtube\\Beacon\\finder_service.py
+    D:\\Youtube\\Beacon\\.venv\\Scripts\\python.exe  D:\\Youtube\\Beacon\\finder_service.py
 
 Output goes to storage/finder_service.log, since a hidden process has no stdout to print to.
 To watch it live in a console instead, opt in explicitly:
@@ -143,14 +139,14 @@ if __name__ == "__main__":
     if _relaunch_hidden():
         raise SystemExit(0)
 
-import engine_link  # noqa: E402,F401 — wires the shared engine onto sys.path + sets YOUTUBE_INDEX_DB
+import engine_link  # noqa: E402,F401 — initializes Beacon engine and YOUTUBE_INDEX_DB
 
-from scripter.intelligence.local_api import create_server  # noqa: E402
+from beacon_engine.intelligence.local_api import create_server  # noqa: E402
 
 DB = os.environ["YOUTUBE_INDEX_DB"]                       # set by engine_link
 FULL_TOKEN = os.getenv("FINDER_TOKEN", "signal-full")     # Beacon uses this
-READ_TOKEN = os.getenv("FINDER_READ_TOKEN", "lab-read")   # the Lab uses this
-# shared token file both apps read so they don't have to be told the keys
+READ_TOKEN = os.getenv("FINDER_READ_TOKEN", "lab-read")   # read-only clients
+# Private token file for authorized Beacon clients
 TOKEN_FILE = os.getenv("FINDER_TOKEN_FILE") or os.path.join(
     os.path.dirname(DB), "finder.tokens.json")
 

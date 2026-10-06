@@ -1,0 +1,4 @@
+# Self-contained Beacon runtime (Python 3.11+).
+-r deploy/server/requirements-server.txt
+flet-desktop==0.28.3; sys_platform == "win32"
+pywin32>=306; sys_platform == "win32"

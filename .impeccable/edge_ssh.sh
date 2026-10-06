@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run a command on the Oracle edge VM using settings from Scripter/.env.
+# Run a command on the Oracle edge VM using settings from Beacon/.env.
 # Values are never echoed; host/user/key are scrubbed from all output.
 #
 # The laptop sits behind carrier-grade NAT: its public IPv4 changes per
@@ -10,8 +10,8 @@
 # Usage: edge_ssh.sh '<remote command>'
 set -uo pipefail
 
-ENVFILE="D:/Youtube/Quill/.env"
-SCRIPTER="D:/Youtube/Quill"
+ENVFILE="D:/Youtube/Beacon/.env"
+SCRIPTER="D:/Youtube/Beacon"
 CTL="/tmp/signal-edge-ctl.sock"
 
 getval() {
@@ -33,7 +33,7 @@ scrub() { sed -e "s|$H|<edge-host>|g" -e "s|$K|<edge-key>|g" -e "s|$U@|<edge-use
 
 refresh_allowlist() {
   ( cd "$SCRIPTER" && ./storage/oci_updater_venv/Scripts/python.exe \
-      scripter/edge/oci_allowlist.py \
+      beacon_engine/edge/oci_allowlist.py \
       --status "storage/edge_sync/oci_allowlist_status.json" ) >/dev/null 2>&1
 }
 

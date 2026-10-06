@@ -129,11 +129,11 @@ def finder() -> tuple[str, str]:
 
 def build_powers():
     """Agent access: Beacon's own agent (headless — no window to drive) with the FULL key."""
-    import engine_link  # noqa: F401 — engine path + library location before scripter imports
+    import engine_link  # noqa: F401 — engine path + library location before beacon_engine imports
     import beacon_agent
     import sweep_control
     from muse_powers import MusePowers
-    from scripter.intelligence.finder_client import FinderClient
+    from beacon_engine.intelligence.finder_client import FinderClient
     data = json.loads(FINDER_TOKENS.read_text(encoding="utf-8"))
     agent = beacon_agent.BeaconAgent(FinderClient(data["url"], data["full"]),
                                      sweep_control, ui=None)

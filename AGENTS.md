@@ -13,29 +13,25 @@ is not intended to surface every high-performing channel. Opportunity views
 should suppress music, celebrities, children’s content, major brands/networks,
 one-off viral accidents, malformed records, and unstable tiny-data ratios.
 
-Beacon is not the shared scraper engine. It physically owns the one shared
-index; it does not maintain a private second database.
+Beacon owns its scraper engine and index. Quill owns its own research catalog;
+no database or runtime package is shared between these applications.
 
 ## Boundaries
 
-- Beacon-owned code: `D:\Youtube\Beacon`
-- Shared engine: `D:\Youtube\Quill\scripter`
-- Shared live database:
-  `D:\Youtube\Beacon\storage\youtube_index.sqlite3`
-- Shared radar config, status, queue, logs, and model state:
-  `D:\Youtube\Quill\storage`
-
-An edit under the shared engine affects both Beacon and the Production Lab.
-State that impact explicitly before making such an edit.
-
-Do not move, copy, reset, replace, or casually back up the live database.
-
-Do not stop the radar, kill Beacon, run a write tool, or change the watchlist
-unless the user’s task requires that state change.
+- Beacon owns this repository, `beacon_engine/`, its `.venv`, credentials,
+  database and all worker state. Quill owns a separate repository and runtime.
+- Never import another application's Python package, read its settings, or point
+  defaults at its data. There is no active Beacon–Quill integration.
+- Production Beacon uses PostgreSQL on Oracle. A fresh local checkout may use a
+  separate empty SQLite index for development; never substitute it for production.
+- Never move, copy, reset or replace a live database casually. Preserve secrets.
+- Do not stop production workers or alter the watchlist unless required by the task.
+- Historical entries below describing the shared engine/database are superseded
+  by the standalone architecture established on October 6, 2026.
 
 ## Architecture rules
 
-1. Import `engine_link` before importing `scripter.*` from a Beacon entry point.
+1. Import `engine_link` before importing `beacon_engine.*` from a Beacon entry point.
 2. Normal Beacon UI features must use `FinderClient`.
 3. Do not add direct SQLite queries to `beacon_app.py`.
 4. Keep Beacon’s Bedrock agent separate from Production Lab chat/agent modules.
@@ -205,8 +201,8 @@ For every atomic code change:
 
 1. Parse or compile the changed Python.
 2. Run focused tests.
-3. Run the relevant shared test suite when engine code changes.
-4. Launch a separate real Flet app instance with the shared venv and an isolated
+3. Run the Beacon engine test suite when engine code changes.
+4. Launch a separate real Flet app instance with Beacon's own venv and an isolated
    Finder port/token-file path so the user's open app is not disturbed.
 5. Use `_win.ps1` to click the changed controls and verify the complete affected
    workflow, including success, empty, loading, and error states when relevant.

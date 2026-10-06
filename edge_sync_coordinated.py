@@ -14,7 +14,7 @@ This runner makes the two writers TAKE TURNS instead of fighting:
   4. Resume the scraper (only if WE paused it — a deliberate user Stop is respected).
 
 Beacon-owned; it never edits the shared engine. Run hidden by the BeaconEdgeSync task:
-    D:\\Youtube\\Quill\\.venv\\Scripts\\pythonw.exe D:\\Youtube\\Beacon\\edge_sync_coordinated.py
+    D:\\Youtube\\Beacon\\.venv\\Scripts\\pythonw.exe D:\\Youtube\\Beacon\\edge_sync_coordinated.py
 
 EXIT CODES ARE REAL (added 2026-09-11). 0 = a sync round actually completed; non-zero = it did
 not, so the BeaconEdgeSync task goes red. This matters more than it sounds: the wrapper .vbs was
@@ -33,10 +33,10 @@ import sys
 import time
 from datetime import datetime
 
-import engine_link  # noqa: F401 — sets the shared-engine path + DB env before scripter imports
+import engine_link  # noqa: F401 — sets the shared-engine path + DB env before beacon_engine imports
 import sweep_control
 
-VBS = sweep_control.SCRIPTER_ROOT / "scripts" / "run_edge_sync_hidden.vbs"
+VBS = sweep_control.ENGINE_ROOT / "scripts" / "run_edge_sync_hidden.vbs"
 DB = os.environ["YOUTUBE_INDEX_DB"]
 # A hidden task has no console, so a failure printed to stdout goes nowhere. Everything this
 # runner decides is appended here — it is the only place an operator can see WHY a sync round
@@ -60,7 +60,7 @@ PAUSE_BACKLOG_THRESHOLD = 40
 def _pending_backlog() -> int:
     """Bundles waiting to import: Oracle's remote_pending + what's already in the local inbox."""
     total = 0
-    base = sweep_control.SCRIPTER_ROOT / "storage" / "edge_sync"
+    base = sweep_control.ENGINE_ROOT / "storage" / "edge_sync"
     try:
         import json
         t = json.loads((base / "transport_status.json").read_text(encoding="utf-8"))
@@ -230,12 +230,12 @@ def _run_sync() -> int:
     if not VBS.exists():
         _log(f"FAILED: sync wrapper is missing: {VBS}")
         _log("  restore it with: git -C "
-             f"{sweep_control.SCRIPTER_ROOT} checkout -- scripts/run_edge_sync_hidden.vbs")
+             f"{sweep_control.ENGINE_ROOT} checkout -- scripts/run_edge_sync_hidden.vbs")
         return 2
     try:
         proc = subprocess.run(
             ["wscript", "//B", "//NoLogo", str(VBS), DB, *SYNC_ARGS],
-            cwd=str(sweep_control.SCRIPTER_ROOT), timeout=SYNC_TIMEOUT_S)
+            cwd=str(sweep_control.ENGINE_ROOT), timeout=SYNC_TIMEOUT_S)
     except Exception as exc:  # noqa: BLE001 — report it, but still let main() resume the scraper
         _log(f"FAILED: {type(exc).__name__}: {exc}")
         return 3

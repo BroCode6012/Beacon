@@ -21,9 +21,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 HOST_FILE = Path(os.getenv("BEACON_HOST_FILE") or (HERE / "beacon_host.env"))
 
-# The laptop's original engine location. Any other machine either sets FACELESS_ENGINE_DIR
-# or keeps the engine beside Beacon (Beacon/ + Quill/ in one folder, as the installer does).
-LEGACY_ENGINE_DIR = Path(r"D:\Youtube\Quill")
+# The engine is part of this checkout, on every host.
 
 
 def parse(text: str) -> dict[str, str]:
@@ -66,6 +64,5 @@ def load(path: Path | None = None) -> dict[str, str]:
 
 
 def default_engine_dir(root: Path = HERE) -> Path:
-    """The engine beside Beacon if it is there (any installed server), else the laptop's."""
-    sibling = root.parent / "Quill"
-    return sibling if (sibling / "scripter").is_dir() else LEGACY_ENGINE_DIR
+    """Beacon includes its own engine; sibling repositories are never consulted."""
+    return Path(root)

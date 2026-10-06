@@ -1,14 +1,14 @@
 """Headless proof that the standalone Beacon app can reach the SHARED engine + database.
 
 Run from the Lab's venv so the dependencies are available:
-    D:\\Youtube\\Quill\\.venv\\Scripts\\python.exe D:\\Youtube\\Beacon\\check_engine.py
+    D:\\Youtube\\Beacon\\.venv\\Scripts\\python.exe D:\\Youtube\\Beacon\\check_engine.py
 """
 
 from __future__ import annotations
 
 import engine_link  # noqa: F401 — wires the shared engine onto sys.path + sets the DB path
 
-from scripter.research.store import YouTubeStore, DEFAULT_DB_PATH
+from beacon_engine.research.store import YouTubeStore, DEFAULT_DB_PATH
 
 
 def main() -> None:

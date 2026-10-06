@@ -368,7 +368,7 @@ class CloudImportGuardTests(PassPlanTests):
         folder.mkdir(parents=True)
         progress = folder / "sync_progress.json"
         ap = Autopilot.__new__(Autopilot)
-        with patch.object(sweep_control, "SCRIPTER_ROOT", root):
+        with patch.object(sweep_control, "ENGINE_ROOT", root):
             self.assertFalse(ap._cloud_import_active())          # no file yet
             progress.write_text(json.dumps({"state": "importing"}), encoding="utf-8")
             self.assertTrue(ap._cloud_import_active())

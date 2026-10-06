@@ -179,8 +179,8 @@ def create_archive(directory, backup, *, expected_bytes, reserve_bytes=8*GIB,
 def native_backup(path, reserve_bytes):
     import engine_link  # noqa: F401 -- before any shared-engine imports
     from psycopg.conninfo import make_conninfo
-    from scripter.research.postgres import PostgresDatabase
-    from scripter.research.postgres_migration import backup_postgres
+    from beacon_engine.research.postgres import PostgresDatabase
+    from beacon_engine.research.postgres_migration import backup_postgres
     operation = 'beacon-recurring-backup-' + uuid4().hex[:12]
     dsn = make_conninfo(os.environ['BEACON_POSTGRES_ADMIN_DSN'], application_name=operation)
 

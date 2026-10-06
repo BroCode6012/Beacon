@@ -139,23 +139,23 @@ class CodePackageTests(unittest.TestCase):
             (repo / "storage").mkdir()
             (repo / "storage" / "db.sqlite3").write_bytes(b"data")         # ignored
 
-    def test_a_clean_package_names_its_two_folders_and_leaves_ignored_files_out(self):
+    def test_a_clean_package_contains_only_beacon_and_leaves_ignored_files_out(self):
         import tarfile
         out = self.tmp / "code.tar.gz"
-        report = bm.package_code(out, beacon=self.beacon, engine=self.engine)
+        report = bm.package_code(out, beacon=self.beacon)
         with tarfile.open(out) as tar:
             names = sorted(tar.getnames())
         self.assertIn("Beacon/app.py", names)
-        self.assertIn("Quill/app.py", names)
+        self.assertFalse(any(n.startswith("Quill/") for n in names))
         self.assertFalse(any(".env" in n or "sqlite3" in n for n in names))
         self.assertEqual(report["files"], len(names))
 
     def test_a_secret_in_the_code_stops_the_package(self):
         fake_key = "sk-" + "a1B2" * 8                      # built here, never written literally
-        (self.engine / "config.py").write_text(f"KEY = '{fake_key}'\n", encoding="utf-8")
+        (self.beacon / "config.py").write_text(f"KEY = '{fake_key}'\n", encoding="utf-8")
         with self.assertRaises(bm.MoveError) as caught:
-            bm.package_code(self.tmp / "code.tar.gz", beacon=self.beacon, engine=self.engine)
-        self.assertIn("Quill/config.py", str(caught.exception))
+            bm.package_code(self.tmp / "code.tar.gz", beacon=self.beacon)
+        self.assertIn("Beacon/config.py", str(caught.exception))
         self.assertFalse((self.tmp / "code.tar.gz").exists())
 
 

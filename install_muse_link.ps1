@@ -26,8 +26,8 @@ $ErrorActionPreference = "Stop"
 $TaskName  = "BeaconMuseLink"
 $BeaconDir = $PSScriptRoot
 $Script    = Join-Path $BeaconDir "muse_link.py"
-$Pyw       = "D:\Youtube\Quill\.venv\Scripts\pythonw.exe"
-if (-not (Test-Path -LiteralPath $Pyw)) { $Pyw = "pythonw.exe" }
+$Pyw = Join-Path $BeaconDir ".venv\Scripts\python.exe"
+if (-not (Test-Path -LiteralPath $Pyw)) { throw "Install Beacon requirements in its own .venv first." }
 
 if ($Status) {
     $t = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
@@ -46,7 +46,7 @@ if (-not (Test-Path -LiteralPath $Script)) {
 }
 
 $Interval = [Math]::Max(1, [Math]::Min($EveryMinutes, 60))
-$Command  = '"' + $Pyw + '" "' + $Script + '"'
+$Command = 'wscript.exe "' + (Join-Path $BeaconDir "run_python_hidden.vbs") + '" "' + $Pyw + '" "' + $Script + '"'
 & schtasks.exe /Create /F /SC MINUTE /MO $Interval /TN $TaskName /TR $Command /IT
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to install scheduled task: $TaskName"

@@ -4,10 +4,10 @@
 #   sudo bash install.sh beacon_code.tar.gz
 #
 # Nothing here names a particular provider: Oracle today, whatever is better tomorrow. The
-# package comes from `python beacon_move.py code` on the laptop (Beacon/ + Quill/, no secrets).
+# package comes from `python beacon_move.py code` on the laptop (Beacon/ including beacon_engine/, no secrets).
 #
 # Layout (the code and the data never mix, so an upgrade can't touch the library):
-#   /opt/beacon/releases/<time>/{Beacon,Quill}   one folder per install — read-only code
+#   /opt/beacon/releases/<time>/Beacon   one folder per install — read-only code
 #   /opt/beacon/current -> releases/<time>       what runs; rollback = point it back
 #   /opt/beacon/venv                             Python packages (rebuilt only when they change)
 #   /var/lib/beacon/                             EVERYTHING that must survive an upgrade:
@@ -48,7 +48,7 @@ install -d -m 0750 -o "$SVC_USER" -g "$SVC_USER" \
 # 2. the code, as a new release ---------------------------------------------------------------
 install -d -m 0755 "$REL"
 tar -xzf "$PKG" -C "$REL" --no-same-owner
-[ -d "$REL/Beacon" ] && [ -d "$REL/Quill/scripter" ] || { echo "package must hold Beacon/ and Quill/scripter/"; exit 1; }
+[ -d "$REL/Beacon/beacon_engine" ] || { echo "package must hold Beacon/beacon_engine/"; exit 1; }
 # Packages built on Windows carry Windows line endings and permissive modes: normalise both.
 find "$REL" -type f \( -name '*.sh' -o -name '*.service' -o -name '*.timer' -o -name '*.rules' -o -name '*.env' -o -name local-ssh -o -name youtube-keys \) \
     -exec sed -i 's/\r$//' {} +
@@ -56,9 +56,10 @@ chown -R root:root "$REL"
 chmod -R u=rwX,go=rX "$REL"
 chmod 0755 "$REL/Beacon/deploy/server/local-ssh"
 # Everything that must outlive this release lives under $DATA, reached through links.
-rm -rf "$REL/Beacon/storage" "$REL/Quill/storage"
+rm -rf "$REL/Beacon/storage"
 ln -s "$DATA/storage" "$REL/Beacon/storage"
-ln -s "$DATA/engine-storage" "$REL/Quill/storage"
+ln -s "$DATA/engine-storage" "$REL/Beacon/engine-storage"
+
 for f in .env _ai_choice.json _autopilot.json _targets.json; do
     ln -sfn "$DATA/state/$f" "$REL/Beacon/$f"
 done
@@ -84,8 +85,7 @@ HOSTFILE="$DATA/beacon_host.env"
 if [ ! -f "$HOSTFILE" ]; then
     FULL=$("$VENV/bin/python" -c "import secrets; print(secrets.token_urlsafe(32))")
     READ=$("$VENV/bin/python" -c "import secrets; print(secrets.token_urlsafe(32))")
-    sed -e "s#^FACELESS_ENGINE_DIR=.*#FACELESS_ENGINE_DIR=$APP/current/Quill#" \
-        -e "s#/var/lib/beacon#$DATA#g" \
+    sed -e "s#/var/lib/beacon#$DATA#g" \
         -e "s#^TZ=.*#TZ=$TZ_NAME#" \
         -e "s#^FINDER_TOKEN=.*#FINDER_TOKEN=$FULL#" \
         -e "s#^FINDER_READ_TOKEN=.*#FINDER_READ_TOKEN=$READ#" \
@@ -98,8 +98,9 @@ fi
 while IFS= read -r line; do
     name=${line%%=*}
     grep -q "^$name=" "$HOSTFILE" || { echo "$line" >> "$HOSTFILE"; say "added setting $name"; }
-done <<'NEW_SETTINGS'
+done <<NEW_SETTINGS
 BEACON_RADAR_UNIT=beacon-radar.service
+BEACON_ENGINE_STATE_DIR=$DATA/engine-storage
 NEW_SETTINGS
 ln -sfn "$HOSTFILE" "$REL/Beacon/beacon_host.env"
 

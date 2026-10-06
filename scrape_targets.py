@@ -104,7 +104,7 @@ def _expanded(queries: list[str]) -> list[str]:
     """The real searches a target's base ideas fan out into (same set the scraper runs)."""
     seeds = [str(q) for q in (queries or []) if str(q).strip()]
     try:
-        from scripter.research.channel_discovery import expand_queries
+        from beacon_engine.research.channel_discovery import expand_queries
         return expand_queries(seeds)
     except Exception:  # noqa: BLE001
         return seeds

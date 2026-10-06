@@ -12,9 +12,9 @@ Option Explicit
 Dim fso, sh, root, py
 Set fso = CreateObject("Scripting.FileSystemObject")
 root = fso.GetParentFolderName(WScript.ScriptFullName)
-' The Lab's venv is the one with the deps; fall back to whatever pythonw is on PATH.
-py = "D:\Youtube\Quill\.venv\Scripts\pythonw.exe"
-If Not fso.FileExists(py) Then py = "pythonw.exe"
+' Use only Beacon's own interpreter; never search another application's environment.
+py = root & "\.venv\Scripts\python.exe"
+If Not fso.FileExists(py) Then WScript.Quit 2
 Set sh = CreateObject("WScript.Shell")
 sh.CurrentDirectory = root      ' finder_service.py imports engine_link from this folder
 sh.Run """" & py & """ """ & root & "\finder_service.py""", 0, False

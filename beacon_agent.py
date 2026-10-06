@@ -2,7 +2,7 @@
 background scraper to search, organize, and control the index.
 
 DELIBERATELY SEPARATE from the Production Lab: this imports NOTHING from
-scripter.chat / scripter.agent_tools / scripter.llm. Its only engine links are the
+beacon_engine.chat / beacon_engine.agent_tools / beacon_engine.llm. Its only engine links are the
 exact bridges the rest of Beacon already uses — the FinderClient (read+write finder)
 and sweep_control (start/stop the shared scraper).
 
