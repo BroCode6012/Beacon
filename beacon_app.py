@@ -57,6 +57,7 @@ import beacon_ai      # which AI answers: providers, settings, connection tests
 import beacon_save    # save + analyse a channel you found yourself on YouTube
 import beacon_autopilot  # optional background maintenance loop (off by default)
 from scripter.intelligence.finder_client import FinderClient, FinderError
+from scripter.taskbar_identity import claim_taskbar_button
 
 # --- palette (self-contained; Beacon owns its own look) ---------------------
 DISPLAY_FONT = "Bahnschrift"
@@ -758,6 +759,12 @@ class BeaconApp:
         self._scrape_banner: dict | None = None
 
         page.title = "Beacon — Niche Finder"
+        # Quill, Beacon and Vault all draw through the same flet.exe; without its own ID
+        # and icon, Windows stacks Beacon under whichever of them opened first.
+        icon = Path(__file__).with_name("assets") / "beacon_icon.ico"
+        if icon.exists():
+            page.window.icon = str(icon)
+        claim_taskbar_button("BroCode.Beacon")
         page.bgcolor = BG
         page.padding = 0
         page.theme_mode = ft.ThemeMode.LIGHT
