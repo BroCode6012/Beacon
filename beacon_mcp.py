@@ -12,7 +12,7 @@ Two ways it runs:
   STANDALONE mode (you add it yourself). Register it once with Claude Code and you can
   manage Beacon from any Claude Code chat on your subscription:
 
-      claude mcp add beacon -- "D:\\Youtube\\Quill\\.venv\\Scripts\\python.exe" "D:\\Youtube\\Beacon\\beacon_mcp.py"
+      claude mcp add beacon -- "D:\\Youtube\\Beacon\\.venv\\Scripts\\python.exe" "D:\\Youtube\\Beacon\\beacon_mcp.py"
 
   It then connects to the running finder service itself (open Beacon, or start
   finder_service.py) and offers every tool except the ones that move Beacon's window
@@ -70,7 +70,7 @@ def _standalone():
             import engine_link  # noqa: F401 — shared engine path + database env
             import sweep_control
             from beacon_agent import TOOLS, _UI, BeaconAgent
-            from scripter.intelligence.finder_client import FinderClient
+            from beacon_engine.intelligence.finder_client import FinderClient
 
             db = os.environ["YOUTUBE_INDEX_DB"]
             url = (f"http://{os.getenv('FINDER_HOST', '127.0.0.1')}:"

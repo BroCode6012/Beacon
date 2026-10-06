@@ -1,0 +1,10 @@
+[Unit]
+Description=Signal edge discovery stall watchdog (restart a worker that stops progressing)
+Documentation=file:/opt/signal-edge/current/deploy/oracle-edge/README.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/signal-edge-watchdog.sh
+# Minutes without the worker status advancing before we force a restart.
+Environment=SIGNAL_EDGE_MAX_STALL_MINUTES=30
+Environment=SIGNAL_EDGE_ROOT=/var/lib/signal-edge

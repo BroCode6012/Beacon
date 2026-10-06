@@ -1,0 +1,9 @@
+# Oracle discovery + CPU organization only. The desktop UI, Bedrock, the
+# canonical SQLite index, and Production Lab dependencies remain excluded.
+google-api-python-client>=2.130.0
+numpy>=1.26.0
+opencv-python-headless>=4.10.0
+python-dotenv>=1.0.1
+pydantic>=2.7.0
+requests>=2.31.0
+scrapetube>=2.6.0

@@ -1,0 +1,51 @@
+[Unit]
+Description=Signal off-laptop YouTube deep organizer
+Documentation=file:/opt/signal-edge/current/deploy/oracle-edge/README.md
+Wants=network-online.target
+After=network-online.target signal-edge.service
+ConditionPathExists=/etc/signal-edge/edge.env
+ConditionPathExists=/opt/signal-edge/current/.venv/bin/python
+
+[Service]
+Type=simple
+User=signal-edge
+Group=signal-edge
+WorkingDirectory=/opt/signal-edge/current
+EnvironmentFile=/etc/signal-edge/edge.env
+Environment=HOME=/var/lib/signal-edge
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=OMP_NUM_THREADS=1
+Environment=OPENBLAS_NUM_THREADS=1
+ExecStart=/opt/signal-edge/current/.venv/bin/python -m beacon_engine.edge organizer-worker --root /var/lib/signal-edge/organizer --outbox /var/lib/signal-edge/outbox --poll-seconds 15
+Restart=on-failure
+RestartSec=20s
+TimeoutStopSec=300s
+KillSignal=SIGTERM
+UMask=0077
+Nice=10
+CPUWeight=20
+CPUQuota=150%
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+OOMScoreAdjust=300
+
+# The organizer needs outbound HTTPS and the shared edge state tree only.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/signal-edge
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

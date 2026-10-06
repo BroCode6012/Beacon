@@ -3,7 +3,7 @@
 Beacon REUSES the engine's existing "radar" worker (a durable background scraper
 that keeps filling the shared index by cycling the editable watchlist) rather than
 running its own. This module just:
-  * starts it   -> launches `python -m scripter.cli radar-worker` detached + hidden
+  * starts it   -> launches `python -m beacon_engine.cli radar-worker` detached + hidden
   * stops it    -> writes the cooperative stop-flag file the worker polls
   * reads status -> reads radar_status.json directly
   * edits targets -> updates the `watchlist` in scraper_watchlist.json
@@ -27,7 +27,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 import engine_link
-from scripter.research.query_policy import (
+from beacon_engine.research.query_policy import (
     QUERY_AGENT_MAX_PER_CALL,
     QUERY_AUTONOMOUS_MAX_PER_CALL,
     QUERY_COOLDOWN_SECONDS,
@@ -43,8 +43,8 @@ from scripter.research.query_policy import (
 )
 
 DB = Path(os.environ["YOUTUBE_INDEX_DB"]).resolve()
-SCRIPTER_ROOT = engine_link.LAB_REPO.resolve()
-STORAGE = SCRIPTER_ROOT / "storage"
+ENGINE_ROOT = engine_link.ENGINE_ROOT.resolve()
+STORAGE = Path(os.getenv("BEACON_ENGINE_STATE_DIR") or ENGINE_ROOT / "storage").resolve()
 
 STATUS_PATH = STORAGE / "radar_status.json"
 STOP_PATH = STORAGE / "radar_stop.flag"
@@ -65,7 +65,7 @@ _WATCHLIST_LOCK = threading.Lock()
 def _python() -> str:
     """Prefer the Scripter venv's pythonw (no console window)."""
     for name in ("pythonw.exe", "python.exe"):
-        p = SCRIPTER_ROOT / ".venv" / "Scripts" / name
+        p = ENGINE_ROOT / ".venv" / "Scripts" / name
         if p.exists():
             return str(p)
     return sys.executable
@@ -218,8 +218,8 @@ def start_worker(clear_stop: bool = True) -> bool:
         # DETACHED_PROCESS: survives Beacon closing; pythonw = no console window.
         creationflags = getattr(subprocess, "DETACHED_PROCESS", 0)
     subprocess.Popen(
-        [_python(), "-m", "scripter.cli", "radar-worker"],
-        cwd=str(SCRIPTER_ROOT),
+        [_python(), "-m", "beacon_engine.cli", "radar-worker"],
+        cwd=str(ENGINE_ROOT),
         creationflags=creationflags,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -360,7 +360,7 @@ def _expanded_queries(config: dict, watchlist: list[str]) -> list[str]:
     if not config.get("harvest_expand", True):
         return list(dict.fromkeys(watchlist))
     try:
-        from scripter.research.channel_discovery import expand_queries
+        from beacon_engine.research.channel_discovery import expand_queries
         return expand_queries(watchlist)
     except Exception:  # noqa: BLE001 — a summary must still work if engine import fails
         return list(dict.fromkeys(watchlist))

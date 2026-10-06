@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 import engine_link  # noqa: F401
-from scripter.intelligence.analyst_tools import IntelligenceAnalystTools
+from beacon_engine.intelligence.analyst_tools import IntelligenceAnalystTools
 
 import beacon_ai
 from beacon_agent import MAX_TOOL_ROUNDS, TOOLS, BeaconAgent

@@ -10,7 +10,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-sys.path.insert(0, r"D:\Youtube\Quill")
+sys.path.insert(0, r"D:\Youtube\Beacon")
 
 
 def ago(hours: float) -> str:
@@ -25,7 +25,7 @@ def scenario(root: Path, name: str, remote: dict, ledger: dict) -> dict:
     os.environ["SIGNAL_EDGE_SYNC_ROOT"] = str(root)
     os.environ["SIGNAL_EDGE_SIGNING_KEY"] = "test-key-not-real"
     import importlib
-    from scripter.edge import sync as sync_mod
+    from beacon_engine.edge import sync as sync_mod
     importlib.reload(sync_mod)
     health = sync_mod.edge_sync_status()["health"]
     print(f"\n--- {name} ---")
@@ -78,7 +78,7 @@ def main() -> int:
 
         # 4. Not configured - must be silent, not a scary error. Called directly:
         # the real .env repopulates the signing key whenever the module reloads.
-        from scripter.edge import sync as sync_mod
+        from beacon_engine.edge import sync as sync_mod
         h = sync_mod._edge_health(configured=False, remote={}, ledger={})
         print("\n--- cloud not configured (must stay silent) ---")
         print(f"  state   : {h['state']}")

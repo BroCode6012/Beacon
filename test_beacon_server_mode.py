@@ -115,7 +115,7 @@ class ServiceFileTests(unittest.TestCase):
         unit = (UNITS / "beacon-edge-sync.service").read_text(encoding="utf-8")
         self.assertIn("SIGNAL_EDGE_SSH_BIN=@HOME@/current/Beacon/deploy/server/local-ssh", unit)
         self.assertIn("SIGNAL_EDGE_SSH_HOST=127.0.0.1", unit)
-        self.assertIn("-m scripter.edge sync", unit)
+        self.assertIn("-m beacon_engine.edge sync", unit)
         self.assertIn("NoNewPrivileges=yes", unit)      # why local-ssh replaces real sudo
         timer = (UNITS / "beacon-edge-sync.timer").read_text(encoding="utf-8")
         self.assertIn("OnUnitInactiveSec=", timer)      # never two imports at once

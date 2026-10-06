@@ -11,8 +11,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import engine_link  # noqa: F401 — the engine on sys.path, before scripter imports
-from scripter.research.store import YouTubeStore
+import engine_link  # noqa: F401 — the engine on sys.path, before beacon_engine imports
+from beacon_engine.research.store import YouTubeStore
 
 import faceless_review as fr
 import muse_powers as mp

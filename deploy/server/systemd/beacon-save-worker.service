@@ -15,8 +15,8 @@ RuntimeDirectory=beacon-save-worker
 RuntimeDirectoryMode=0750
 ExecStartPre=+/bin/sh @HOME@/current/Beacon/deploy/server/youtube-keys @KEYS@ /run/beacon-save-worker/youtube.env @USER@
 EnvironmentFile=-/run/beacon-save-worker/youtube.env
-WorkingDirectory=@HOME@/current/Quill
-ExecStart=@HOME@/venv/bin/python -m scripter.research.channel_save_jobs
+WorkingDirectory=@HOME@/current/Beacon
+ExecStart=@HOME@/venv/bin/python -m beacon_engine.research.channel_save_jobs
 Restart=on-failure
 RestartSec=5
 # SIGTERM stops between jobs; the current bounded job can commit first.

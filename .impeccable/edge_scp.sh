@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Copy a local file to the Oracle edge VM using the settings in Scripter/.env.
+# Copy a local file to the Oracle edge VM using the settings in Beacon/.env.
 # Reuses the multiplexed master from edge_ssh.sh; values are never echoed.
 #
 # Usage: edge_scp.sh <local-path> <remote-path>
 set -uo pipefail
 
-ENVFILE="D:/Youtube/Quill/.env"
+ENVFILE="D:/Youtube/Beacon/.env"
 CTL="/tmp/signal-edge-ctl.sock"
 
 getval() {
@@ -31,8 +31,8 @@ REMOTE="$2"
 # The laptop sits behind carrier-grade NAT, so the single OCI /32 rule goes
 # stale mid-session. Refresh it and retry, exactly like edge_ssh.sh does.
 refresh_allowlist() {
-  ( cd "D:/Youtube/Quill" && ./storage/oci_updater_venv/Scripts/python.exe \
-      scripter/edge/oci_allowlist.py \
+  ( cd "D:/Youtube/Beacon" && ./storage/oci_updater_venv/Scripts/python.exe \
+      beacon_engine/edge/oci_allowlist.py \
       --status "storage/edge_sync/oci_allowlist_status.json" ) >/dev/null 2>&1
 }
 

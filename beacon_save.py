@@ -166,7 +166,7 @@ def resolve_channel_id(text: str) -> str:
 
     # Imported lazily: parsing a link must stay usable (and testable) without the
     # engine, a network, or an API key present.
-    from scripter.research.youtube_pool import YouTubePool
+    from beacon_engine.research.youtube_pool import YouTubePool
 
     if kind == "video_id":
         items = YouTubePool().videos([value], part="snippet")
@@ -179,7 +179,7 @@ def resolve_channel_id(text: str) -> str:
 
     # Handles and custom names: the pool has no forHandle call, and the analyzer already
     # implements every one of YouTube's legacy URL forms plus a search fallback.
-    from scripter.research.channel import ChannelAnalyzer
+    from beacon_engine.research.channel import ChannelAnalyzer
 
     try:
         return ChannelAnalyzer()._resolve(f"@{value}" if kind == "handle" else value)

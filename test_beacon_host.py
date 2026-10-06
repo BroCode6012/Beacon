@@ -20,7 +20,7 @@ class ParseTests(unittest.TestCase):
     def test_lines_comments_quotes_and_exports(self):
         text = """
         # a comment
-        FACELESS_ENGINE_DIR=/opt/beacon/current/Quill
+        BEACON_ENGINE_STATE_DIR=/var/lib/beacon/engine-storage
         export TZ=Africa/Casablanca
         FINDER_PORT = 8765   # trailing comment
         QUOTED="a value with # inside"
@@ -28,7 +28,7 @@ class ParseTests(unittest.TestCase):
         not a setting
         """
         self.assertEqual(bh.parse(text), {
-            "FACELESS_ENGINE_DIR": "/opt/beacon/current/Quill",
+            "BEACON_ENGINE_STATE_DIR": "/var/lib/beacon/engine-storage",
             "TZ": "Africa/Casablanca",
             "FINDER_PORT": "8765",
             "QUOTED": "a value with # inside",
@@ -69,18 +69,18 @@ class LoadTests(unittest.TestCase):
 
 
 class EngineLocationTests(unittest.TestCase):
-    def test_an_engine_beside_beacon_is_found_on_any_machine(self):
+    def test_engine_is_inside_beacon_on_any_machine(self):
         tmp = Path(tempfile.mkdtemp(prefix="beacon-layout-"))
         self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
         (tmp / "Beacon").mkdir()
-        (tmp / "Quill" / "scripter").mkdir(parents=True)
-        self.assertEqual(bh.default_engine_dir(tmp / "Beacon"), tmp / "Quill")
+        (tmp / "Beacon" / "beacon_engine").mkdir(parents=True)
+        self.assertEqual(bh.default_engine_dir(tmp / "Beacon"), tmp / "Beacon")
 
-    def test_without_one_it_falls_back_to_the_laptop_layout(self):
+    def test_no_sibling_or_laptop_fallback(self):
         tmp = Path(tempfile.mkdtemp(prefix="beacon-layout-"))
         self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
         (tmp / "Beacon").mkdir()
-        self.assertEqual(bh.default_engine_dir(tmp / "Beacon"), bh.LEGACY_ENGINE_DIR)
+        self.assertEqual(bh.default_engine_dir(tmp / "Beacon"), tmp / "Beacon")
 
     def test_the_real_host_file_is_never_committed(self):
         ignored = Path(__file__).with_name(".gitignore").read_text(encoding="utf-8")

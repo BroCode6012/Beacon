@@ -234,7 +234,7 @@ _stores: dict[str, object] = {}
 
 def _store(db_path: str):
     if db_path not in _stores:
-        from scripter.research.store import YouTubeStore   # the engine's own write path
+        from beacon_engine.research.store import YouTubeStore   # the engine's own write path
         _stores[db_path] = YouTubeStore(db_path)
     return _stores[db_path]
 

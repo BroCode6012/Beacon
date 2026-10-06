@@ -248,7 +248,7 @@ class DataServiceProcessTests(unittest.TestCase):
             mock.patch.object(BeaconApp, "_kill_process_tree", staticmethod(lambda _p: None)),
             mock.patch.object(beacon_app.atexit, "register"),
             mock.patch.object(beacon_app.time, "sleep"),
-            mock.patch("scripter.intelligence.local_api.serve_in_thread"),
+            mock.patch("beacon_engine.intelligence.local_api.serve_in_thread"),
         ]
 
     def _run(self, up_sequence, proc):
@@ -306,7 +306,7 @@ class BusyDatabaseStartTests(DataServiceProcessTests):
         for p in patches:
             p.start()
         self.addCleanup(lambda: [p.stop() for p in patches])
-        import scripter.intelligence.local_api as local_api
+        import beacon_engine.intelligence.local_api as local_api
         local_api.serve_in_thread.side_effect = [
             sqlite3.OperationalError("database is locked"), None]
         app._resolve_service()
@@ -319,7 +319,7 @@ class BusyDatabaseStartTests(DataServiceProcessTests):
         for p in patches:
             p.start()
         self.addCleanup(lambda: [p.stop() for p in patches])
-        import scripter.intelligence.local_api as local_api
+        import beacon_engine.intelligence.local_api as local_api
         local_api.serve_in_thread.side_effect = RuntimeError("no such table: channels")
         with self.assertRaises(RuntimeError):
             app._resolve_service()

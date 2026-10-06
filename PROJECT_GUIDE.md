@@ -1,5 +1,13 @@
 # Beacon — Codebase Investigation and Working Plan
 
+> **Current architecture — October 6, 2026:** Beacon is self-contained. Its discovery,
+> Finder, scraper and PostgreSQL code live in `beacon_engine/` in this repository.
+> Use Beacon's own `.venv`; never import `scripter`, read a sibling app's `.env`,
+> or use Quill's code, storage or environment. Quill owns its separate code/data.
+> The older shared-engine descriptions below are historical and superseded.
+> The existing Oracle release is unchanged until a separately verified deployment.
+> See `README.md` and `APP_SEPARATION.md` for setup and rollout boundaries.
+
 Investigation date: **2026-07-10**  
 Implementation status updated: **2026-10-04**
 

@@ -1,5 +1,13 @@
 # Beacon — Niche Finder (standalone app)
 
+> **Current architecture — October 6, 2026:** Beacon is self-contained. Its discovery,
+> Finder, scraper and PostgreSQL code live in `beacon_engine/` in this repository.
+> Use Beacon's own `.venv`; never import `scripter`, read a sibling app's `.env`,
+> or use Quill's code, storage or environment. Quill owns its separate code/data.
+> The older shared-engine descriptions below are historical and superseded.
+> The existing Oracle release is unchanged until a separately verified deployment.
+> See `README.md` and `APP_SEPARATION.md` for setup and rollout boundaries.
+
 You are working on **Beacon**, a standalone YouTube niche investigator & finder. It was split out
 of a bigger app (the "Production Lab") so it can be worked on alone. A SEPARATE chat handles the
 Production Lab — you focus on Beacon. Read this before editing anything.
@@ -11,7 +19,7 @@ changes live (see **Verify every task** below) — never just claim it works.
 For EVERY task, before saying it works: **launch the real app, click through the actual UI, and take
 screenshots.** Headless checks, stubbed handlers, and logic-only tests are NOT enough on their own —
 they can pass while the live UI is broken. The loop is:
-1. Launch: `D:\Youtube\Quill\.venv\Scripts\python.exe D:\Youtube\Beacon\beacon_app.py` (background),
+1. Launch: `D:\Youtube\Beacon\.venv\Scripts\python.exe D:\Youtube\Beacon\beacon_app.py` (background),
    wait ~30s for boot.
 2. Bring the window to front (Windows blocks focus-steal — attach-thread-input trick), then **click the
    real controls** at coordinates computed from the window rect (nav tiles, niche chips, cards, stars),
@@ -35,27 +43,18 @@ A Flet desktop app (its own window titled "Beacon — Niche Finder") that DRIVES
 discover channels, sweep niches, score outliers, and manage niche workspaces. Beacon is the finder's
 "control room" — it uses the finder with FULL (read + write) access.
 
-## Architecture — three parts (important)
-1. **This app** — `D:\Youtube\Beacon\` — Beacon's UI + its own shell. Small; edit freely here.
-2. **The SHARED engine** — `D:\Youtube\Quill\scripter\` — the discovery/scraper/DB/AI code, used by
-   BOTH Beacon and the Production Lab. **Editing it changes BOTH apps** — say so when a change is
-   engine-level, and remember the other chat owns the Lab.
-3. **ONE shared database** — `D:\Youtube\Beacon\storage\youtube_index.sqlite3` (approximately
-   24 GB as of 2026-09-11 — ~199,500 channels / 3.85M videos; it keeps growing). **NEVER move or
-   copy it casually.** Beacon and the shared
-   engine open it in place in WAL mode. Production Lab reads it through its shared-index role
-   and keeps its normal writable session database separate.
+## Architecture — one application
 
-Beacon reaches the engine + DB through `engine_link.py` (adds the Scripter repo to sys.path + sets the
-`SIGNAL_INDEX_DB`/`YOUTUBE_INDEX_DB` env vars). Import `engine_link` FIRST in any entry point, before
-importing `scripter.*`. Radar config/status/queue/log/model files stay under
-`D:\Youtube\Quill\storage`; moving the index must never move those operational files with it.
+1. Beacon UI calls its authenticated Finder through `FinderClient`.
+2. `beacon_engine/` owns discovery, research, intelligence, worker and storage code.
+3. Beacon owns its database and worker state. Production uses PostgreSQL; a clean
+   development checkout can use its own small local SQLite index.
 
-The optional off-laptop Oracle node is an **edge collector, not a fourth copy of
-the app or database**. It receives signed/versioned query plans, keeps only a
-small operational JSON cursor, and produces signed immutable result bundles.
-The laptop verifies and imports those bundles into the one canonical index.
-Never copy, mount, expose, or remotely open the live SQLite file for this design.
+Import `engine_link` before `beacon_engine.*` from a Beacon entry point. It loads
+only Beacon settings. Use `BEACON_ENGINE_STATE_DIR` for worker configuration/state;
+otherwise that state stays in this checkout's `storage/`. Do not use sibling folders.
+Quill is an independent application. No automatic connection is configured.
+Future integration must be explicit, authenticated and opt-in through an API.
 
 ## Files here
 - `beacon_app.py` — the app / entry point. Screens: **Overview**, **Channels**, **Real Time**, **Find**,
@@ -1073,7 +1072,7 @@ Never copy, mount, expose, or remotely open the live SQLite file for this design
   include `recent_channels` — newest-DISCOVERED channels for the Real Time feed.)
 
 ## Run / test
-- Open the app: `D:\Youtube\Quill\.venv\Scripts\python.exe D:\Youtube\Beacon\beacon_app.py`
+- Open the app: `D:\Youtube\Beacon\.venv\Scripts\python.exe D:\Youtube\Beacon\beacon_app.py`
   (or double-click `D:\Youtube\Open Beacon.bat`). Uses the Lab's venv (has flet, requests, etc.).
 - Boot takes ~25s. Window title matches `*Niche Finder*`.
 

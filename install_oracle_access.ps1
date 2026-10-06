@@ -8,7 +8,7 @@
   this one, the next change of the laptop's address would lock the laptop out of its own server
   (no way to open Beacon's screens, update it, or fix anything).
 
-  It runs the engine's standalone updater (scripter/edge/oci_allowlist.py, its own small venv,
+  It runs the engine's standalone updater (beacon_engine/edge/oci_allowlist.py, its own small venv,
   settings from the engine's .env) every 5 minutes. The updater only rewrites that one rule, and
   only when the address actually changed ("cached" otherwise).
 
@@ -22,7 +22,7 @@
 #>
 param(
     [int]$EveryMinutes = 5,
-    [string]$EngineDir = "D:\Youtube\Quill",
+    [string]$EngineDir = $PSScriptRoot,
     [switch]$Uninstall,
     [switch]$Status
 )
@@ -42,16 +42,16 @@ if ($Uninstall) {
     return
 }
 
-$Updater = Join-Path $EngineDir "scripter\edge\oci_allowlist.py"
+$Updater = Join-Path $EngineDir "beacon_engine\edge\oci_allowlist.py"
 $StatusFile = Join-Path $EngineDir "storage\edge_sync\oci_allowlist_status.json"
-$Pyw = Join-Path $EngineDir "storage\oci_updater_venv\Scripts\pythonw.exe"
-if (-not (Test-Path -LiteralPath $Pyw)) { $Pyw = Join-Path $EngineDir ".venv\Scripts\pythonw.exe" }
+$Pyw = Join-Path $EngineDir "storage\oci_updater_venv\Scripts\python.exe"
+if (-not (Test-Path -LiteralPath $Pyw)) { $Pyw = Join-Path $EngineDir ".venv\Scripts\python.exe" }
 foreach ($p in @($Updater, $Pyw)) {
     if (-not (Test-Path -LiteralPath $p)) { throw "not found: $p" }
 }
 
 $Interval = [Math]::Max(1, [Math]::Min($EveryMinutes, 60))
-$Command  = '"' + $Pyw + '" "' + $Updater + '" --status "' + $StatusFile + '"'
+$Command  = 'wscript.exe "' + (Join-Path $EngineDir "run_python_hidden.vbs") + '" "' + $Pyw + '" "' + $Updater + '" --status "' + $StatusFile + '"'
 & schtasks.exe /Create /F /SC MINUTE /MO $Interval /TN $TaskName /TR $Command /IT
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to install scheduled task: $TaskName"

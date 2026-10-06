@@ -241,7 +241,7 @@ class Autopilot:
         """Is the cloud import in the middle of saving bundles right now?"""
         try:
             import sweep_control
-            path = (sweep_control.SCRIPTER_ROOT / "storage" / "edge_sync"
+            path = (sweep_control.ENGINE_ROOT / "storage" / "edge_sync"
                     / "sync_progress.json")
             state = str(json.loads(path.read_text(encoding="utf-8")).get("state") or "")
             age = time.time() - path.stat().st_mtime

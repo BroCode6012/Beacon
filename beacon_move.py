@@ -102,16 +102,9 @@ def code_files(root: Path) -> list[Path]:
     return [root / line for line in out.splitlines() if line and (root / line).is_file()]
 
 
-def package_code(out: Path, beacon: Path = HERE, engine: Path | None = None) -> dict:
-    """Beacon/ + Quill/ as one tar.gz — refusing outright if anything looks secret."""
-    if engine is None:
-        sys.path.insert(0, str(HERE))
-        import beacon_host
-        engine = Path(os.getenv("FACELESS_ENGINE_DIR") or beacon_host.default_engine_dir(beacon))
-    entries: list[tuple[Path, str]] = []
-    for root, arc in ((beacon, "Beacon"), (engine, "Quill")):
-        for path in code_files(root):
-            entries.append((path, f"{arc}/{path.relative_to(root).as_posix()}"))
+def package_code(out: Path, beacon: Path = HERE) -> dict:
+    """Package one self-contained Beacon checkout, excluding private runtime state."""
+    entries = [(path, f"Beacon/{path.relative_to(beacon).as_posix()}") for path in code_files(beacon)]
     flagged = [arc for _path, arc in entries if SECRET_NAMES.search(arc)]
     for path, arc in entries:
         if SECRET_TEXT.search(path.read_bytes()):
@@ -536,8 +529,7 @@ def apply_settings(package: Path, engine_storage: Path, db: Path, owner: str | N
 def _engine_storage() -> Path:
     sys.path.insert(0, str(HERE))
     import beacon_host
-    engine = Path(os.getenv("FACELESS_ENGINE_DIR") or beacon_host.default_engine_dir(HERE))
-    return engine / "storage"
+    return HERE / "storage"
 
 
 def main(argv: list[str] | None = None) -> int:

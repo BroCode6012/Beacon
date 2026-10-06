@@ -13,8 +13,8 @@ from pathlib import Path
 
 CHILD = r'''
 import sys, threading, time
-sys.path.insert(0, r"{scripter}")
-from scripter.edge.worker import EdgeWorker, EdgeWorkerPaths, EDGE_STALL_EXIT_CODE
+sys.path.insert(0, r"{beacon_engine}")
+from beacon_engine.edge.worker import EdgeWorker, EdgeWorkerPaths, EDGE_STALL_EXIT_CODE
 
 paths = EdgeWorkerPaths.under(r"{root}")
 w = EdgeWorker(paths=paths, signing_key="test-key", node_id="stall-test")
@@ -29,11 +29,11 @@ w.run_forever(poll_seconds=1, stall_seconds=120)   # clamped to a 120s floor
 
 
 def main() -> int:
-    scripter = r"D:\Youtube\Quill"
+    beacon_engine = r"D:\Youtube\Beacon"
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp) / "edge"
         root.mkdir(parents=True, exist_ok=True)
-        code = CHILD.format(scripter=scripter, root=str(root).replace("\\", "\\\\"))
+        code = CHILD.format(beacon_engine=beacon_engine, root=str(root).replace("\\", "\\\\"))
         script = Path(tmp) / "child.py"
         script.write_text(code, encoding="utf-8")
 

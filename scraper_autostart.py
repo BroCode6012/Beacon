@@ -7,13 +7,13 @@ if it ever dies — and it never runs two workers (the worker self-guards via it
 start_worker checks is_running first).
 
 Run manually to start it right now:
-    D:\\Youtube\\Quill\\.venv\\Scripts\\pythonw.exe D:\\Youtube\\Beacon\\scraper_autostart.py
+    D:\\Youtube\\Beacon\\.venv\\Scripts\\pythonw.exe D:\\Youtube\\Beacon\\scraper_autostart.py
 """
 from __future__ import annotations
 
 import sys
 
-import engine_link  # noqa: F401  — sets the shared-engine path + DB env before scripter imports
+import engine_link  # noqa: F401  — sets the shared-engine path + DB env before beacon_engine imports
 import sweep_control
 
 

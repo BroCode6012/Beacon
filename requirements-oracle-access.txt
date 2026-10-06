@@ -1,0 +1,3 @@
+# Optional isolated Windows Oracle-access helper.
+oci==2.187.2
+python-dotenv==1.2.4
